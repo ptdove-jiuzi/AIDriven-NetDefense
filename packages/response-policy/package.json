@@ -1,0 +1,18 @@
+{
+  "name": "@aegisharness/response-policy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Deterministic response policy gate: closed action catalog, action x OS matrix, target/parameter normalisation and allow/needs_approval/deny decisions. Never executes a process, network or file action.",
+  "type": "module",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@aegisharness/contracts": "1.0.0"
+  }
+}

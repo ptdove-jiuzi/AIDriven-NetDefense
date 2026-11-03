@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "1.0",
+  "author": "PT-dove",
+  "upstream": {
+    "version": "0.2.2-alpha.2",
+    "commit": "ce7073d51254c26cd63b22a60835b8f948deb447",
+    "cordis": "4.0.6-alpha.1"
+  },
+  "files": {
+    "plugins/dsh-defense-profile/package.json": {
+      "sha256": "e1683ca8e5e87d858d251745e2afaee364a3cd84a6dfd722c1b6b0332d446412"
+    },
+    "plugins/dsh-defense-profile/cordis.patch.yml": {
+      "sha256": "f165ec6f57744e80f44a800cca1122c0b0faa896919d03fa9c614dad092a4073"
+    },
+    "plugins/dsh-defense-profile/profile.json": {
+      "sha256": "ccc8b4395e9522245888cb3704f1cf7972cc41db6a769fc8e95bd6083073e816"
+    },
+    "plugins/dsh-defense-tools/package.json": {
+      "sha256": "8a679b4b3a6693f14495a8dcc6d580e89e5053e7a82d13cdad1e0f40c63c174b"
+    },
+    "plugins/dsh-defense-tools/lib/index.js": {
+      "sha256": "384cdace28fad58f3bb559c176550aeeaf4d4c1f38a2065cfc471f9e3a2f002c"
+    },
+    "plugins/dsh-defense-tools/lib/runtime-inspect.js": {
+      "sha256": "1420115e5e75c285e3acfce2d0435bf1069919865ee3637a98998d947ad9676e"
+    }
+  }
+}

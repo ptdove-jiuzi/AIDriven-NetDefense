@@ -1,0 +1,47 @@
+{
+  "name": "@aegisharness/dsh-defense-profile",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Explicit aegis-analysis profile without base or sdk-minimal bundles",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./profile.json": "./profile.json",
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=24.9.0",
+    "dsh": "0.2.2-alpha.2"
+  },
+  "dsh": {
+    "profile": {
+      "bundles": []
+    }
+  },
+  "dependencies": {
+    "@aegisharness/dsh-defense-tools": "0.0.0",
+    "@deepseek-ai/cordis": "4.0.6-alpha.1",
+    "@deepseek-ai/cordis-plugin-loader": "1.0.7-alpha.1",
+    "@deepseek-ai/cordis-plugin-timer": "1.1.8-alpha.1",
+    "@deepseek-ai/dsh-agent": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-agent-loop": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-deepseek-llm-api-extensions": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-fs-local": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-llm": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-llm-deepseek-api-key": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-plugin-package-inventory-deepseek": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-sdk-app": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-sdk-jsonrpc-server": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-session": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-session-checkpoint-policy": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-session-log-deepseek": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-session-persistence-jsonl": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-session-projection": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-system-prompt": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-tool-executor-native": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-tools": "0.2.2-alpha.2",
+    "@deepseek-ai/dsh-working-directory": "0.2.2-alpha.2"
+  }
+}

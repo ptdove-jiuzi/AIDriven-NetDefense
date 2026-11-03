@@ -1,0 +1,15 @@
+{
+  "name": "@aegisharness/collector-windows",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Windows collection adapter: PowerShell + CIM sources wired onto the platform-neutral collector layer",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "_comment": "AIDriven NetDefense model routing example. See docs/product/08-model-routing.md and ADR-0010. Never put secrets in this file: credentialRef points at a local credential slot.",
+  "schemaVersion": "1.0",
+  "providers": [
+    {
+      "id": "deepseek",
+      "kind": "deepseek",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "credentialRef": "cred://deepseek/default",
+      "allowLoopback": false,
+      "dailyInputTokens": 30000,
+      "dailyOutputTokens": 6000
+    },
+    {
+      "id": "ollama-local",
+      "kind": "ollama",
+      "baseUrl": "http://127.0.0.1:11434/v1",
+      "credentialRef": "cred://none",
+      "allowLoopback": true,
+      "dailyInputTokens": 0,
+      "dailyOutputTokens": 0
+    }
+  ],
+  "models": [
+    {
+      "id": "qwen2.5-3b-local",
+      "providerId": "ollama-local",
+      "tier": "watch",
+      "maxInputTokens": 4096,
+      "maxOutputTokens": 512,
+      "costClass": "free-local"
+    },
+    {
+      "id": "deepseek-chat",
+      "providerId": "deepseek",
+      "tier": "triage",
+      "maxInputTokens": 8192,
+      "maxOutputTokens": 1024,
+      "costClass": "cheap"
+    },
+    {
+      "id": "deepseek-reasoner",
+      "providerId": "deepseek",
+      "tier": "respond",
+      "maxInputTokens": 12288,
+      "maxOutputTokens": 2000,
+      "costClass": "expensive"
+    }
+  ],
+  "routing": {
+    "_modeComment": "tiered = 常态小模型、命中高危才升级（省钱，但小模型漏判则不升级）；uniform = 全部走 uniformModelId，费用高、行为一致。切换需本地管理员操作并记审计。",
+    "mode": "tiered",
+    "uniformModelId": null,
+    "defaultTier": "watch",
+    "escalation": {
+      "enabled": true,
+      "minSeverity": "high",
+      "requireStructuredConclusion": true,
+      "cooldownSeconds": 300,
+      "maxEscalationsPerHour": 20,
+      "maxEscalationsPerAnalysis": 1,
+      "sendRawEvents": false
+    }
+  },
+  "budget": {
+    "perAnalysis": {
+      "inputTokens": 12000,
+      "outputTokens": 2000,
+      "maxRequests": 3
+    },
+    "daily": {
+      "inputTokens": 30000,
+      "outputTokens": 6000
+    },
+    "maxConcurrentAnalyses": 2,
+    "onExhausted": "reject"
+  },
+  "cache": {
+    "enabled": true,
+    "fingerprintWindowSeconds": 900,
+    "keyIncludesRulesVersion": true
+  }
+}

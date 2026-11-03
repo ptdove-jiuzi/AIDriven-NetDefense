@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "name": "worker",
+  "bundleName": "aegis-embedded-win32-x64-v13-relocatable",
+  "description": "Legacy composition (the v13 payload): the harness worker plus the reviewed analysis profile and its defense tools. It contains no daemon and no console, so an installation built from it has neither a server nor a UI. Kept verbatim so v13 stays reproducible from the same recipe.",
+  "closureRoots": [
+    "@deepseek-ai/dsh",
+    "@aegisharness/harness-worker",
+    "@aegisharness/harness-adapter",
+    "@aegisharness/dsh-defense-profile",
+    "@aegisharness/dsh-defense-tools"
+  ],
+  "assets": {},
+  "entryForwarders": [],
+  "launchers": ["worker"],
+  "readme": {
+    "title": "AegisHarness embedded runtime bundle (worker only)"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@aegisharness/event-store",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single-writer SQLite WAL transactional storage for AegisHarness (T1-T5)",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": { ".": "./src/index.js" },
+  "engines": { "node": ">=24.9.0" },
+  "dependencies": {
+    "@aegisharness/contracts": "1.0.0"
+  }
+}

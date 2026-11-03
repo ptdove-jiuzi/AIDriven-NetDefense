@@ -1,0 +1,15 @@
+{
+  "name": "@aegisharness/collector-linux",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Linux user-space collection adapter: procfs, journald/auth logs and declarative persistence metadata wired onto the platform-neutral collector layer",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.js"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  }
+}

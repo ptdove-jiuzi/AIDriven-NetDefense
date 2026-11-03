@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>AIDriven NetDefense · 网域智防</title>
+<link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.7 20 6v6.1c0 4.6-3.2 8.1-8 9.3-4.8-1.2-8-4.7-8-9.3V6l8-3.3Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.5 12.2l2.4 2.4 4.6-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M12 16l3.6-4.4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 10a5.5 5.5 0 0 1 11 0c0 4 1.5 5.4 1.5 5.4H5S6.5 14 6.5 10Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M10.2 18.6a2 2 0 0 0 3.6 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20h16M4 20V4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 16v-5M12.5 16V7M17 16v-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 12h4M11 12h9M4 17h11M19 17h1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="15" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="9" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="17" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.7-6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M19.6 4.4V8h-3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" aria-hidden="true"><use href="#i-shield"/></svg>
+      <div class="brand-text"><strong>AIDriven NetDefense</strong><span>网域智防</span></div>
+    </div>
+    <nav class="nav" id="nav">
+      <button class="nav-item" data-view="overview" type="button"><svg aria-hidden="true"><use href="#i-gauge"/></svg>概览</button>
+      <button class="nav-item" data-view="alerts" type="button"><svg aria-hidden="true"><use href="#i-bell"/></svg>告警</button>
+      <button class="nav-item" data-view="analysis" type="button"><svg aria-hidden="true"><use href="#i-chart"/></svg>分析结果</button>
+      <button class="nav-item" data-view="settings" type="button"><svg aria-hidden="true"><use href="#i-sliders"/></svg>设置</button>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="conn" id="conn"><span class="dot" id="conn-dot"></span><span id="conn-text">正在连接</span></div>
+      <div class="endpoint" id="endpoint">—</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1 id="view-title">概览</h1>
+        <p class="sub" id="view-sub">本机单机代理 · 只监听 127.0.0.1</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="stamp" id="stamp">—</span>
+        <button class="btn btn-ghost" id="btn-refresh" type="button"><svg aria-hidden="true"><use href="#i-refresh"/></svg>刷新</button>
+      </div>
+    </header>
+
+    <div class="banner" id="offline-banner" hidden>
+      <span class="dot bad" aria-hidden="true"></span>
+      <div class="banner-text">
+        <strong>服务已断开</strong>
+        <span id="offline-hint">本地 daemon 无响应，界面上的数据已停止更新</span>
+      </div>
+      <button class="btn btn-primary" id="btn-reconnect" type="button">一键重启</button>
+    </div>
+
+    <section class="view" id="view-overview">
+      <article class="card status" id="status-card">
+        <div class="status-top">
+          <div class="status-state">
+            <span class="dot dot-lg" id="st-dot"></span>
+            <div>
+              <div class="status-label" id="st-label">正在连接 daemon…</div>
+              <div class="status-hint" id="st-hint">连接本机回环端点</div>
+            </div>
+          </div>
+          <div class="status-badge" id="st-health">—</div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><div class="metric-k">版本</div><div class="metric-v" id="st-version">—</div></div>
+          <div class="metric"><div class="metric-k">启动时长</div><div class="metric-v" id="st-uptime">—</div></div>
+          <div class="metric"><div class="metric-k">运行模式</div><div class="metric-v" id="st-mode">—</div></div>
+          <div class="metric"><div class="metric-k">daemon 端口</div><div class="metric-v" id="st-port">—</div></div>
+        </div>
+        <div class="reasons" id="st-reasons" hidden></div>
+      </article>
+
+      <div class="cols">
+        <article class="card">
+          <div class="card-head"><h2>最新告警</h2><span class="chip" id="ov-alert-count">—</span></div>
+          <ul class="mini-list" id="ov-alerts"></ul>
+          <div class="card-foot"><button class="link" data-goto="alerts" type="button">查看全部告警 →</button></div>
+        </article>
+        <article class="card">
+          <div class="card-head"><h2>最新分析</h2><span class="chip" id="ov-analysis-count">—</span></div>
+          <ul class="mini-list" id="ov-analysis"></ul>
+          <div class="card-foot"><button class="link" data-goto="analysis" type="button">查看全部分析 →</button></div>
+        </article>
+      </div>
+
+      <article class="card">
+        <div class="card-head"><h2>运行时</h2><span class="chip chip-quiet">来自桌面壳</span></div>
+        <dl class="kv" id="runtime-kv"></dl>
+      </article>
+    </section>
+
+    <section class="view" id="view-alerts" hidden>
+      <article class="card">
+        <div class="card-head"><h2>告警列表</h2><span class="chip" id="alerts-count">—</span></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>级别</th><th>规则</th><th>状态</th><th class="num">次数</th><th>首次</th><th>最近</th><th class="num">证据</th></tr></thead>
+            <tbody id="alerts-body"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="alerts-empty" hidden>暂无告警。daemon 已在线，检测引擎尚未命中规则。</p>
+        <div class="card-foot"><button class="btn" id="alerts-more" type="button" hidden>加载更多</button></div>
+      </article>
+    </section>
+
+    <section class="view" id="view-analysis" hidden>
+      <article class="card">
+        <div class="card-head"><h2>分析结果</h2><span class="chip" id="analysis-count">—</span></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>分析 ID</th><th>关联告警</th><th>状态</th><th>预算档</th><th class="num">尝试</th><th>创建</th><th>完成</th></tr></thead>
+            <tbody id="analysis-body"></tbody>
+          </table>
+        </div>
+        <p class="empty" id="analysis-empty" hidden>暂无分析结果。分析链路需要受控模型与人工审批，当前未触发。</p>
+        <div class="card-foot"><button class="btn" id="analysis-more" type="button" hidden>加载更多</button></div>
+      </article>
+    </section>
+
+    <section class="view" id="view-settings" hidden>
+      <article class="card">
+        <div class="card-head"><h2>界面</h2><span class="chip chip-quiet">立即生效</span></div>
+        <div class="setting">
+          <div class="setting-text"><div class="setting-k">打开方式</div><div class="setting-h">内嵌窗口用 WebView2；默认浏览器交给系统</div></div>
+          <div class="segmented" id="open-mode">
+            <button type="button" data-value="embedded">内嵌窗口</button>
+            <button type="button" data-value="browser">默认浏览器</button>
+          </div>
+        </div>
+        <div class="setting">
+          <div class="setting-text"><div class="setting-k">开机自启</div><div class="setting-h">写入 HKCU\Software\Microsoft\Windows\CurrentVersion\Run</div></div>
+          <label class="switch"><input type="checkbox" id="autostart"><span class="track"></span></label>
+        </div>
+        <div class="setting">
+          <div class="setting-text"><div class="setting-k">界面端口</div><div class="setting-h">本地界面服务监听 127.0.0.1；被占用时自动 +1</div></div>
+          <div class="inline-field">
+            <input class="input input-num" id="in-ui-port" type="number" min="0" max="65535" step="1" inputmode="numeric" aria-label="界面端口">
+            <button class="btn" id="btn-ui-port" type="button">应用</button>
+          </div>
+        </div>
+        <div class="setting">
+          <div class="setting-text"><div class="setting-k">daemon 端口</div><div class="setting-h">控制面 API 端口；修改后 daemon 会被重启并换到新端口</div></div>
+          <div class="inline-field">
+            <input class="input input-num" id="in-daemon-port" type="number" min="0" max="65535" step="1" inputmode="numeric" aria-label="daemon 端口">
+            <button class="btn" id="btn-daemon-port" type="button">应用</button>
+          </div>
+        </div>
+        <div class="setting">
+          <div class="setting-text"><div class="setting-k">日志目录</div><div class="setting-h" id="log-hint">日志文件名 desktop-YYYYMMDD.log</div></div>
+          <div class="inline-field inline-field-wide">
+            <input class="input" id="in-log-dir" type="text" spellcheck="false" aria-label="日志目录" placeholder="留空 = 默认目录">
+            <button class="btn" id="btn-log-dir" type="button">应用</button>
+            <button class="btn btn-ghost" id="btn-log-dir-default" type="button">默认</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h2>服务</h2><span class="chip chip-quiet">由桌面壳托管</span></div>
+        <dl class="kv" id="service-kv"></dl>
+        <div class="card-foot card-foot-row">
+          <button class="btn" id="btn-restart" type="button">重启 daemon</button>
+          <button class="btn btn-ghost" id="btn-logs" type="button">打开日志目录</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="card-head"><h2>关于</h2></div>
+        <dl class="kv">
+          <dt>产品</dt><dd>AIDriven NetDefense / 网域智防</dd>
+          <dt>桌面壳版本</dt><dd id="about-shell">—</dd>
+          <dt>daemon 版本</dt><dd id="about-daemon">—</dd>
+          <dt>版本状态</dt><dd>开发树未冻结，本包为内测物</dd>
+          <dt>作者</dt><dd>PT-dove</dd>
+        </dl>
+      </article>
+    </section>
+
+    <div class="toast" id="toast" hidden></div>
+  </main>
+</div>
+<script src="./app.js"></script>
+</body>
+</html>

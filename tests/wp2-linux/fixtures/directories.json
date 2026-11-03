@@ -1,0 +1,68 @@
+{
+  "nowMs": 1700000000000,
+  "files": {
+    "/etc/passwd": {
+      "content": "root:x:0:0:root:/root:/bin/bash\n",
+      "ino": 701,
+      "mode": 420,
+      "mtimeMs": 1699000000000
+    },
+    "/etc/ssh/sshd_config": {
+      "content": "PermitRootLogin no\n",
+      "ino": 702,
+      "mode": 420,
+      "mtimeMs": 1699100000000
+    },
+    "/etc/ssh/ssh_host_ed25519_key": {
+      "content": "-----BEGIN ED25519 PRIVATE KEY-----\n",
+      "ino": 703,
+      "mode": 384,
+      "mtimeMs": 1699200000000
+    },
+    "/etc/ld.so.preload": {
+      "content": "",
+      "ino": 704,
+      "mode": 420,
+      "mtimeMs": 1699300000000
+    }
+  },
+  "symlinks": {
+    "/etc/localtime": "/usr/share/zoneinfo/UTC",
+    "/etc/ssh/ssh_host_key": "/etc/ssh/ssh_host_ed25519_key"
+  },
+  "directories": {
+    "/etc": {
+      "entries": [
+        "passwd",
+        "ssh",
+        "ld.so.preload",
+        "localtime",
+        "shadow",
+        "ssl"
+      ]
+    },
+    "/etc/ssh": {
+      "entries": [
+        "sshd_config",
+        "ssh_host_ed25519_key",
+        "ssh_host_key"
+      ]
+    },
+    "/etc/ssl": {
+      "entries": [
+        "private"
+      ]
+    },
+    "/etc/ssl/private": {
+      "entries": [
+        "server.key"
+      ],
+      "denied": true
+    }
+  },
+  "denied": [
+    "/etc/shadow",
+    "/etc/ssl/private"
+  ],
+  "missing": []
+}

@@ -1,0 +1,81 @@
+/**
+ * 合同层错误类型与错误码。
+ *
+ * path 使用 `$.` 前缀的点号路径：根为 `$`，字段为 `$.foo`，数组元素为
+ * `$.foo[0]`，嵌套为 `$.payload.raw_evidence.text`。
+ * 这不是 RFC 6901 JSON Pointer（不存在 `/` 分隔与 `~0`/`~1` 转义），
+ * 只是便于日志阅读的层级定位写法，不要拿它去做 JSON Pointer 解析。
+ */
+
+export const ERROR_CODES = Object.freeze({
+  ERR_INPUT_TOO_LARGE: 'ERR_INPUT_TOO_LARGE',
+  ERR_ENCODING_NOT_UTF8: 'ERR_ENCODING_NOT_UTF8',
+  ERR_JSON_SYNTAX: 'ERR_JSON_SYNTAX',
+  ERR_DUPLICATE_KEY: 'ERR_DUPLICATE_KEY',
+  ERR_FORBIDDEN_KEY: 'ERR_FORBIDDEN_KEY',
+  ERR_MAX_DEPTH_EXCEEDED: 'ERR_MAX_DEPTH_EXCEEDED',
+  ERR_MAX_OBJECT_KEYS: 'ERR_MAX_OBJECT_KEYS',
+  ERR_MAX_ARRAY_ITEMS: 'ERR_MAX_ARRAY_ITEMS',
+  ERR_MAX_STRING_BYTES: 'ERR_MAX_STRING_BYTES',
+  ERR_NUMBER_NOT_FINITE: 'ERR_NUMBER_NOT_FINITE',
+  ERR_NUMBER_PRECISION_LOSS: 'ERR_NUMBER_PRECISION_LOSS',
+  ERR_UNPAIRED_SURROGATE: 'ERR_UNPAIRED_SURROGATE',
+  ERR_STRING_NOT_NFC: 'ERR_STRING_NOT_NFC',
+  ERR_STRING_CONTROL_CHARACTER: 'ERR_STRING_CONTROL_CHARACTER',
+  ERR_STRING_BIDI_OVERRIDE: 'ERR_STRING_BIDI_OVERRIDE',
+  ERR_STRING_ZERO_WIDTH: 'ERR_STRING_ZERO_WIDTH',
+  ERR_SCHEMA_VERSION_INVALID: 'ERR_SCHEMA_VERSION_INVALID',
+  ERR_SCHEMA_MAJOR_MISMATCH: 'ERR_SCHEMA_MAJOR_MISMATCH',
+  ERR_SCHEMA_MINOR_UNSUPPORTED: 'ERR_SCHEMA_MINOR_UNSUPPORTED',
+  ERR_INPUT_NOT_OBJECT: 'ERR_INPUT_NOT_OBJECT',
+  // 访问器 / Proxy 陷阱 / 被毒对象让读取本身失败：这不是"输入不合法"，
+  // 也不是"字段类型不对"，必须能单独归类（DEF-02、DEF-12）。
+  ERR_INPUT_UNREADABLE: 'ERR_INPUT_UNREADABLE',
+  ERR_UNKNOWN_FIELD: 'ERR_UNKNOWN_FIELD',
+  ERR_MISSING_FIELD: 'ERR_MISSING_FIELD',
+  ERR_FIELD_TYPE: 'ERR_FIELD_TYPE',
+  ERR_FIELD_ENUM: 'ERR_FIELD_ENUM',
+  ERR_FIELD_PATTERN: 'ERR_FIELD_PATTERN',
+  ERR_INTEGER_RANGE: 'ERR_INTEGER_RANGE',
+  ERR_NUMBER_RANGE: 'ERR_NUMBER_RANGE',
+  ERR_ARRAY_EMPTY: 'ERR_ARRAY_EMPTY',
+  ERR_ARRAY_ELEMENT_TYPE: 'ERR_ARRAY_ELEMENT_TYPE',
+  ERR_DUPLICATE_ARRAY_ELEMENT: 'ERR_DUPLICATE_ARRAY_ELEMENT',
+  ERR_TIMESTAMP_FORMAT: 'ERR_TIMESTAMP_FORMAT',
+  ERR_TIMESTAMP_ORDER: 'ERR_TIMESTAMP_ORDER',
+  ERR_DIGEST_MISMATCH: 'ERR_DIGEST_MISMATCH',
+  ERR_INTEGRITY_DIGEST_MISMATCH: 'ERR_INTEGRITY_DIGEST_MISMATCH',
+  ERR_CLASSIFICATION_NOT_EXPORTABLE: 'ERR_CLASSIFICATION_NOT_EXPORTABLE',
+  ERR_SUMMARY_FIELD_NOT_ALLOWED: 'ERR_SUMMARY_FIELD_NOT_ALLOWED',
+  ERR_OBJECT_TOO_LARGE: 'ERR_OBJECT_TOO_LARGE',
+  ERR_ROLE_NOT_PERMITTED: 'ERR_ROLE_NOT_PERMITTED',
+  ERR_REAUTH_TOO_STALE: 'ERR_REAUTH_TOO_STALE',
+  ERR_BINDING_MISMATCH: 'ERR_BINDING_MISMATCH',
+  ERR_NULL_NOT_ALLOWED: 'ERR_NULL_NOT_ALLOWED',
+  ERR_AUDIT_CHAIN_BROKEN: 'ERR_AUDIT_CHAIN_BROKEN',
+  ERR_USAGE_STATE_MISMATCH: 'ERR_USAGE_STATE_MISMATCH',
+});
+
+function freezeDetails(details) {
+  if (details === undefined || details === null) return undefined;
+  const copy = {};
+  for (const key of Object.keys(details)) {
+    const value = details[key];
+    copy[key] = Array.isArray(value) ? Object.freeze([...value]) : value;
+  }
+  return Object.freeze(copy);
+}
+
+export class ContractError extends Error {
+  constructor(code, path, message, details) {
+    super(message ? `${code}: ${message}` : code);
+    this.name = 'ContractError';
+    this.code = code;
+    this.path = typeof path === 'string' && path.length > 0 ? path : '$';
+    this.details = freezeDetails(details);
+  }
+}
+
+export function isContractError(value) {
+  return value instanceof ContractError;
+}

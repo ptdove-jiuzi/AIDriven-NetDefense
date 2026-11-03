@@ -1,0 +1,15 @@
+{
+  "nowMs": 1700000000000,
+  "files": {},
+  "symlinks": {},
+  "directories": {
+    "/proc": {
+      "entries": [],
+      "denied": true
+    }
+  },
+  "denied": [
+    "/proc"
+  ],
+  "missing": []
+}

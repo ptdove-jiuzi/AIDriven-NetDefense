@@ -1,0 +1,17 @@
+{
+  "name": "@aegisharness/harness-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Worker-side four-layer Harness manifest generation and fail-closed validation",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./manifest": "./manifest.js",
+    "./stdio-host": "./stdio-host.js"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  }
+}

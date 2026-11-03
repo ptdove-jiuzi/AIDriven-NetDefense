@@ -1,0 +1,63 @@
+{
+  "nowMs": 1700000000000,
+  "files": {
+    "/etc/crontab": {
+      "content": "SHELL=/bin/sh\nPATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin\n\n# m h dom mon dow user\tcommand\n17 *\t* * *\troot    cd / && run-parts --report /etc/cron.hourly\n25 6\t* * *\troot\ttest -x /usr/sbin/anacron || run-parts --report /etc/cron.daily\n@reboot\troot\t/usr/local/bin/agent.sh --daemon\n",
+      "ino": 601,
+      "mode": 420
+    },
+    "/etc/cron.d/app": {
+      "content": "# application tick\n*/5 * * * * appuser /usr/bin/app-tick --quiet\n",
+      "ino": 602,
+      "mode": 420
+    },
+    "/etc/cron.hourly/backup": {
+      "content": "#!/bin/sh\n/usr/local/bin/backup.sh\n",
+      "ino": 603,
+      "mode": 493
+    },
+    "/etc/cron.daily/logrotate": {
+      "content": "#!/bin/sh\n/usr/sbin/logrotate /etc/logrotate.conf\n",
+      "ino": 604,
+      "mode": 493
+    },
+    "/var/spool/cron/crontabs/root": {
+      "content": "0 3 * * * /usr/local/bin/root-job.sh\n",
+      "ino": 605,
+      "mode": 384
+    }
+  },
+  "symlinks": {},
+  "directories": {
+    "/etc/cron.d": {
+      "entries": [
+        "app"
+      ]
+    },
+    "/etc/cron.hourly": {
+      "entries": [
+        "backup"
+      ]
+    },
+    "/etc/cron.daily": {
+      "entries": [
+        "logrotate"
+      ]
+    },
+    "/var/spool/cron/crontabs": {
+      "entries": [
+        "root"
+      ],
+      "denied": true
+    }
+  },
+  "denied": [
+    "/var/spool/cron/crontabs"
+  ],
+  "missing": [
+    "/var/spool/cron",
+    "/etc/anacrontab",
+    "/etc/cron.weekly",
+    "/etc/cron.monthly"
+  ]
+}

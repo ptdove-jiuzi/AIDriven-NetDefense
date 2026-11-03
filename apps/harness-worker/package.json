@@ -1,0 +1,21 @@
+{
+  "name": "@aegisharness/harness-worker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Explicit aegis-analysis profile launcher and stdio acceptance host",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "aegis-harness-worker": "bin.js"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "dependencies": {
+    "@aegisharness/dsh-defense-profile": "0.0.0",
+    "@aegisharness/dsh-defense-tools": "0.0.0",
+    "@aegisharness/harness-adapter": "0.0.0",
+    "@deepseek-ai/dsh": "0.2.2-alpha.2"
+  }
+}

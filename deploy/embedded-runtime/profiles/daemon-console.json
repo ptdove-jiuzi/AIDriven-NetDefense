@@ -1,0 +1,42 @@
+{
+  "schemaVersion": "1.0",
+  "name": "daemon-console",
+  "bundleName": "win32-x64-v14",
+  "defaultOut": "dist/bundle/win32-x64-v14",
+  "description": "v14 composition: the v13 worker payload stays, and the core daemon plus a console front end are added, so an installation has a server (apps/daemon/bin.js) and a UI (console/index.html) instead of only a stdio worker.",
+  "closureRoots": [
+    "@deepseek-ai/dsh",
+    "@aegisharness/harness-worker",
+    "@aegisharness/harness-adapter",
+    "@aegisharness/dsh-defense-profile",
+    "@aegisharness/dsh-defense-tools",
+    "@aegisharness/daemon"
+  ],
+  "assets": {
+    "console": {
+      "preferredSource": "apps/console",
+      "shellSource": "deploy/embedded-runtime/console-shell",
+      "serverFallback": "deploy/embedded-runtime/console-shell/serve.mjs",
+      "target": "console",
+      "requireEntry": "index.html",
+      "note": "apps/console is the product console and always wins over the packaging shell. As of v14 it holds the pages (index.html, app.js, styles.css, assets/) but no static server, so the packaging-owned serve.mjs is copied in beside them: it is a loopback-only static server for the files next to it plus a narrow proxy for /healthz, /readyz and /api/v1/*, which is exactly what the product pages need and nothing more. The builder fails closed if the staged console ends up with neither a server nor a declared fallback, because a console directory nobody can serve is not a UI."
+    },
+    "rules": {
+      "source": "deploy/embedded-runtime/rules",
+      "target": "rules",
+      "requirePattern": "*.json",
+      "note": "Built-in rule pack. The builder validates every file with the repository's own detection package before it is staged, so a malformed pack fails the build instead of shipping a daemon that refuses to start."
+    }
+  },
+  "entryForwarders": [
+    {
+      "package": "@aegisharness/daemon",
+      "target": "apps/daemon",
+      "note": "A four-line forwarder so node <bundle>/apps/daemon/bin.js resolves the real package in app/node_modules and keeps its bare-specifier imports working. The staged package is not duplicated."
+    }
+  ],
+  "launchers": ["worker", "daemon", "console"],
+  "readme": {
+    "title": "AegisHarness embedded runtime bundle (daemon + console)"
+  }
+}

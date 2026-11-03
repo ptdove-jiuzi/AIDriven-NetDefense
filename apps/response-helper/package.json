@@ -1,0 +1,19 @@
+{
+  "name": "@aegisharness/response-helper",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Narrow daemon-facing response helper: prepare/describe/dryRun/execute-stub. Plans a response against the policy verdict, binds the target object and reports drift. Never performs a process, network or file action in this build.",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.9.0"
+  },
+  "exports": {
+    ".": "./index.js"
+  },
+  "dependencies": {
+    "@aegisharness/contracts": "1.0.0",
+    "@aegisharness/response-policy": "0.0.0"
+  }
+}

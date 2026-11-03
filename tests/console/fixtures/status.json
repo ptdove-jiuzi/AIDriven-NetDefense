@@ -1,0 +1,93 @@
+{
+  "schema_version": "1.0",
+  "version": "0.0.0",
+  "lifecycle": "running",
+  "mode": "mock",
+  "started_at": "2026-11-03T22:00:00.000Z",
+  "now": "2026-11-04T01:50:37.000Z",
+  "epoch": "8f14e45f-ce0f-4b5a-9d5e-2f2f4f4a1b3c",
+  "health": {
+    "status": "degraded",
+    "ready": true,
+    "reasons": [
+      "sources:degraded:1",
+      "pipeline:contributions-dropped:2"
+    ]
+  },
+  "scheduler": {
+    "sources_count": 2,
+    "polling": 1,
+    "sources": [
+      {
+        "id": "win-proc",
+        "kind": "windows",
+        "lifecycle": "running",
+        "stale": false,
+        "polling": true,
+        "polls": 431,
+        "events": 9021,
+        "accepted": 8994,
+        "failures": 2,
+        "consecutive_failures": 0,
+        "last_poll_at": "2026-11-04T01:50:30.000Z",
+        "last_success_at": "2026-11-04T01:50:30.000Z",
+        "last_event_at": "2026-11-04T01:50:28.000Z",
+        "last_error_code": null,
+        "last_error_at": null,
+        "dropped_events": 3
+      },
+      {
+        "id": "win-auth",
+        "kind": "windows",
+        "lifecycle": "degraded",
+        "stale": true,
+        "polling": false,
+        "polls": 88,
+        "events": 120,
+        "accepted": 118,
+        "failures": 6,
+        "consecutive_failures": 3,
+        "last_poll_at": "2026-11-04T01:41:02.000Z",
+        "last_success_at": "2026-11-04T01:31:10.000Z",
+        "last_event_at": "2026-11-04T01:31:09.000Z",
+        "last_error_code": "SOURCE_READ_FAILED",
+        "last_error_at": "2026-11-04T01:41:02.000Z",
+        "dropped_events": 0
+      }
+    ]
+  },
+  "pipeline": {
+    "events_received": 9141,
+    "events_accepted": 9112,
+    "events_duplicate": 27,
+    "alerts_written": 42,
+    "findings_written": 42,
+    "analysis_requests": 9,
+    "contributions_pending": 0,
+    "contributions_dropped": 2,
+    "contributions_spool_errors": 0,
+    "store_errors_consecutive": 0,
+    "detection_faults": 0
+  },
+  "store": {
+    "kind": "sqlite",
+    "open": true,
+    "events": 9112,
+    "alerts": 42,
+    "analyses": 9,
+    "size_bytes": 18874368
+  },
+  "counters": {
+    "polls": 519,
+    "events_received": 9141,
+    "events_accepted": 9112,
+    "events_duplicate": 27,
+    "alerts_written": 42,
+    "findings_written": 42,
+    "analysis_requests": 9,
+    "contributions_dropped": 2,
+    "source_failures": 1
+  },
+  "uptime_ms": 3725000,
+  "csrf_token": "FIXTURE-CSRF-NOT-A-CREDENTIAL"
+}

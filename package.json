@@ -1,0 +1,60 @@
+{
+  "name": "@aegisharness/root",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AegisHarness repository governance and test safety baseline",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.9.0",
+    "npm": ">=11.6.0 <12.0.0"
+  },
+  "packageManager": "npm@11.6.0",
+  "workspaces": [
+    "apps/cli",
+    "apps/daemon",
+    "apps/harness-worker",
+    "apps/model-broker",
+    "apps/plugin-manager",
+    "apps/response-helper",
+    "packages/collectors/common",
+    "packages/collectors/linux",
+    "packages/collectors/windows",
+    "packages/contracts",
+    "packages/detection",
+    "packages/event-store",
+    "packages/response-policy",
+    "packages/harness-adapter",
+    "packages/test-support",
+    "plugins/dsh-defense-profile",
+    "plugins/dsh-defense-tools"
+  ],
+  "scripts": {
+    "node:check": "node scripts/check-node-version.mjs",
+    "harness:generate": "node scripts/harness-generate-manifest.mjs",
+    "harness:check": "node scripts/harness-generate-manifest.mjs --check",
+    "test": "npm run test:wp0 && npm run test:wp1 && npm run test:wp3 && npm run test:plugin-manager && npm run test:wp2-common && npm run test:wp2-linux && npm run test:wp2-windows && npm run test:wp1-event-store && npm run test:wp7-response-policy && npm run test:wp5-daemon && npm run test:wp5-cli && npm run test:wp7-response-helper && npm run test:wp6-model-broker && npm run test:m9",
+    "test:wp0": "npm run node:check && npm run harness:check && node scripts/run-tests.mjs 30 \"tests/wp0/**/*.test.js\" && node scripts/harness-check-manifest.mjs",
+    "test:wp1": "npm run node:check && node scripts/run-tests.mjs 335 \"tests/wp1-contracts/**/*.test.js\"",
+    "test:wp3": "npm run node:check && node scripts/run-tests.mjs 175 \"tests/wp3-detection/**/*.test.js\"",
+    "test:plugin-manager": "npm run node:check && node scripts/run-tests.mjs 156 \"tests/wp1-plugin-manager/**/*.test.js\"",
+    "test:wp2-common": "npm run node:check && node scripts/run-tests.mjs 95 \"tests/wp2-collector-common/**/*.test.js\"",
+    "test:wp2-linux": "npm run node:check && node scripts/run-tests.mjs 158 \"tests/wp2-linux/**/*.test.js\"",
+    "test:wp2-windows": "npm run node:check && node scripts/run-tests.mjs 184 \"tests/wp2-windows/**/*.test.js\"",
+    "test:wp1-event-store": "npm run node:check && node scripts/run-tests.mjs 290 \"tests/wp1-event-store/**/*.test.js\"",
+    "test:wp7-response-policy": "npm run node:check && node scripts/run-tests.mjs 143 \"tests/wp7-response-policy/**/*.test.js\" 0",
+    "test:wp5-daemon": "npm run node:check && node scripts/run-tests.mjs 346 \"tests/wp5-daemon/**/*.test.js\" 0",
+    "test:wp5-cli": "npm run node:check && node scripts/run-tests.mjs 269 \"tests/wp5-cli/**/*.test.js\" 1",
+    "test:wp7-response-helper": "npm run node:check && node scripts/run-tests.mjs 167 \"tests/wp7-response-helper/**/*.test.js\"",
+    "test:wp6-model-broker": "npm run node:check && node scripts/run-tests.mjs 74 \"tests/wp6-model-broker/**/*.test.js\" 1",
+    "test:m9": "npm run node:check && node tests/security-corpus/run.mjs",
+    "sbom:generate": "npm run node:check && cyclonedx-npm --package-lock-only --output-format JSON --spec-version 1.6 --output-reproducible --validate --output-file sbom.cdx.json && node scripts/apply-lockfile-evidence.mjs && node scripts/check-sbom.mjs",
+    "sbom:check": "npm run node:check && node scripts/check-sbom.mjs",
+    "license:check": "npm run node:check && node scripts/check-licenses.mjs",
+    "check": "npm test && npm run sbom:check && npm run license:check"
+  },
+  "devDependencies": {
+    "@cyclonedx/cyclonedx-npm": "6.0.1"
+  }
+}

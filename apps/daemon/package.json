@@ -1,0 +1,17 @@
+{
+  "name": "@aegisharness/daemon",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Core daemon control plane: collection scheduling, detection wiring, alert persistence, loopback control API (no UI, no model calls, no response execution)",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": { "node": ">=24.9.0" },
+  "exports": { ".": "./src/index.js" },
+  "bin": { "aegis-daemon": "bin.js" },
+  "dependencies": {
+    "@aegisharness/contracts": "1.0.0",
+    "@aegisharness/detection": "0.0.0",
+    "@aegisharness/event-store": "1.0.0"
+  }
+}

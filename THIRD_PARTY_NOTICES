@@ -1,0 +1,128 @@
+THIRD-PARTY NOTICES
+===================
+
+AegisHarness is authored by PT-dove and licensed under Apache-2.0.
+This file preserves notices for the fixed upstream baseline. Runtime
+npm dependency names, exact versions, hashes, and declared licenses are
+generated from package-lock.json in sbom.cdx.json.
+
+DeepSeek Harness 0.2.2-alpha.2
+------------------------------
+Project: https://github.com/deepseek-ai/deepseek-harness
+Reviewed upstream commit: ce7073d51254c26cd63b22a60835b8f948deb447
+License: MIT
+
+MIT License
+
+Copyright (c) 2026 DeepSeek
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+WP0-B scope note: the worker test profile uses the actual npm release of
+DeepSeek Harness 0.2.2-alpha.2 and its locked transitive dependencies. Exact
+versions, resolved URLs, integrity values, declared licenses, and release-file
+hashes are recorded in package-lock.json, sbom.cdx.json, and
+tests/wp0/evidence/harness-package-layer.json. No upstream package is replaced
+by a shim or locally simulated implementation.
+
+
+Weak-copyleft components (MPL-2.0 and LGPL-3.0-or-later)
+--------------------------------------------------------
+Policy: docs/implementation/adr/ADR-0002-third-party-license-policy.md (option A).
+
+These components arrive as transitive dependencies of the DeepSeek Harness
+launcher tree. They are shipped unmodified, as published on the npm registry.
+AegisHarness source code remains Apache-2.0; the licenses below apply only to
+the listed packages.
+
+1. Mozilla Public License 2.0 — 6 packages
+   @deepseek-ai/libreoffice-kit
+   @deepseek-ai/libreoffice-kit-darwin-arm64
+   @deepseek-ai/libreoffice-kit-darwin-x64
+   @deepseek-ai/libreoffice-kit-wasm
+   @deepseek-ai/libreoffice-kit-win32-arm64
+   @deepseek-ai/libreoffice-kit-win32-x64
+   Arrives through: @deepseek-ai/dsh-office-to-pdf, @deepseek-ai/dsh-skill-office
+   License text: https://www.mozilla.org/en-US/MPL/2.0/
+   Copyright: held by the DeepSeek authors of the named packages.
+
+2. GNU Lesser General Public License, version 3.0 or later — 14 packages
+   @img/sharp-libvips-darwin-arm64, @img/sharp-libvips-darwin-x64,
+   @img/sharp-libvips-linux-arm, @img/sharp-libvips-linux-arm64,
+   @img/sharp-libvips-linux-ppc64, @img/sharp-libvips-linux-riscv64,
+   @img/sharp-libvips-linux-s390x, @img/sharp-libvips-linux-x64,
+   @img/sharp-libvips-linuxmusl-arm64, @img/sharp-libvips-linuxmusl-x64,
+   @img/sharp-wasm32, @img/sharp-win32-arm64, @img/sharp-win32-ia32,
+   @img/sharp-win32-x64
+   Arrives through: @deepseek-ai/dsh-attachment-local
+   License text: https://www.gnu.org/licenses/lgpl-3.0.html
+   Copyright: held by the libvips authors; binaries packaged by the sharp project.
+
+MPL-2.0 obligations (file-level copyleft):
+  - The MPL-2.0 license text and copyright notices of the named packages are
+    retained, unmodified, in this distribution.
+  - The packages are used as published, without AegisHarness modifications. If
+    any file of these packages is ever modified, that file must be made
+    available under MPL-2.0 and its source disclosed.
+  - No AegisHarness source file is combined into an MPL-2.0 covered file, so the
+    Apache-2.0 licensing of this repository is unaffected.
+
+LGPL-3.0-or-later obligations (dynamic linking and relinkability):
+  - The libvips binaries are loaded at process start as separate shared
+    libraries by the attachment feature; they are never statically linked into
+    a first-party binary of this repository. The analysis worker also runs as a
+    separate sandboxed process, which keeps this a "work that uses the library"
+    rather than a combined work.
+  - Users must be able to replace the library with a modified version and still
+    run the product. The shipped tree keeps these as ordinary, replaceable
+    files under node_modules/@img/, loaded by path at runtime; nothing pins
+    their hash at load time, and no signature or integrity check blocks a
+    user-supplied replacement. Replacing the files is supported, unsupported
+    only in the sense that a modified library is outside our test matrix.
+  - The LGPL-3.0 text and the copyright notices are retained in this
+    distribution.
+
+Source code for these components is available as follows:
+  - MPL-2.0 packages: the exact published tarballs are pinned by version,
+    resolved URL and SHA-512 integrity in package-lock.json, and the npm
+    registry copy is the corresponding source for the unmodified packages.
+    Upstream project: https://github.com/deepseek-ai/deepseek-harness
+  - LGPL-3.0-or-later packages: corresponding source for libvips is published
+    at https://github.com/libvips/libvips, and the packaging scripts plus
+    prebuilt binaries are published at https://github.com/lovell/sharp-libvips.
+    Exact versions are pinned in package-lock.json and listed in sbom.cdx.json.
+
+The license text of every component above is also distributed with the packages
+themselves: see node_modules/@deepseek-ai/libreoffice-kit/LICENSE and
+node_modules/@img/sharp-win32-x64/LICENSE (and the equivalent files in the other
+platform packages). This file adds the obligations and the source-availability
+statement; it does not replace the license texts shipped inside the packages.
+
+Release checklist additions (ADR-0002 §3):
+  - [ ] Confirm the two license texts above still match the shipped packages.
+  - [ ] Confirm no MPL-2.0 or LGPL-3.0-or-later package was added or removed
+        without updating this file and ADR-0002 (scripts/check-licenses.mjs
+        enforces the reviewed package list).
+  - [ ] Confirm the LGPL shared libraries are still replaceable files under
+        node_modules/@img/ and are not statically linked into a first-party
+        binary; re-check if the worker packaging changes.
+  - [ ] Confirm sbom.cdx.json still lists every copyleft component with its
+        version and license.
+
+This notice records an engineering compliance position, not a legal opinion.

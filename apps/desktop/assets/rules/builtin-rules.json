@@ -1,0 +1,107 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "aidn.builtin.minimal",
+  "packVersion": "1.0.0",
+  "rules": [
+    {
+      "ruleId": "proc.office-spawns-shell",
+      "version": "1.0.0",
+      "type": "condition",
+      "severity": "high",
+      "description": "办公软件派生命令行解释器：宏/文档型投递的典型形态",
+      "fields": ["process_name", "parent_name"],
+      "fingerprint": ["process_name", "parent_name"],
+      "when": {
+        "all": [
+          {
+            "field": "process_name",
+            "operator": "in",
+            "value": ["cmd.exe", "powershell.exe", "pwsh.exe", "wscript.exe", "cscript.exe", "mshta.exe", "rundll32.exe"]
+          },
+          {
+            "field": "parent_name",
+            "operator": "in",
+            "value": ["winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "wps.exe", "et.exe", "wpp.exe"]
+          }
+        ]
+      }
+    },
+    {
+      "ruleId": "proc.certutil-urlcache-download",
+      "version": "1.0.0",
+      "type": "condition",
+      "severity": "high",
+      "description": "certutil 被当作下载器调用（-urlcache / -decode）",
+      "fields": ["process_name", "command_line"],
+      "fingerprint": ["process_name"],
+      "when": {
+        "all": [
+          { "field": "process_name", "operator": "eq", "value": "certutil.exe" },
+          { "field": "command_line", "operator": "contains", "value": "-urlcache" }
+        ]
+      }
+    },
+    {
+      "ruleId": "proc.lsass-handle-access",
+      "version": "1.0.0",
+      "type": "condition",
+      "severity": "critical",
+      "description": "已知凭据窃取工具名出现在进程创建事件中",
+      "fields": ["process_name"],
+      "fingerprint": ["process_name"],
+      "when": {
+        "field": "process_name",
+        "operator": "in",
+        "value": ["mimikatz.exe", "lazagne.exe", "sharphound.exe", "rubeus.exe"]
+      }
+    },
+    {
+      "ruleId": "net.smb-sweep-445",
+      "version": "1.0.0",
+      "type": "threshold",
+      "severity": "high",
+      "description": "短时间对多个目标发起 SMB 连接：横向移动扫描特征",
+      "fields": ["dst_ip", "dst_port", "event_type"],
+      "fingerprint": ["dst_port"],
+      "groupBy": ["dst_ip"],
+      "count": { "operator": "gte", "value": 6 },
+      "windowMs": 60000,
+      "maxEvents": 256,
+      "when": {
+        "all": [
+          { "field": "dst_port", "operator": "eq", "value": 445 },
+          { "field": "event_type", "operator": "eq", "value": "net_connect" }
+        ]
+      }
+    },
+    {
+      "ruleId": "auth.repeated-failed-logon",
+      "version": "1.0.0",
+      "type": "threshold",
+      "severity": "medium",
+      "description": "同一来源在 5 分钟内反复登录失败",
+      "fields": ["src_ip", "event_type", "user_name"],
+      "fingerprint": ["src_ip"],
+      "groupBy": ["src_ip"],
+      "count": { "operator": "gte", "value": 10 },
+      "windowMs": 300000,
+      "maxEvents": 512,
+      "when": { "field": "event_type", "operator": "eq", "value": "logon_failed" }
+    },
+    {
+      "ruleId": "proc.run-key-persistence",
+      "version": "1.0.0",
+      "type": "condition",
+      "severity": "medium",
+      "description": "进程命令行写入 Run 键：常见的登录自启持久化",
+      "fields": ["command_line"],
+      "fingerprint": ["command_line"],
+      "when": {
+        "all": [
+          { "field": "command_line", "operator": "contains", "value": "CurrentVersion\\Run" },
+          { "field": "command_line", "operator": "contains", "value": "reg" }
+        ]
+      }
+    }
+  ]
+}

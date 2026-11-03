@@ -1,0 +1,20 @@
+{
+  "name": "@aegisharness/service-host",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Windows service host application: injects collector sources the daemon refuses to invent, speaks the SCM control protocol",
+  "author": "PT-dove",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "aegis-service-host": "./bin.js"
+  },
+  "exports": {
+    ".": "./bin.js",
+    "./supervisor": "./src/supervisor.mjs",
+    "./health": "./src/health.mjs"
+  },
+  "engines": {
+    "node": ">=24.9.0"
+  }
+}

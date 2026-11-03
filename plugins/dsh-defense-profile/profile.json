@@ -1,0 +1,167 @@
+{
+  "schemaVersion": "1.0",
+  "profile": "aegis-analysis",
+  "upstream": {
+    "version": "0.2.2-alpha.2",
+    "commit": "ce7073d51254c26cd63b22a60835b8f948deb447",
+    "cordis": "4.0.6-alpha.1"
+  },
+  "author": "PT-dove",
+  "approvedPatches": [
+    "cordis.patch.yml"
+  ],
+  "forbiddenBundles": [
+    "@deepseek-ai/dsh-base",
+    "@deepseek-ai/dsh-sdk-minimal"
+  ],
+  "allowedPluginIds": [
+    "sdk-app-startup",
+    "sdk-jsonrpc-server",
+    "llm-deepseek",
+    "session-log-deepseek",
+    "plugin-package-inventory-deepseek",
+    "timer",
+    "llm",
+    "session",
+    "session-projection",
+    "filesystem",
+    "working-directory",
+    "system-prompt",
+    "tools",
+    "tool-executor-native",
+    "agent",
+    "agent-loop",
+    "sessions",
+    "session-checkpoint-policy",
+    "defense-tools",
+    "deepseek-llm-api-extensions"
+  ],
+  "pluginPackages": {
+    "sdk-app-startup": "@deepseek-ai/dsh-sdk-app",
+    "sdk-jsonrpc-server": "@deepseek-ai/dsh-sdk-jsonrpc-server",
+    "llm-deepseek": "@deepseek-ai/dsh-llm-deepseek-api-key",
+    "session-log-deepseek": "@deepseek-ai/dsh-session-log-deepseek",
+    "plugin-package-inventory-deepseek": "@deepseek-ai/dsh-plugin-package-inventory-deepseek",
+    "timer": "@deepseek-ai/cordis-plugin-timer",
+    "llm": "@deepseek-ai/dsh-llm",
+    "session": "@deepseek-ai/dsh-session",
+    "session-projection": "@deepseek-ai/dsh-session-projection",
+    "filesystem": "@deepseek-ai/dsh-fs-local",
+    "working-directory": "@deepseek-ai/dsh-working-directory",
+    "system-prompt": "@deepseek-ai/dsh-system-prompt",
+    "tools": "@deepseek-ai/dsh-tools",
+    "tool-executor-native": "@deepseek-ai/dsh-tool-executor-native",
+    "agent": "@deepseek-ai/dsh-agent",
+    "agent-loop": "@deepseek-ai/dsh-agent-loop",
+    "sessions": "@deepseek-ai/dsh-session-persistence-jsonl",
+    "session-checkpoint-policy": "@deepseek-ai/dsh-session-checkpoint-policy",
+    "defense-tools": "@aegisharness/dsh-defense-tools",
+    "deepseek-llm-api-extensions": "@deepseek-ai/dsh-deepseek-llm-api-extensions"
+  },
+  "requiredServices": [
+    "loader",
+    "cmdlineArgs",
+    "sdkAppStartup",
+    "agents",
+    "workingDirectory",
+    "fs",
+    "sessionProjections",
+    "llm",
+    "sessions",
+    "sessionPersistence",
+    "systemPrompt",
+    "tools",
+    "agentLoop",
+    "timer",
+    "deepseekLlmApiExtensions"
+  ],
+  "requiredServiceProviders": {
+    "loader": "dsh-launcher",
+    "cmdlineArgs": "dsh-launcher",
+    "sdkAppStartup": "include:sdk-app-startup",
+    "agents": "include:agent",
+    "workingDirectory": "include:working-directory",
+    "fs": "include:filesystem",
+    "sessionProjections": "include:session-projection",
+    "llm": "include:llm",
+    "sessions": "include:session",
+    "sessionPersistence": "include:sessions",
+    "systemPrompt": "include:system-prompt",
+    "tools": "include:tools",
+    "agentLoop": "include:agent-loop",
+    "timer": "include:timer",
+    "deepseekLlmApiExtensions": "include:deepseek-llm-api-extensions"
+  },
+  "allowedAuxiliaryServices": [
+    "appExit",
+    "appReady",
+    "dshHomePath",
+    "launchEnvironment",
+    "pluginPackages",
+    "profileContext",
+    "sdkSessionActivation"
+  ],
+  "forbiddenImplementationPatterns": [
+    "plugin-manager",
+    "hmr",
+    "mcp",
+    "subagent",
+    "team",
+    "shell",
+    "pty",
+    "subprocess",
+    "terminal",
+    "tool-fs",
+    "attachment",
+    "tool-web",
+    "browser",
+    "jobs",
+    "workflow-ptc",
+    "compaction",
+    "session-title",
+    "llm-retry",
+    "telemetry",
+    "stdout-logger"
+  ],
+  "allowedTools": [
+    "evidence.get_summary",
+    "analysis.submit_result"
+  ],
+  "model": {
+    "provider": "deepseek-official",
+    "id": "deepseek-chat",
+    "maxTokens": 2000,
+    "contextWindow": 128000,
+    "inputModalities": [
+      "text"
+    ],
+    "maxRetries": 0
+  },
+  "effectiveConfig": {
+    "maxTokensAsSuccess": false,
+    "compression": "none",
+    "automaticCompaction": false,
+    "sessionTitle": false,
+    "llmRetry": false,
+    "telemetry": false,
+    "stdoutLogger": false,
+    "hmr": false,
+    "pluginManager": false,
+    "thirdPartyExtensions": false,
+    "approvalRequests": false,
+    "userQuestions": false,
+    "extensionFields": [
+      "dsh_plugin_packages",
+      "dsh_session_log"
+    ],
+    "analysisCwdRoots": {
+      "win32": "C:\\ProgramData\\AegisHarness\\analysis",
+      "linux": "/var/lib/aegis/analysis"
+    },
+    "runtimeContextAllowlist": [
+      "working-directory:current"
+    ],
+    "runtimeContextTextTemplate": "Current working directory: \"{cwd}\"."
+  },
+  "stderrMaxBytes": 65536
+}

@@ -1,0 +1,18 @@
+[
+  {
+    "event_id": "synthetic-001",
+    "timestamp": "2026-01-01T00:00:00.000Z",
+    "source": "wp0-fixture",
+    "kind": "process_observed",
+    "subject": "example-editor",
+    "severity": "info"
+  },
+  {
+    "event_id": "synthetic-002",
+    "timestamp": "2026-01-01T00:00:01.000Z",
+    "source": "wp0-fixture",
+    "kind": "heartbeat",
+    "subject": "example-service",
+    "severity": "info"
+  }
+]

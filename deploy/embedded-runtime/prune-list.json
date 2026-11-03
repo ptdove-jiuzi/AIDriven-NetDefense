@@ -1,0 +1,4858 @@
+{
+  "schemaVersion": "1.0",
+  "author": "PT-dove",
+  "generatedBy": "deploy/embedded-runtime/prune.mjs",
+  "reviewNote": "Generated evidence. A separate read-only agent reviews this decision and records the outcome in docs/implementation/status/M8-FORMAL-PACKAGING.md; the builder re-runs the same gate, so this file is a decision record, not an authority.",
+  "inputs": {
+    "lockfileSha256": "69e5190a12bf054da5e4e57e4d50ddbc45c23d3769f09103ecf43adc3d66f4f1",
+    "profileSha256": "a5a56348e86a2feb182d7533287538d541c75e88995844fd10a745807e80766b"
+  },
+  "gate": {
+    "closurePackages": 654,
+    "reachablePackages": 101,
+    "reachedFiles": 838,
+    "corpusFiles": 837,
+    "corpusSkipped": 1,
+    "dynamicSpecifierSites": [
+      "node_modules/@deepseek-ai/dsh-session-persistence-jsonl/lib/index.js",
+      "node_modules/@deepseek-ai/dsh-app-boot/lib/index.js",
+      "node_modules/@deepseek-ai/node-addon-system/lib/flock.js",
+      "node_modules/@deepseek-ai/cordis-plugin-loader/lib/index.js",
+      "node_modules/node-addon-native-custom-loader/lib/index.js"
+    ],
+    "protectedPackages": [
+      "@aegisharness/dsh-defense-profile",
+      "@aegisharness/dsh-defense-tools",
+      "@aegisharness/harness-adapter",
+      "@aegisharness/harness-worker",
+      "@deepseek-ai/cordis-plugin-timer",
+      "@deepseek-ai/dsh",
+      "@deepseek-ai/dsh-agent",
+      "@deepseek-ai/dsh-agent-loop",
+      "@deepseek-ai/dsh-deepseek-llm-api-extensions",
+      "@deepseek-ai/dsh-fs-local",
+      "@deepseek-ai/dsh-llm",
+      "@deepseek-ai/dsh-llm-deepseek-api-key",
+      "@deepseek-ai/dsh-plugin-package-inventory-deepseek",
+      "@deepseek-ai/dsh-sdk-app",
+      "@deepseek-ai/dsh-sdk-jsonrpc-server",
+      "@deepseek-ai/dsh-session",
+      "@deepseek-ai/dsh-session-checkpoint-policy",
+      "@deepseek-ai/dsh-session-log-deepseek",
+      "@deepseek-ai/dsh-session-persistence-jsonl",
+      "@deepseek-ai/dsh-session-projection",
+      "@deepseek-ai/dsh-system-prompt",
+      "@deepseek-ai/dsh-tool-executor-native",
+      "@deepseek-ai/dsh-tools",
+      "@deepseek-ai/dsh-working-directory"
+    ],
+    "rule": [
+      "a package is prunable only when all of the following hold",
+      "1. no file reachable from the mounted profile imports it (module graph)",
+      "2. no reached file mentions its name as a standalone token (computed specifiers);",
+      "   an occurrence inside a longer identifier, hex digest or base64 run is a different name",
+      "3. it is not a closure root or a reviewed workspace package",
+      "4. it is not an optional platform variant of a reachable package"
+    ]
+  },
+  "summary": {
+    "prunable": 407,
+    "prunableCopies": 415,
+    "keptByGate": 75,
+    "heldBack": 1,
+    "prunableBytes": 421530177,
+    "prunableMiB": 402
+  },
+  "heldBack": [
+    {
+      "name": "@deepseek-ai/dsh-persona",
+      "version": "0.2.2-alpha.2",
+      "reason": "the only occurrences are fragments of @deepseek-ai/dsh-personalized-recommendations, so the token rule clears it; removal is outside M8-DFA-PRUNE scope and needs its own review before it changes the payload"
+    }
+  ],
+  "packages": [
+    {
+      "name": "@deepseek-ai/libreoffice-kit-win32-x64",
+      "version": "0.1.5",
+      "license": "MPL-2.0",
+      "sizeBytes": 190868740,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/libreoffice-kit (optionalDependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "sherpa-onnx-win-x64",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "sizeBytes": 23453246,
+      "copies": 1,
+      "declaredBy": [
+        "sherpa-onnx-node (optionalDependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@img/sharp-win32-x64",
+      "version": "0.35.5",
+      "license": "Apache-2.0 AND LGPL-3.0-or-later",
+      "sizeBytes": 19812379,
+      "copies": 1,
+      "declaredBy": [
+        "sharp (optionalDependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "openai",
+      "version": "7.19.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 18477473,
+      "copies": 1,
+      "declaredBy": [
+        "@earendil-works/pi-ai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-sidebar-documentpreview",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 14883608,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@google/genai",
+      "version": "2.21.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 11277335,
+      "copies": 1,
+      "declaredBy": [
+        "@earendil-works/pi-ai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@anthropic-ai/sdk",
+      "version": "0.129.0",
+      "license": "MIT",
+      "sizeBytes": 9503985,
+      "copies": 1,
+      "declaredBy": [
+        "@earendil-works/pi-ai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@opentelemetry/semantic-conventions",
+      "version": "1.44.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 9239116,
+      "copies": 1,
+      "declaredBy": [
+        "@opentelemetry/core (dependencies)",
+        "@opentelemetry/resources (dependencies)",
+        "@opentelemetry/sdk-logs (dependencies)",
+        "@opentelemetry/sdk-trace (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "web-streams-polyfill",
+      "version": "3.3.3",
+      "license": "MIT",
+      "sizeBytes": 9036205,
+      "copies": 1,
+      "declaredBy": [
+        "fetch-blob (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@mixmark-io/domino",
+      "version": "2.2.0",
+      "license": "BSD-2-Clause",
+      "sizeBytes": 7736745,
+      "copies": 1,
+      "declaredBy": [
+        "turndown (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@modelcontextprotocol/client",
+      "version": "2.2.0",
+      "license": "MIT",
+      "sizeBytes": 6845034,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-mcp-client (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "fontkit",
+      "version": "2.0.4",
+      "license": "MIT",
+      "sizeBytes": 5610637,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/libreoffice-kit (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@agentclientprotocol/sdk",
+      "version": "1.4.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 5586531,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-acp (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-web-frontend",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 5582330,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@vscode/ripgrep-win32-x64",
+      "version": "1.18.0",
+      "license": "MIT",
+      "sizeBytes": 5431448,
+      "copies": 1,
+      "declaredBy": [
+        "@vscode/ripgrep (optionalDependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@earendil-works/pi-ai",
+      "version": "1.4.0",
+      "license": "MIT",
+      "sizeBytes": 4303837,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-llm-pi-ai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "lru-cache",
+      "version": "11.5.3",
+      "license": "BlueOak-1.0.0",
+      "sizeBytes": 3334485,
+      "copies": 1,
+      "declaredBy": [
+        "hosted-git-info (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "protobufjs",
+      "version": "7.6.6",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 3053104,
+      "copies": 1,
+      "declaredBy": [
+        "@google/genai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-account",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 2801838,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@types/node",
+      "version": "26.6.6",
+      "license": "MIT",
+      "sizeBytes": 2586357,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@smithy/core",
+      "version": "3.38.1",
+      "license": "Apache-2.0",
+      "sizeBytes": 1964293,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/core (dependencies)",
+        "@aws-sdk/credential-provider-env (dependencies)",
+        "@aws-sdk/credential-provider-http (dependencies)"
+      ],
+      "declaredByCount": 22
+    },
+    {
+      "name": "@xterm/headless",
+      "version": "6.0.0",
+      "license": "MIT",
+      "sizeBytes": 1957834,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-terminal-controller (dependencies)",
+        "@deepseek-ai/dsh-terminal-bash (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@opentelemetry/sdk-metrics",
+      "version": "2.11.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 1846700,
+      "copies": 1,
+      "declaredBy": [
+        "@opentelemetry/otlp-transformer (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "fflate",
+      "version": "0.8.3, 0.8.2",
+      "license": "MIT",
+      "sizeBytes": 1570140,
+      "copies": 2,
+      "declaredBy": [
+        "@deepseek-ai/dsh-session-log-export (dependencies)",
+        "@deepseek-ai/libreoffice-kit (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "typebox",
+      "version": "1.3.27",
+      "license": "MIT",
+      "sizeBytes": 1512886,
+      "copies": 1,
+      "declaredBy": [
+        "@earendil-works/pi-ai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-api-session-controller",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 1507823,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-schedule (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "brotli",
+      "version": "1.3.3",
+      "license": "MIT",
+      "sizeBytes": 1503586,
+      "copies": 1,
+      "declaredBy": [
+        "fontkit (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-conversation",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 1385343,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@modelcontextprotocol/core",
+      "version": "2.2.0",
+      "license": "MIT",
+      "sizeBytes": 1316861,
+      "copies": 1,
+      "declaredBy": [
+        "@modelcontextprotocol/client (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@opentelemetry/otlp-transformer",
+      "version": "0.222.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 1053804,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-otel (dependencies)",
+        "@opentelemetry/otlp-exporter-base (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-chat",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 1039532,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-client-ui-forge",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 1017665,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-forge-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@opentelemetry/api",
+      "version": "1.9.1",
+      "license": "Apache-2.0",
+      "sizeBytes": 1001329,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-otel (dependencies)",
+        "@opentelemetry/api-logs (dependencies)",
+        "@opentelemetry/core (peerDependencies)",
+        "@opentelemetry/otlp-exporter-base (peerDependencies)"
+      ],
+      "declaredByCount": 9
+    },
+    {
+      "name": "sharp",
+      "version": "0.35.5",
+      "license": "Apache-2.0",
+      "sizeBytes": 962168,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-attachment-local (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/client-bedrock-runtime",
+      "version": "3.1127.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 860206,
+      "copies": 1,
+      "declaredBy": [
+        "@earendil-works/pi-ai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/nested-clients",
+      "version": "3.997.54",
+      "license": "Apache-2.0",
+      "sizeBytes": 848859,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)",
+        "@aws-sdk/credential-provider-login (dependencies)",
+        "@aws-sdk/credential-provider-sso (dependencies)",
+        "@aws-sdk/credential-provider-web-identity (dependencies)"
+      ],
+      "declaredByCount": 6
+    },
+    {
+      "name": "minisearch",
+      "version": "7.2.0",
+      "license": "MIT",
+      "sizeBytes": 826513,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-plugin-market (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-cordis",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 802914,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@opentelemetry/sdk-trace",
+      "version": "2.11.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 797835,
+      "copies": 1,
+      "declaredBy": [
+        "@opentelemetry/otlp-transformer (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-sidebar-terminal",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 754266,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "pako",
+      "version": "0.2.9",
+      "license": "MIT",
+      "sizeBytes": 741440,
+      "copies": 1,
+      "declaredBy": [
+        "unicode-trie (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@opentelemetry/sdk-logs",
+      "version": "0.222.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 679622,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-product-telemetry-otel (dependencies)",
+        "@deepseek-ai/dsh-otel (dependencies)",
+        "@opentelemetry/otlp-transformer (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "gaxios",
+      "version": "7.3.1",
+      "license": "Apache-2.0",
+      "sizeBytes": 679009,
+      "copies": 1,
+      "declaredBy": [
+        "gcp-metadata (dependencies)",
+        "google-auth-library (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-schedule",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 657451,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@opentelemetry/otlp-exporter-base",
+      "version": "0.222.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 647539,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-product-telemetry-otel (dependencies)",
+        "@deepseek-ai/dsh-otel (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-ptc-runtime-node",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 645478,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-cua (peerDependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-cordis-host-runner",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 626103,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-tool-cordis (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-trajectory",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 606829,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "google-auth-library",
+      "version": "10.9.1",
+      "license": "Apache-2.0",
+      "sizeBytes": 601779,
+      "copies": 1,
+      "declaredBy": [
+        "@google/genai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@opentelemetry/core",
+      "version": "2.11.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 583971,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-otel (dependencies)",
+        "@opentelemetry/otlp-exporter-base (dependencies)",
+        "@opentelemetry/otlp-transformer (dependencies)",
+        "@opentelemetry/resources (dependencies)"
+      ],
+      "declaredByCount": 7
+    },
+    {
+      "name": "acorn",
+      "version": "8.19.0",
+      "license": "MIT",
+      "sizeBytes": 568532,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-ptc-runtime-node (dependencies)",
+        "acorn-walk (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-schedule",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 528305,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-sdk-app (dependencies)",
+        "@deepseek-ai/dsh-sdk-jsonrpc-server (peerDependencies)",
+        "@deepseek-ai/dsh-tool-schedule (peerDependencies)"
+      ],
+      "declaredByCount": 5
+    },
+    {
+      "name": "@deepseek-ai/dsh-cordis-client-runner",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 492485,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-workspace",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 482838,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/core",
+      "version": "3.979.1",
+      "license": "Apache-2.0",
+      "sizeBytes": 454101,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/credential-provider-env (dependencies)",
+        "@aws-sdk/credential-provider-http (dependencies)",
+        "@aws-sdk/credential-provider-ini (dependencies)"
+      ],
+      "declaredByCount": 12
+    },
+    {
+      "name": "type-fest",
+      "version": "4.41.0",
+      "license": "(MIT OR CC0-1.0)",
+      "sizeBytes": 444035,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@opentelemetry/resources",
+      "version": "2.11.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 440928,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-otel (dependencies)",
+        "@opentelemetry/otlp-transformer (dependencies)",
+        "@opentelemetry/sdk-logs (dependencies)",
+        "@opentelemetry/sdk-metrics (dependencies)"
+      ],
+      "declaredByCount": 5
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-models",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 425339,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-theme",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 422849,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@smithy/node-http-handler",
+      "version": "4.14.1, 4.12.1",
+      "license": "Apache-2.0",
+      "sizeBytes": 400787,
+      "copies": 3,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/credential-provider-http (dependencies)",
+        "@aws-sdk/nested-clients (dependencies)",
+        "@earendil-works/pi-ai (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "node-addon-api",
+      "version": "7.1.1",
+      "license": "MIT",
+      "sizeBytes": 396312,
+      "copies": 1,
+      "declaredBy": [
+        "node-pty (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-plugin-market",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 373123,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-plugin-market-bundle (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-sidebar-right",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 372338,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-api-terminal-controller",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 365973,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "bowser",
+      "version": "2.15.0",
+      "license": "MIT",
+      "sizeBytes": 358208,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/core (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-client-ui-stats",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 357183,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-inspector-profile (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "bignumber.js",
+      "version": "9.3.1",
+      "license": "MIT",
+      "sizeBytes": 351589,
+      "copies": 1,
+      "declaredBy": [
+        "json-bigint (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/libreoffice-kit",
+      "version": "0.1.5",
+      "license": "MPL-2.0",
+      "sizeBytes": 349150,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-office-to-pdf (dependencies)",
+        "@deepseek-ai/dsh-skill-office (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@smithy/types",
+      "version": "4.19.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 316339,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/core (dependencies)",
+        "@aws-sdk/credential-provider-env (dependencies)",
+        "@aws-sdk/credential-provider-http (dependencies)"
+      ],
+      "declaredByCount": 26
+    },
+    {
+      "name": "@deepseek-ai/dsh-api-workspace-controller",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 315303,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-tool",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 300948,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@swc/helpers",
+      "version": "0.5.23",
+      "license": "Apache-2.0",
+      "sizeBytes": 282322,
+      "copies": 1,
+      "declaredBy": [
+        "fontkit (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-session-inspector",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 273187,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-inspector-profile (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-goal",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 268215,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-command-goal (peerDependencies)",
+        "@deepseek-ai/dsh-goal-round-driver (peerDependencies)"
+      ],
+      "declaredByCount": 5
+    },
+    {
+      "name": "@deepseek-ai/dsh-llm-pi-ai",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 267730,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-agent-preset",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 250482,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@babel/runtime",
+      "version": "7.29.10",
+      "license": "MIT",
+      "sizeBytes": 247215,
+      "copies": 1,
+      "declaredBy": [
+        "json-schema-to-ts (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-deliverables",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 238006,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-api-workspace-files",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 237099,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-executor-ptc",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 236809,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-agent-tool-presentation (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-client-ui-voice-input",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 234862,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-voice-input-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-sandbox-windows-acl",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 229110,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-sandbox-local (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "mime-db",
+      "version": "1.54.0",
+      "license": "MIT",
+      "sizeBytes": 225566,
+      "copies": 1,
+      "declaredBy": [
+        "compressible (dependencies)",
+        "mime-types (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "jose",
+      "version": "6.2.14",
+      "license": "MIT",
+      "sizeBytes": 221567,
+      "copies": 1,
+      "declaredBy": [
+        "@modelcontextprotocol/client (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@earendil-works/pi-telemetry",
+      "version": "1.4.0",
+      "license": "MIT",
+      "sizeBytes": 219229,
+      "copies": 1,
+      "declaredBy": [
+        "@earendil-works/pi-ai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@xterm/addon-serialize",
+      "version": "0.14.0",
+      "license": "MIT",
+      "sizeBytes": 205802,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-terminal-controller (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "restructure",
+      "version": "3.0.2",
+      "license": "MIT",
+      "sizeBytes": 204256,
+      "copies": 1,
+      "declaredBy": [
+        "fontkit (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-agent-preset-registry",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 193096,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-agent-preset (peerDependencies)",
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-api-settings-controller (peerDependencies)",
+        "@deepseek-ai/dsh-host-plugin-inventory (peerDependencies)"
+      ],
+      "declaredByCount": 8
+    },
+    {
+      "name": "turndown",
+      "version": "7.2.4",
+      "license": "MIT",
+      "sizeBytes": 191636,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-tool-web (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-reference",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 184922,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-shortcuts",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 176916,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-user-questions",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 175653,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "argparse",
+      "version": "2.0.1",
+      "license": "Python-2.0",
+      "sizeBytes": 171548,
+      "copies": 1,
+      "declaredBy": [
+        "js-yaml (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-token-meter",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 171309,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-acp (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-compaction-basic (peerDependencies)"
+      ],
+      "declaredByCount": 7
+    },
+    {
+      "name": "@deepseek-ai/dsh-action-cards",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 170917,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-creation-recommendations (dependencies)",
+        "@deepseek-ai/dsh-personalized-recommendations (dependencies)",
+        "@deepseek-ai/dsh-plugin-recommendations (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-commands",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 167137,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-command-compact (peerDependencies)",
+        "@deepseek-ai/dsh-command-feedback (peerDependencies)"
+      ],
+      "declaredByCount": 9
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-plugin-market",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 166675,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-plugin-market-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "saxes",
+      "version": "6.0.0",
+      "license": "ISC",
+      "sizeBytes": 163774,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/libreoffice-kit (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-file-upload",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 163124,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-sdk-app (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-api-settings-controller",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 162183,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-host-open-in-app",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 159585,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-workspace",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 159192,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-agent (peerDependencies)",
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-api-workspace-controller (peerDependencies)",
+        "@deepseek-ai/dsh-jobs (peerDependencies)"
+      ],
+      "declaredByCount": 8
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-commands",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 157774,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-workflow-ptc",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 156649,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-experimental-ralph-bundle (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-api-job-controller",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 156109,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-general",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 155431,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-deepseek-account-platform",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 150162,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-cordis",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 148867,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-model-selection",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 143318,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-input-trigger",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 142370,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-workspace-changes",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 138361,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "dfa",
+      "version": "1.2.0",
+      "license": "MIT",
+      "sizeBytes": 137726,
+      "copies": 1,
+      "declaredBy": [
+        "fontkit (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-permission-presets",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 137538,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-experimental-auto-review (peerDependencies)",
+        "@deepseek-ai/dsh-headless (peerDependencies)",
+        "@deepseek-ai/dsh-subagent (peerDependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@opentelemetry/api-logs",
+      "version": "0.222.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 136913,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-product-telemetry-otel (dependencies)",
+        "@deepseek-ai/dsh-otel (dependencies)",
+        "@deepseek-ai/dsh-session-telemetry-otel (dependencies)",
+        "@opentelemetry/otlp-transformer (dependencies)"
+      ],
+      "declaredByCount": 5
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-sidebar-browser",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 136204,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-api-account-controller",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 134892,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-fs-search",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 134859,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-attachment",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 134724,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-agent-instructions",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 132734,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-experimental-auto-review (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-log-export",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 131039,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-locale",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 129947,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-fs",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 129459,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-client-ui-cot-translation",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 128625,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-cot-translation-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-repeat-tool-reminder",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 126229,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-translator",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 125318,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-client-ui-cot-translation (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-cot-translation-bundle (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-compaction-basic",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 124116,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-shortcuts",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 123084,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-message-feedback",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 122754,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-session-telemetry-otel (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-plugin-recommendations",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 121687,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-personalized-recommendations (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "json-schema-to-ts",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sizeBytes": 121555,
+      "copies": 1,
+      "declaredBy": [
+        "@anthropic-ai/sdk (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "undici-types",
+      "version": "8.9.0",
+      "license": "MIT",
+      "sizeBytes": 120779,
+      "copies": 1,
+      "declaredBy": [
+        "@types/node (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-office-to-pdf",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 120384,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tmux-context",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 119150,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-native-command",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 118554,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-api-settings-controller (peerDependencies)",
+        "@deepseek-ai/dsh-api-workspace-controller (dependencies)",
+        "@deepseek-ai/dsh-host-directory-picker-native (dependencies)"
+      ],
+      "declaredByCount": 5
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-query",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 118196,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-headless (peerDependencies)",
+        "@deepseek-ai/dsh-session-query-sqlite (peerDependencies)",
+        "@deepseek-ai/dsh-session-reference (peerDependencies)"
+      ],
+      "declaredByCount": 6
+    },
+    {
+      "name": "keyv",
+      "version": "5.6.0",
+      "license": "MIT",
+      "sizeBytes": 117340,
+      "copies": 1,
+      "declaredBy": [
+        "cacheable-request (dependencies)",
+        "got (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-creation-recommendations",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 115899,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-personalized-recommendations (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-renderer",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 115516,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-subagent",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 111486,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "node-fetch",
+      "version": "3.3.2",
+      "license": "MIT",
+      "sizeBytes": 107319,
+      "copies": 1,
+      "declaredBy": [
+        "gaxios (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@smithy/signature-v4",
+      "version": "5.7.5",
+      "license": "Apache-2.0",
+      "sizeBytes": 106908,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/core (dependencies)",
+        "@aws-sdk/middleware-websocket (dependencies)",
+        "@aws-sdk/signature-v4-multi-region (dependencies)",
+        "openai (peerDependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@sindresorhus/is",
+      "version": "7.2.0",
+      "license": "MIT",
+      "sizeBytes": 106135,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-web",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 105407,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-api-speech-to-text",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 105345,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-voice-input-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-title",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 102589,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-session-query (peerDependencies)"
+      ],
+      "declaredByCount": 8
+    },
+    {
+      "name": "@deepseek-ai/dsh-attachment-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 102104,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-open-in-app",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 101934,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-product-analytics",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 101313,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "ts-algebra",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sizeBytes": 101154,
+      "copies": 1,
+      "declaredBy": [
+        "json-schema-to-ts (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-agent-preset",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 101096,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-subagent",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 98225,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-permission-presets",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 97118,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-subagent",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 96473,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-mcp-client",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 95664,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-acp (peerDependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "picomatch",
+      "version": "4.0.7",
+      "license": "MIT",
+      "sizeBytes": 93759,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-hmr (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "tslib",
+      "version": "2.9.1",
+      "license": "0BSD",
+      "sizeBytes": 92088,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/core (dependencies)",
+        "@aws-sdk/credential-provider-env (dependencies)",
+        "@aws-sdk/credential-provider-http (dependencies)"
+      ],
+      "declaredByCount": 28
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-sidebar",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 90723,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-message-feedback",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 90393,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-query-sqlite",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 89015,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-experimental-session-search (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-sidebar-files",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 88805,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-session-query",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 86525,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-session-search (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-plan-mode",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 82567,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-workflow",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 81710,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-layout",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 81023,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-bash",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 80868,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-skill",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 80618,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-file-drag",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 80503,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-pwsh",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 80411,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@smithy/credential-provider-imds",
+      "version": "4.5.2",
+      "license": "Apache-2.0",
+      "sizeBytes": 80309,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)",
+        "@aws-sdk/credential-provider-node (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-credentials-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 80295,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-terminal-bash",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 80115,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-experimental-terminal-bundle (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "cacheable-request",
+      "version": "13.0.19",
+      "license": "MIT",
+      "sizeBytes": 79349,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/token-providers",
+      "version": "3.1161.0, 3.1127.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 77854,
+      "copies": 2,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/credential-provider-sso (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-plan",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 77133,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-jobs-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 77092,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-jobs",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 76838,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "http2-wrapper",
+      "version": "2.2.2",
+      "license": "MIT",
+      "sizeBytes": 76615,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "unicode-properties",
+      "version": "1.4.1",
+      "license": "MIT",
+      "sizeBytes": 76299,
+      "copies": 1,
+      "declaredBy": [
+        "fontkit (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-speech-to-text-sensevoice",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 75230,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-voice-input-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-directory-picker-browse",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 75182,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-directory-picker-auto (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-web-search",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 74785,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-settings",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 73979,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-agent-preset-registry (peerDependencies)",
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-api-settings-controller (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 6
+    },
+    {
+      "name": "@img/colour",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sizeBytes": 73264,
+      "copies": 1,
+      "declaredBy": [
+        "sharp (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-forge-session",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 73259,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-forge-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-sandbox",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 71990,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-bash-sandbox (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-worktree (peerDependencies)",
+        "@deepseek-ai/dsh-fs (peerDependencies)",
+        "@deepseek-ai/dsh-fs-sandbox (peerDependencies)"
+      ],
+      "declaredByCount": 20
+    },
+    {
+      "name": "@deepseek-ai/dsh-web-search-deepseek",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 70995,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-liveshare-protocol",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 70531,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-liveshare (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-authorization",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 69995,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-deepseek-account-platform (peerDependencies)",
+        "@deepseek-ai/dsh-llm-pi-ai (peerDependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-win32-process",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 67981,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-sandbox-windows-acl (dependencies)",
+        "@deepseek-ai/dsh-subprocess-local (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-jobs",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 67677,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-jobs",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 66806,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-jobs-local (peerDependencies)",
+        "@deepseek-ai/dsh-tool-bash (peerDependencies)",
+        "@deepseek-ai/dsh-tool-jobs (peerDependencies)",
+        "@deepseek-ai/dsh-tool-pwsh (peerDependencies)"
+      ],
+      "declaredByCount": 6
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-creation-recommendations",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 66632,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-creation-recommendations (dependencies)",
+        "@deepseek-ai/dsh-personalized-recommendations (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-storage-domain",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 66368,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-workspace-controller (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-cua (dependencies)",
+        "@deepseek-ai/dsh-experimental-client-ui-forge (dependencies)"
+      ],
+      "declaredByCount": 7
+    },
+    {
+      "name": "@deepseek-ai/dsh-skill",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 65843,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-creation-recommendations (peerDependencies)"
+      ],
+      "declaredByCount": 10
+    },
+    {
+      "name": "@deepseek-ai/dsh-storage-json",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 64679,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-goal",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 64521,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "ipaddr.js",
+      "version": "2.5.0",
+      "license": "MIT",
+      "sizeBytes": 64424,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-webserver (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-secret-mask",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 64352,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-file-reference-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 64310,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-sdk-app (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-plugin-detail",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 64075,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-plugin-manager (dependencies)",
+        "@deepseek-ai/dsh-plugin-market (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-sandbox-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 64032,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-session",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 63938,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-workflow-run",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 63653,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-skill-filesystem",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 63642,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "google-logging-utils",
+      "version": "1.1.3",
+      "license": "Apache-2.0",
+      "sizeBytes": 63510,
+      "copies": 1,
+      "declaredBy": [
+        "gcp-metadata (dependencies)",
+        "google-auth-library (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-projection-cache",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 63198,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-session-query (peerDependencies)",
+        "@deepseek-ai/dsh-session-reference (peerDependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-action-cards",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 62166,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-creation-recommendations (dependencies)",
+        "@deepseek-ai/dsh-personalized-recommendations (dependencies)",
+        "@deepseek-ai/dsh-plugin-recommendations (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-plugin-recommendations",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 61745,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-personalized-recommendations (dependencies)",
+        "@deepseek-ai/dsh-plugin-recommendations (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-client-ui-agent-team",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 61397,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-agent-team-profile (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-command-feedback",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 61273,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-message-feedback (peerDependencies)",
+        "@deepseek-ai/dsh-session-telemetry-otel (peerDependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "sherpa-onnx-node",
+      "version": "1.13.8",
+      "license": "Apache-2.0",
+      "sizeBytes": 61221,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-speech-to-text-sensevoice (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "https-proxy-agent",
+      "version": "9.1.0, 7.0.6",
+      "license": "MIT",
+      "sizeBytes": 61128,
+      "copies": 2,
+      "declaredBy": [
+        "@earendil-works/pi-ai (dependencies)",
+        "gaxios (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-user-approval",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 60662,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-acp (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-headless (peerDependencies)",
+        "@deepseek-ai/dsh-permission-presets (peerDependencies)"
+      ],
+      "declaredByCount": 12
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-forge-github",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 60617,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-forge-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-skill",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 60126,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "form-data-encoder",
+      "version": "4.1.0",
+      "license": "MIT",
+      "sizeBytes": 59380,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "xmlchars",
+      "version": "2.2.0",
+      "license": "MIT",
+      "sizeBytes": 58957,
+      "copies": 1,
+      "declaredBy": [
+        "saxes (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/middleware-websocket",
+      "version": "3.972.62",
+      "license": "Apache-2.0",
+      "sizeBytes": 58395,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-host-directory-picker-native",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 57748,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-directory-picker-auto (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-web-deepseek-api",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 57091,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "gcp-metadata",
+      "version": "8.1.2",
+      "license": "Apache-2.0",
+      "sizeBytes": 56762,
+      "copies": 1,
+      "declaredBy": [
+        "google-auth-library (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-spill-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 56184,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-pwsh-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 54612,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-pwsh-sandbox (peerDependencies)",
+        "@deepseek-ai/dsh-terminal-bash (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-spill-policy",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 54414,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/types",
+      "version": "3.975.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 53965,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/core (dependencies)",
+        "@aws-sdk/credential-provider-env (dependencies)",
+        "@aws-sdk/credential-provider-http (dependencies)"
+      ],
+      "declaredByCount": 17
+    },
+    {
+      "name": "acorn-walk",
+      "version": "8.3.5",
+      "license": "MIT",
+      "sizeBytes": 53765,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-ptc-runtime-node (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/credential-provider-ini",
+      "version": "3.973.25",
+      "license": "Apache-2.0",
+      "sizeBytes": 53400,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-node (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-terminal",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 52973,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-terminal-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "negotiator",
+      "version": "0.6.4, 1.1.0",
+      "license": "MIT",
+      "sizeBytes": 52963,
+      "copies": 2,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-webserver (dependencies)",
+        "compression (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-reference",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 52887,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-worktree",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 52163,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-client-ui-forge (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-forge-bundle (dependencies)",
+        "@deepseek-ai/dsh-experimental-tool-worktree (dependencies)",
+        "@deepseek-ai/dsh-experimental-tool-worktree (peerDependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-pwsh-persistent",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 52008,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-terminal",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 50649,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-experimental-terminal-bundle (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-terminal-bash (peerDependencies)"
+      ],
+      "declaredByCount": 8
+    },
+    {
+      "name": "http-cache-semantics",
+      "version": "4.3.0",
+      "license": "BSD-2-Clause",
+      "sizeBytes": 50444,
+      "copies": 1,
+      "declaredBy": [
+        "cacheable-request (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@smithy/fetch-http-handler",
+      "version": "5.8.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 50303,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "@aws-sdk/credential-provider-http (dependencies)",
+        "@aws-sdk/middleware-websocket (dependencies)",
+        "@aws-sdk/nested-clients (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-ralph",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 49337,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-ralph-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-todo",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 49144,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-session-query (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "unicode-trie",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sizeBytes": 48887,
+      "copies": 1,
+      "declaredBy": [
+        "fontkit (dependencies)",
+        "unicode-properties (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@babel/helper-validator-identifier",
+      "version": "7.29.7",
+      "license": "MIT",
+      "sizeBytes": 48813,
+      "copies": 1,
+      "declaredBy": [
+        "@babel/code-frame (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-goal",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 48762,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-skill-office",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 48339,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-sdk-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-web-fetch-http",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 48094,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-ptc-runtime",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 47343,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-ptc-runtime-node (peerDependencies)",
+        "@deepseek-ai/dsh-tool-executor-ptc (peerDependencies)",
+        "@deepseek-ai/dsh-workflow-ptc (peerDependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-tool-agent-team",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 47166,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-agent-team-profile (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-telemetry",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 46988,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-session-telemetry-otel (peerDependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-bash-persistent",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 46774,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-shell",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 46585,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-bash-local (peerDependencies)",
+        "@deepseek-ai/dsh-bash-sandbox (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-forge-session (peerDependencies)",
+        "@deepseek-ai/dsh-permission-presets (peerDependencies)"
+      ],
+      "declaredByCount": 10
+    },
+    {
+      "name": "@stablelib/base64",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sizeBytes": 46052,
+      "copies": 1,
+      "declaredBy": [
+        "standardwebhooks (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-llm-retry",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 45828,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)",
+        "@deepseek-ai/dsh-token-meter (peerDependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-stats",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 45473,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "agent-base",
+      "version": "7.1.4, 9.0.0",
+      "license": "MIT",
+      "sizeBytes": 44971,
+      "copies": 2,
+      "declaredBy": [
+        "http-proxy-agent (dependencies)",
+        "https-proxy-agent (dependencies)",
+        "https-proxy-agent (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-workflow",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 44930,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-tool-ralph (peerDependencies)",
+        "@deepseek-ai/dsh-tool-workflow (peerDependencies)",
+        "@deepseek-ai/dsh-workflow-ptc (peerDependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-sandbox-policy",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 44708,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-bash-sandbox (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-forge-session (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-worktree (peerDependencies)"
+      ],
+      "declaredByCount": 19
+    },
+    {
+      "name": "@deepseek-ai/dsh-bash-local",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 43902,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-bash-sandbox (peerDependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-output-retention",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 43776,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-session-reference (peerDependencies)",
+        "@deepseek-ai/dsh-spill-policy (peerDependencies)",
+        "@deepseek-ai/dsh-tool-bash-persistent (peerDependencies)",
+        "@deepseek-ai/dsh-tool-fs-search (peerDependencies)"
+      ],
+      "declaredByCount": 9
+    },
+    {
+      "name": "@deepseek-ai/dsh-typert-loader",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 43587,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-schedule",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 43196,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-sdk-app (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "tiny-inflate",
+      "version": "1.0.3",
+      "license": "MIT",
+      "sizeBytes": 43000,
+      "copies": 1,
+      "declaredBy": [
+        "fontkit (dependencies)",
+        "unicode-trie (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-time-context",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 42671,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-sdk-app (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@protobufjs/utf8",
+      "version": "1.1.2",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 42558,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-pwsh-sandbox",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 42154,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-hmr",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 42015,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/xml-builder",
+      "version": "3.972.42",
+      "license": "Apache-2.0",
+      "sizeBytes": 41741,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/core (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-str-replace-editor",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 41048,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/credential-provider-node",
+      "version": "3.972.92",
+      "license": "Apache-2.0",
+      "sizeBytes": 40839,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)",
+        "openai (peerDependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-bash-sandbox",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 40825,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-approval",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 40804,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-telemetry-otel",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 40573,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-storage",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 40454,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-storage-domain (peerDependencies)",
+        "@deepseek-ai/dsh-storage-json (peerDependencies)",
+        "@deepseek-ai/dsh-workspace (peerDependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-experimental-speech-to-text",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 40287,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-api-speech-to-text (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-speech-to-text-sensevoice (peerDependencies)",
+        "@deepseek-ai/dsh-experimental-voice-input-bundle (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-otel",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 40220,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-host-product-telemetry-otel (peerDependencies)",
+        "@deepseek-ai/dsh-session-telemetry-otel (peerDependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-turn-outline",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 40038,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-llm-deepseek-account",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 39692,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-goal-round-driver",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 39592,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-workspace-dependencies",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 39113,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-sdk-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@aws-sdk/signature-v4-multi-region",
+      "version": "3.996.51",
+      "license": "Apache-2.0",
+      "sizeBytes": 38617,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/nested-clients (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-deepseek-account",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 38118,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-account-controller (peerDependencies)",
+        "@deepseek-ai/dsh-deepseek-account-platform (peerDependencies)",
+        "@deepseek-ai/dsh-llm-deepseek-account (peerDependencies)",
+        "@deepseek-ai/dsh-web-deepseek-api (peerDependencies)"
+      ],
+      "declaredByCount": 5
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-subagent-control",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 37998,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@aws-sdk/credential-provider-sso",
+      "version": "3.973.24",
+      "license": "Apache-2.0",
+      "sizeBytes": 37700,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)",
+        "@aws-sdk/credential-provider-node (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "json-bigint",
+      "version": "1.0.0",
+      "license": "MIT",
+      "sizeBytes": 37345,
+      "copies": 1,
+      "declaredBy": [
+        "gcp-metadata (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-compaction-tool-result-pruner",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 37297,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-compaction-basic (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-title-llm",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 37204,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-session-title-all-prompts-llm (peerDependencies)",
+        "@deepseek-ai/dsh-session-title-first-prompt-llm (peerDependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-host-directory-picker-auto",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 36386,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-shell",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 35862,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@babel/code-frame",
+      "version": "7.29.7",
+      "license": "MIT",
+      "sizeBytes": 34632,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-hmr (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/credential-provider-login",
+      "version": "3.972.87",
+      "license": "Apache-2.0",
+      "sizeBytes": 34173,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-host-directory-picker-browse",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 34060,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-directory-picker-auto (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-agent-loop",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 32586,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-harness-dev-context",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 32557,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-entry-customization",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 32375,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-skill-badge",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 32240,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-badge-skill-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "safe-buffer",
+      "version": "5.2.1",
+      "license": "MIT",
+      "sizeBytes": 32101,
+      "copies": 1,
+      "declaredBy": [
+        "compression (dependencies)",
+        "ecdsa-sig-formatter (dependencies)",
+        "jwa (dependencies)",
+        "jws (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-mcp-resources",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 32096,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-mcp-client (peerDependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-resources",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 31637,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/credential-provider-web-identity",
+      "version": "3.972.86",
+      "license": "Apache-2.0",
+      "sizeBytes": 31256,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)",
+        "@aws-sdk/credential-provider-node (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-call-timeout-policy",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 30835,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-shell-env",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 30826,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-experimental-forge-session (peerDependencies)",
+        "@deepseek-ai/dsh-tool-bash (peerDependencies)",
+        "@deepseek-ai/dsh-tool-pwsh (peerDependencies)"
+      ],
+      "declaredByCount": 5
+    },
+    {
+      "name": "@deepseek-ai/dsh-command-goal",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 30528,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-plugin-market-index",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 30414,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-plugin-market (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-plugins",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 29745,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-fs-observation-policy",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 29745,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws/lambda-invoke-store",
+      "version": "0.3.0",
+      "license": "Apache-2.0",
+      "sizeBytes": 29557,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/core (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-spill",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 29422,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-session-reference (peerDependencies)",
+        "@deepseek-ai/dsh-spill-local (peerDependencies)",
+        "@deepseek-ai/dsh-spill-policy (peerDependencies)",
+        "@deepseek-ai/dsh-tool-fs-search (peerDependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "node-domexception",
+      "version": "1.0.0",
+      "license": "MIT",
+      "sizeBytes": 29162,
+      "copies": 1,
+      "declaredBy": [
+        "fetch-blob (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-title-all-prompts-llm",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 28787,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-session-titles-bundle (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "normalize-url",
+      "version": "8.1.1",
+      "license": "MIT",
+      "sizeBytes": 28554,
+      "copies": 1,
+      "declaredBy": [
+        "cacheable-request (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "hosted-git-info",
+      "version": "9.0.3",
+      "license": "ISC",
+      "sizeBytes": 28422,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-plugin-manager (dependencies)",
+        "@deepseek-ai/dsh-plugin-market (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-present",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 28131,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-app (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "@deepseek-ai/dsh-command-compact",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 27874,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@aws-sdk/eventstream-handler-node",
+      "version": "3.972.40",
+      "license": "Apache-2.0",
+      "sizeBytes": 27669,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-host-directory-picker",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 27560,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-workspace-controller (peerDependencies)",
+        "@deepseek-ai/dsh-host-directory-picker-browse (dependencies)",
+        "@deepseek-ai/dsh-host-directory-picker-native (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-subagent-fork-in-process",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 27558,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "fast-sha256",
+      "version": "1.3.0",
+      "license": "Unlicense",
+      "sizeBytes": 27246,
+      "copies": 1,
+      "declaredBy": [
+        "standardwebhooks (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "depd",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sizeBytes": 27117,
+      "copies": 1,
+      "declaredBy": [
+        "http-errors (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@protobufjs/float",
+      "version": "1.0.2",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 26968,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-session-title-first-prompt-llm",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 26481,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "detect-libc",
+      "version": "2.1.2",
+      "license": "Apache-2.0",
+      "sizeBytes": 26437,
+      "copies": 1,
+      "declaredBy": [
+        "sharp (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "shell-quote",
+      "version": "1.12.0",
+      "license": "MIT",
+      "sizeBytes": 26348,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-forge-session (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-file-reference",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 26093,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-file-reference-local (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-util-workspace-path",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 25863,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "birpc",
+      "version": "4.2.0",
+      "license": "MIT",
+      "sizeBytes": 25405,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-ptc-runtime-node (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "cacheable-lookup",
+      "version": "7.0.0",
+      "license": "MIT",
+      "sizeBytes": 25193,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@aws-sdk/credential-provider-http",
+      "version": "3.972.82",
+      "license": "Apache-2.0",
+      "sizeBytes": 24815,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)",
+        "@aws-sdk/credential-provider-node (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-subagent-spawn-in-process",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 24705,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-settings-session-log",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 24560,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-message-quotes",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 24316,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)",
+        "@deepseek-ai/dsh-web-frontend (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@aws-sdk/credential-provider-process",
+      "version": "3.972.80",
+      "license": "Apache-2.0",
+      "sizeBytes": 23594,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)",
+        "@aws-sdk/credential-provider-node (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-host-product-telemetry-otel",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 23408,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "mime-types",
+      "version": "3.0.2",
+      "license": "MIT",
+      "sizeBytes": 22871,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (dependencies)",
+        "send (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@aws-sdk/middleware-eventstream",
+      "version": "3.972.36",
+      "license": "Apache-2.0",
+      "sizeBytes": 22720,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/client-bedrock-runtime (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@standard-schema/spec",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sizeBytes": 22634,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/cordis (dependencies)",
+        "@deepseek-ai/schemastery (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-directory-picker-native",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 22088,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-host-directory-picker-auto (peerDependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "fetch-blob",
+      "version": "3.2.0",
+      "license": "MIT",
+      "sizeBytes": 21755,
+      "copies": 1,
+      "declaredBy": [
+        "formdata-polyfill (dependencies)",
+        "node-fetch (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-agent-tool-presentation",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 21388,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "ecdsa-sig-formatter",
+      "version": "1.0.11",
+      "license": "Apache-2.0",
+      "sizeBytes": 20588,
+      "copies": 1,
+      "declaredBy": [
+        "google-auth-library (dependencies)",
+        "jwa (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-config-editor",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 20345,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-agent-default-model (dependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-settings (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@deepseek-ai/dsh-agent-default-model",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 20164,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-session-controller (peerDependencies)",
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-headless (peerDependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@aws-sdk/credential-provider-env",
+      "version": "3.972.80",
+      "license": "Apache-2.0",
+      "sizeBytes": 19452,
+      "copies": 1,
+      "declaredBy": [
+        "@aws-sdk/credential-provider-ini (dependencies)",
+        "@aws-sdk/credential-provider-node (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@joplin/turndown-plugin-gfm",
+      "version": "1.0.68",
+      "license": "MIT",
+      "sizeBytes": 19393,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-tool-web (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-util-code-language",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 19080,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-tool-fs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "http-errors",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sizeBytes": 19064,
+      "copies": 1,
+      "declaredBy": [
+        "send (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "jws",
+      "version": "4.0.1",
+      "license": "MIT",
+      "sizeBytes": 18822,
+      "copies": 1,
+      "declaredBy": [
+        "google-auth-library (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-package-manifest",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 18521,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-app-boot (dependencies)",
+        "@deepseek-ai/dsh-official-bundles (dependencies)",
+        "@deepseek-ai/dsh-plugin-market (dependencies)",
+        "@deepseek-ai/dsh-plugin-market-index (dependencies)"
+      ],
+      "declaredByCount": 4
+    },
+    {
+      "name": "pkce-challenge",
+      "version": "5.0.1",
+      "license": "MIT",
+      "sizeBytes": 18211,
+      "copies": 1,
+      "declaredBy": [
+        "@modelcontextprotocol/client (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-client-ui-brand-official",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 17375,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-computer-use",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 16689,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-cua (dependencies)",
+        "@deepseek-ai/dsh-cua-bundle (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "@deepseek-ai/dsh-deliverable-file-references",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 16669,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-sdk-app (dependencies)",
+        "@deepseek-ai/dsh-web-app (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "wsl-utils",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sizeBytes": 16577,
+      "copies": 1,
+      "declaredBy": [
+        "open (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "cross-spawn",
+      "version": "7.0.6",
+      "license": "MIT",
+      "sizeBytes": 16094,
+      "copies": 1,
+      "declaredBy": [
+        "@modelcontextprotocol/client (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "js-tokens",
+      "version": "4.0.0",
+      "license": "MIT",
+      "sizeBytes": 15069,
+      "copies": 1,
+      "declaredBy": [
+        "@babel/code-frame (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@protobufjs/fetch",
+      "version": "1.1.1",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 14872,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "powershell-utils",
+      "version": "0.2.1",
+      "license": "MIT",
+      "sizeBytes": 14435,
+      "copies": 1,
+      "declaredBy": [
+        "open (dependencies)",
+        "wsl-utils (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "serve-static",
+      "version": "2.2.1",
+      "license": "MIT",
+      "sizeBytes": 14335,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-experimental-inspector (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-deque",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 14275,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-gateway (dependencies)",
+        "@deepseek-ai/dsh-api-remotes (dependencies)",
+        "@deepseek-ai/dsh-api-session-controller (dependencies)",
+        "@deepseek-ai/dsh-api-terminal-controller (dependencies)"
+      ],
+      "declaredByCount": 6
+    },
+    {
+      "name": "jwa",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sizeBytes": 14052,
+      "copies": 1,
+      "declaredBy": [
+        "jws (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-chunked-list",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 13724,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-subagent (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "p-cancelable",
+      "version": "4.0.1",
+      "license": "MIT",
+      "sizeBytes": 13624,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-tool-working-directory",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 13481,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-base (dependencies)",
+        "@deepseek-ai/dsh-sdk-minimal (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "standardwebhooks",
+      "version": "1.1.1",
+      "license": "MIT",
+      "sizeBytes": 13402,
+      "copies": 1,
+      "declaredBy": [
+        "@anthropic-ai/sdk (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "statuses",
+      "version": "2.0.2",
+      "license": "MIT",
+      "sizeBytes": 12505,
+      "copies": 1,
+      "declaredBy": [
+        "http-errors (dependencies)",
+        "send (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "mimic-response",
+      "version": "4.0.0",
+      "license": "MIT",
+      "sizeBytes": 12402,
+      "copies": 2,
+      "declaredBy": [
+        "cacheable-request (dependencies)",
+        "decompress-response (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "on-finished",
+      "version": "2.4.2",
+      "license": "MIT",
+      "sizeBytes": 12172,
+      "copies": 1,
+      "declaredBy": [
+        "send (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@types/http-cache-semantics",
+      "version": "4.2.0",
+      "license": "MIT",
+      "sizeBytes": 12149,
+      "copies": 1,
+      "declaredBy": [
+        "cacheable-request (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "p-retry",
+      "version": "4.6.2",
+      "license": "MIT",
+      "sizeBytes": 11032,
+      "copies": 1,
+      "declaredBy": [
+        "@google/genai (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "isexe",
+      "version": "2.0.0",
+      "license": "ISC",
+      "sizeBytes": 10956,
+      "copies": 1,
+      "declaredBy": [
+        "which (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@protobufjs/eventemitter",
+      "version": "1.1.1",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 10310,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "parseurl",
+      "version": "1.3.3",
+      "license": "MIT",
+      "sizeBytes": 10299,
+      "copies": 1,
+      "declaredBy": [
+        "serve-static (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@deepseek-ai/dsh-lazy-require",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "sizeBytes": 10179,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-api-terminal-controller (dependencies)",
+        "@deepseek-ai/dsh-attachment-local (dependencies)",
+        "@deepseek-ai/dsh-sandbox-windows-acl (dependencies)",
+        "@deepseek-ai/dsh-subprocess-local (dependencies)"
+      ],
+      "declaredByCount": 6
+    },
+    {
+      "name": "data-uri-to-buffer",
+      "version": "4.0.1",
+      "license": "MIT",
+      "sizeBytes": 10049,
+      "copies": 1,
+      "declaredBy": [
+        "node-fetch (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@protobufjs/codegen",
+      "version": "2.0.5",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 9749,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "base64-js",
+      "version": "1.5.1",
+      "license": "MIT",
+      "sizeBytes": 9624,
+      "copies": 1,
+      "declaredBy": [
+        "brotli (dependencies)",
+        "google-auth-library (dependencies)",
+        "unicode-properties (dependencies)"
+      ],
+      "declaredByCount": 3
+    },
+    {
+      "name": "@protobufjs/base64",
+      "version": "1.1.2",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 9224,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@protobufjs/aspromise",
+      "version": "1.1.2",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 9055,
+      "copies": 1,
+      "declaredBy": [
+        "@protobufjs/fetch (dependencies)",
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "range-parser",
+      "version": "1.3.0",
+      "license": "MIT",
+      "sizeBytes": 8967,
+      "copies": 1,
+      "declaredBy": [
+        "send (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "on-headers",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sizeBytes": 8850,
+      "copies": 1,
+      "declaredBy": [
+        "compression (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "quick-lru",
+      "version": "5.1.1",
+      "license": "MIT",
+      "sizeBytes": 8645,
+      "copies": 1,
+      "declaredBy": [
+        "http2-wrapper (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "byte-counter",
+      "version": "0.1.0",
+      "license": "MIT",
+      "sizeBytes": 8555,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@keyv/serialize",
+      "version": "1.1.1",
+      "license": "MIT",
+      "sizeBytes": 8107,
+      "copies": 1,
+      "declaredBy": [
+        "keyv (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@protobufjs/path",
+      "version": "1.1.2",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 7770,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@types/retry",
+      "version": "0.12.0",
+      "license": "MIT",
+      "sizeBytes": 7654,
+      "copies": 1,
+      "declaredBy": [
+        "p-retry (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "encodeurl",
+      "version": "2.0.1",
+      "license": "MIT",
+      "sizeBytes": 7582,
+      "copies": 1,
+      "declaredBy": [
+        "send (dependencies)",
+        "serve-static (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "compressible",
+      "version": "2.0.18",
+      "license": "MIT",
+      "sizeBytes": 7355,
+      "copies": 1,
+      "declaredBy": [
+        "compression (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "default-browser",
+      "version": "5.5.1",
+      "license": "MIT",
+      "sizeBytes": 7013,
+      "copies": 1,
+      "declaredBy": [
+        "open (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "picocolors",
+      "version": "1.1.1",
+      "license": "ISC",
+      "sizeBytes": 6373,
+      "copies": 1,
+      "declaredBy": [
+        "@babel/code-frame (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "ee-first",
+      "version": "1.1.1",
+      "license": "MIT",
+      "sizeBytes": 6259,
+      "copies": 1,
+      "declaredBy": [
+        "on-finished (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@protobufjs/pool",
+      "version": "1.1.0",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 6249,
+      "copies": 1,
+      "declaredBy": [
+        "protobufjs (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "responselike",
+      "version": "4.0.2",
+      "license": "MIT",
+      "sizeBytes": 6104,
+      "copies": 1,
+      "declaredBy": [
+        "cacheable-request (dependencies)",
+        "got (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "decompress-response",
+      "version": "10.0.0",
+      "license": "MIT",
+      "sizeBytes": 5965,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "run-applescript",
+      "version": "7.1.0",
+      "license": "MIT",
+      "sizeBytes": 5355,
+      "copies": 1,
+      "declaredBy": [
+        "bundle-name (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "buffer-equal-constant-time",
+      "version": "1.0.1",
+      "license": "BSD-3-Clause",
+      "sizeBytes": 5232,
+      "copies": 1,
+      "declaredBy": [
+        "jwa (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "toidentifier",
+      "version": "1.0.1",
+      "license": "MIT",
+      "sizeBytes": 4685,
+      "copies": 1,
+      "declaredBy": [
+        "http-errors (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "resolve-alpn",
+      "version": "1.2.1",
+      "license": "MIT",
+      "sizeBytes": 4645,
+      "copies": 1,
+      "declaredBy": [
+        "http2-wrapper (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "proxy-agent-negotiate",
+      "version": "1.1.0",
+      "license": "MIT",
+      "sizeBytes": 4509,
+      "copies": 1,
+      "declaredBy": [
+        "http-proxy-agent (dependencies)",
+        "https-proxy-agent (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "define-lazy-prop",
+      "version": "3.0.0",
+      "license": "MIT",
+      "sizeBytes": 4415,
+      "copies": 1,
+      "declaredBy": [
+        "open (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "@vscode/ripgrep",
+      "version": "1.18.0",
+      "license": "MIT",
+      "sizeBytes": 4377,
+      "copies": 1,
+      "declaredBy": [
+        "@deepseek-ai/dsh-tool-fs-search (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "setprototypeof",
+      "version": "1.2.0",
+      "license": "ISC",
+      "sizeBytes": 4025,
+      "copies": 1,
+      "declaredBy": [
+        "http-errors (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "is-wsl",
+      "version": "3.1.1",
+      "license": "MIT",
+      "sizeBytes": 3664,
+      "copies": 1,
+      "declaredBy": [
+        "wsl-utils (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "escape-html",
+      "version": "1.0.3",
+      "license": "MIT",
+      "sizeBytes": 3660,
+      "copies": 1,
+      "declaredBy": [
+        "send (dependencies)",
+        "serve-static (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "is-in-ssh",
+      "version": "1.0.0",
+      "license": "MIT",
+      "sizeBytes": 3632,
+      "copies": 1,
+      "declaredBy": [
+        "open (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "bundle-name",
+      "version": "4.1.1",
+      "license": "MIT",
+      "sizeBytes": 3578,
+      "copies": 1,
+      "declaredBy": [
+        "default-browser (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "is-inside-container",
+      "version": "1.0.0",
+      "license": "MIT",
+      "sizeBytes": 3480,
+      "copies": 1,
+      "declaredBy": [
+        "is-wsl (dependencies)",
+        "open (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "require-from-string",
+      "version": "2.0.2",
+      "license": "MIT",
+      "sizeBytes": 3422,
+      "copies": 1,
+      "declaredBy": [
+        "ajv (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "lowercase-keys",
+      "version": "3.0.0",
+      "license": "MIT",
+      "sizeBytes": 3320,
+      "copies": 1,
+      "declaredBy": [
+        "got (dependencies)",
+        "responselike (dependencies)"
+      ],
+      "declaredByCount": 2
+    },
+    {
+      "name": "default-browser-id",
+      "version": "5.0.1",
+      "license": "MIT",
+      "sizeBytes": 3173,
+      "copies": 1,
+      "declaredBy": [
+        "default-browser (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "is-docker",
+      "version": "3.0.0",
+      "license": "MIT",
+      "sizeBytes": 3154,
+      "copies": 1,
+      "declaredBy": [
+        "is-inside-container (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "shebang-regex",
+      "version": "3.0.0",
+      "license": "MIT",
+      "sizeBytes": 2828,
+      "copies": 1,
+      "declaredBy": [
+        "shebang-command (dependencies)"
+      ],
+      "declaredByCount": 1
+    },
+    {
+      "name": "shebang-command",
+      "version": "2.0.0",
+      "license": "MIT",
+      "sizeBytes": 2556,
+      "copies": 1,
+      "declaredBy": [
+        "cross-spawn (dependencies)"
+      ],
+      "declaredByCount": 1
+    }
+  ]
+}

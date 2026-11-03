@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>网域智防 · 本地控制台</title>
+<link rel="icon" href="assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<!--
+  纯静态控制台：无框架、无构建、无 CDN。
+  数据只来自同源 /api/v1/*（或直连回环 daemon 的同一组路径）。
+  字段白名单与 apps/daemon/src/api/query.js 的 projectAlert / projectAnalysis 对齐；
+  响应里没有的字段一律渲染为「未提供」，不做推测。
+-->
+
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.6 20 6v6.1c0 4.6-3.2 8.1-8 9.3-4.8-1.2-8-4.7-8-9.3V6l8-3.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.4 12.1l2.5 2.5 4.7-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21 19H3l9-15.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 9.5v4.2M12 16.4v.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 16V11M12.5 16V7M17 16v-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12M20 17h0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M20 4.5V8h-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.6 15.6 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24"><path d="M9 3v5M15 3v5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M6.5 8h11v2.2A5.5 5.5 0 0 1 12 15.7a5.5 5.5 0 0 1-5.5-5.5V8Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M12 15.7V21" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 10.6v6M12 7.6v.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+</svg>
+
+<div class="shell" id="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <svg class="brand-mark" aria-hidden="true"><use href="#i-shield"/></svg>
+      <div class="brand-text">
+        <strong>网域智防</strong>
+        <span>AIDriven NetDefense</span>
+      </div>
+    </div>
+
+    <nav class="nav" aria-label="主导航">
+      <a class="nav-item" id="nav-overview" href="#/overview" data-view="overview">
+        <svg class="ic" aria-hidden="true"><use href="#i-grid"/></svg><span>概览</span>
+      </a>
+      <a class="nav-item" id="nav-alerts" href="#/alerts" data-view="alerts">
+        <svg class="ic" aria-hidden="true"><use href="#i-alert"/></svg><span>告警</span>
+      </a>
+      <a class="nav-item" id="nav-analysis" href="#/analysis" data-view="analysis">
+        <svg class="ic" aria-hidden="true"><use href="#i-chart"/></svg><span>分析结果</span>
+      </a>
+      <a class="nav-item" id="nav-settings" href="#/settings" data-view="settings">
+        <svg class="ic" aria-hidden="true"><use href="#i-sliders"/></svg><span>设置</span>
+      </a>
+    </nav>
+
+    <div class="side-foot">
+      <div class="side-row">
+        <span class="dot" id="side-dot" data-tone="idle"></span>
+        <span id="side-lifecycle">未连接</span>
+      </div>
+      <div class="side-meta" id="side-version">版本 —</div>
+      <div class="side-meta" id="side-endpoint">—</div>
+      <div class="side-legal">开发树 0.0.0 · 未发布</div>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1 id="view-title">概览</h1>
+        <p id="view-sub">本地回环只读数据面</p>
+      </div>
+      <div class="topbar-tools">
+        <span class="pill" id="conn-pill" data-tone="idle">
+          <span class="dot" data-tone="idle"></span><span id="conn-text">未连接</span>
+        </span>
+        <label class="toggle-inline" title="每 10 秒重新读取 /api/v1/status">
+          <input type="checkbox" id="auto-refresh" checked>
+          <span>自动刷新</span>
+        </label>
+        <span class="stamp" id="last-fetch" title="最近一次成功读取的时间">—</span>
+        <button class="btn btn-ghost" id="btn-refresh" type="button">
+          <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span>刷新</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="banner" id="file-warning" hidden>
+      <svg class="ic" aria-hidden="true"><use href="#i-info"/></svg>
+      <div>
+        <strong>当前通过 file:// 打开。</strong>
+        浏览器会把 <code>/api/v1/*</code> 解析成本地文件路径，因此读不到 daemon；此页面仍可浏览，但不会产生数据。
+        请改用本地静态服务器：<code>python -m http.server 8788 --directory apps/console</code>，
+        或由同源代理同时提供本页与 <code>/api/v1/*</code>。
+      </div>
+    </div>
+
+    <!-- ───────────────────────── 概览 ───────────────────────── -->
+    <section class="view" id="view-overview" data-view="overview">
+      <div class="statgrid">
+        <article class="card stat">
+          <div class="stat-label">服务状态</div>
+          <div class="stat-value" id="stat-lifecycle">—</div>
+          <div class="stat-sub" id="stat-health">—</div>
+        </article>
+        <article class="card stat">
+          <div class="stat-label">版本</div>
+          <div class="stat-value mono" id="stat-version">—</div>
+          <div class="stat-sub" id="stat-schema">schema —</div>
+        </article>
+        <article class="card stat">
+          <div class="stat-label">启动时长</div>
+          <div class="stat-value mono" id="stat-uptime">—</div>
+          <div class="stat-sub" id="stat-started">—</div>
+        </article>
+        <article class="card stat">
+          <div class="stat-label">告警计数<svg class="ic ic-mini" aria-hidden="true" title="取自 counters.alerts_written：累计写入次数，不是当前告警总数"><use href="#i-info"/></svg></div>
+          <div class="stat-value mono" id="stat-alerts">—</div>
+          <div class="stat-sub" id="stat-alerts-sub">counters.alerts_written 累计</div>
+        </article>
+        <article class="card stat">
+          <div class="stat-label">健康告警项</div>
+          <div class="stat-value mono" id="stat-reasons">—</div>
+          <div class="stat-sub">health.reasons 条数</div>
+        </article>
+        <article class="card stat">
+          <div class="stat-label">采集源</div>
+          <div class="stat-value mono" id="stat-sources">—</div>
+          <div class="stat-sub" id="stat-sources-sub">—</div>
+        </article>
+      </div>
+
+      <div class="split">
+        <article class="card panel">
+          <header class="panel-head">
+            <h2>健康原因</h2>
+            <span class="panel-note" id="health-status-note">—</span>
+          </header>
+          <div class="panel-body" id="ov-reasons"></div>
+        </article>
+
+        <article class="card panel">
+          <header class="panel-head">
+            <h2>进程计数</h2>
+            <span class="panel-note">counters</span>
+          </header>
+          <div class="panel-body panel-tight" id="ov-counters"></div>
+        </article>
+      </div>
+
+      <div class="split">
+        <article class="card panel">
+          <header class="panel-head">
+            <h2>采集源</h2>
+            <span class="panel-note">scheduler.sources</span>
+          </header>
+          <div class="panel-body panel-tight" id="ov-sources"></div>
+        </article>
+
+        <article class="card panel">
+          <header class="panel-head">
+            <h2>运行环境</h2>
+            <span class="panel-note">store / epoch</span>
+          </header>
+          <div class="panel-body panel-tight" id="ov-runtime"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── 告警 ───────────────────────── -->
+    <section class="view" id="view-alerts" data-view="alerts" hidden>
+      <div class="toolbar">
+        <div class="field">
+          <label for="alerts-sev">严重度</label>
+          <select id="alerts-sev">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="alerts-status">状态</label>
+          <select id="alerts-status">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="field field-grow">
+          <label for="alerts-q">本页内搜索</label>
+          <div class="input-wrap">
+            <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="alerts-q" type="search" placeholder="alert_id / rule_id" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="field">
+          <label for="alerts-limit">每页</label>
+          <select id="alerts-limit">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <button class="btn" id="alerts-reload" type="button">
+          <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span>读取</span>
+        </button>
+      </div>
+
+      <p class="hint" id="alerts-filterscope">
+        筛选与搜索只作用于<strong>已加载的当前页</strong>。服务端的查询面是封闭的（只有 <code>limit</code> 与 <code>cursor</code>），
+        带其它参数会返回 <code>400 QUERY_INVALID</code>，因此这里不向上游发送筛选条件。
+      </p>
+
+      <article class="card">
+        <div class="table-state" id="alerts-state" hidden></div>
+        <div class="table-wrap" id="alerts-tablewrap">
+          <table class="table" id="alerts-table">
+            <thead>
+              <tr>
+                <th class="col-time">last_seen (UTC)</th>
+                <th class="col-sev">严重度</th>
+                <th class="col-status">状态</th>
+                <th>规则</th>
+                <th class="col-num">次数</th>
+                <th class="col-num">证据</th>
+                <th class="col-id">alert_id</th>
+              </tr>
+            </thead>
+            <tbody id="alerts-body"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <div class="pager">
+        <button class="btn btn-ghost" id="alerts-prev" type="button" disabled>
+          <svg class="ic" aria-hidden="true"><use href="#i-left"/></svg><span>上一页</span>
+        </button>
+        <span class="pageinfo" id="alerts-pageinfo">—</span>
+        <button class="btn btn-ghost" id="alerts-next" type="button" disabled>
+          <span>下一页</span><svg class="ic" aria-hidden="true"><use href="#i-right"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── 分析结果 ───────────────────────── -->
+    <section class="view" id="view-analysis" data-view="analysis" hidden>
+      <div class="toolbar">
+        <div class="field">
+          <label for="ana-state">状态</label>
+          <select id="ana-state">
+            <option value="">全部</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="ana-report">报告</label>
+          <select id="ana-report">
+            <option value="">全部</option>
+            <option value="true">report_available = true</option>
+            <option value="false">report_available = false</option>
+          </select>
+        </div>
+        <div class="field field-grow">
+          <label for="ana-q">本页内搜索</label>
+          <div class="input-wrap">
+            <svg class="ic" aria-hidden="true"><use href="#i-search"/></svg>
+            <input id="ana-q" type="search" placeholder="analysis_id / alert_id" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+        <div class="field">
+          <label for="ana-limit">每页</label>
+          <select id="ana-limit">
+            <option value="10">10</option>
+            <option value="25">25</option>
+            <option value="50" selected>50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <button class="btn" id="ana-reload" type="button">
+          <svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg><span>读取</span>
+        </button>
+      </div>
+
+      <p class="hint">
+        分析链路当前只到 <code>analysis_outbox</code>，下游未接线；<code>report_available</code> 为 <code>false</code>
+        不代表分析失败，只表示没有报告行。单条详情路由 <code>/api/v1/analysis/{id}</code> 在 v0 不存在，
+        详情只能展示列表里已有的白名单字段。
+      </p>
+
+      <article class="card">
+        <div class="table-state" id="ana-state-box" hidden></div>
+        <div class="table-wrap" id="ana-tablewrap">
+          <table class="table" id="ana-table">
+            <thead>
+              <tr>
+                <th class="col-time">created_at (UTC)</th>
+                <th class="col-status">state</th>
+                <th class="col-budget">budget_class</th>
+                <th class="col-num">attempts</th>
+                <th class="col-time">completed_at (UTC)</th>
+                <th class="col-flag">report</th>
+                <th class="col-id">analysis_id</th>
+              </tr>
+            </thead>
+            <tbody id="ana-body"></tbody>
+          </table>
+        </div>
+      </article>
+
+      <div class="pager">
+        <button class="btn btn-ghost" id="ana-prev" type="button" disabled>
+          <svg class="ic" aria-hidden="true"><use href="#i-left"/></svg><span>上一页</span>
+        </button>
+        <span class="pageinfo" id="ana-pageinfo">—</span>
+        <button class="btn btn-ghost" id="ana-next" type="button" disabled>
+          <span>下一页</span><svg class="ic" aria-hidden="true"><use href="#i-right"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ───────────────────────── 设置 ───────────────────────── -->
+    <section class="view" id="view-settings" data-view="settings" hidden>
+
+      <article class="card panel">
+        <header class="panel-head">
+          <h2>界面</h2>
+          <span class="panel-note">本机偏好 · 不入库</span>
+        </header>
+        <div class="panel-body">
+          <div class="form-row">
+            <div class="form-label">
+              <span>界面模式</span>
+              <small>控制台以哪种窗口形态打开</small>
+            </div>
+            <div class="form-control radio-group" role="radiogroup" aria-label="界面模式">
+              <label class="radio"><input type="radio" name="ui-mode" id="set-mode-embedded" value="embedded" checked><span>内嵌</span></label>
+              <label class="radio"><input type="radio" name="ui-mode" id="set-mode-browser" value="browser"><span>浏览器</span></label>
+            </div>
+          </div>
+          <p class="warn-note">
+            未接线：0.0.1 没有桌面壳程序，<code>apps/desktop/</code> 不存在，因此该选项<b>只保存本机偏好</b>，
+            不会改变任何程序的启动方式。
+          </p>
+
+          <div class="form-row">
+            <div class="form-label">
+              <span>开机自启</span>
+              <small>daemon 随系统启动</small>
+            </div>
+            <div class="form-control">
+              <label class="switch">
+                <input type="checkbox" id="set-autostart" role="switch">
+                <span class="switch-track"><span class="switch-thumb"></span></span>
+                <span class="switch-text" id="set-autostart-text">关闭</span>
+              </label>
+            </div>
+          </div>
+          <p class="warn-note">
+            未接线：<code>deploy/windows/</code> 与 <code>deploy/systemd/</code> 是空目录，没有服务单元、注册表项或计划任务，
+            daemon 也没有任何自启相关接口。打开它只会记录一个本机标记，<b>不会真的开机启动</b>。
+          </p>
+        </div>
+      </article>
+
+      <article class="card panel">
+        <header class="panel-head">
+          <h2>连接</h2>
+          <span class="panel-note">只读数据面</span>
+        </header>
+        <div class="panel-body">
+          <div class="form-row">
+            <div class="form-label">
+              <span>数据来源</span>
+              <small>决定 <code>/api/v1/*</code> 打到哪里</small>
+            </div>
+            <div class="form-control radio-group" role="radiogroup" aria-label="数据来源">
+              <label class="radio"><input type="radio" name="conn-mode" id="set-conn-proxy" value="proxy" checked><span>同源代理</span></label>
+              <label class="radio"><input type="radio" name="conn-mode" id="set-conn-direct" value="direct"><span>直连 daemon</span></label>
+            </div>
+          </div>
+          <p class="hint hint-tight">
+            同源代理：本页与 <code>/api/v1/*</code> 由同一个本地服务提供，token 由代理注入，前端不持有任何凭据。
+            直连：直接请求 <code>http://127.0.0.1:端口</code>，必须自带 Bearer token。
+          </p>
+
+          <div class="form-row">
+            <div class="form-label">
+              <span>daemon 地址</span>
+              <small>仅直连模式使用</small>
+            </div>
+            <div class="form-control">
+              <input id="set-base" type="text" class="mono" spellcheck="false" placeholder="http://127.0.0.1:8787">
+            </div>
+          </div>
+          <p class="warn-note">
+            只接受 <code>http://127.0.0.1:端口</code> 或 <code>http://[::1]:端口</code>。daemon 只监听回环，
+            且响应不带 <code>Access-Control-Allow-Origin</code>，所以跨端口的直连在浏览器里通常会被拦下；
+            这一步的失败信息会在下方自检里如实显示。
+          </p>
+
+          <div class="form-row">
+            <div class="form-label">
+              <span>Bearer token</span>
+              <small>仅直连模式；不写 URL、不写 localStorage</small>
+            </div>
+            <div class="form-control form-control-inline">
+              <input id="set-token" type="password" class="mono" spellcheck="false" autocomplete="off" placeholder="base64url，32..512 字符">
+              <button class="btn btn-ghost" id="set-token-clear" type="button">清除</button>
+            </div>
+          </div>
+          <p class="hint hint-tight">
+            token 只保存在本标签页的 <code>sessionStorage</code>（关闭标签即失效），并以 <code>Authorization: Bearer</code> 头发送。
+            CSRF 证明 <code>x-aegis-csrf</code> 只在内存中、只随状态变更请求发出，来自 <code>/api/v1/status</code> 的 <code>csrf_token</code>。
+          </p>
+
+          <div class="form-row">
+            <div class="form-label">
+              <span>端口</span>
+              <small>status 响应不含 api.port</small>
+            </div>
+            <div class="form-control form-control-inline">
+              <span class="readonly mono" id="set-port">—</span>
+              <span class="dim" id="set-port-note">—</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card panel">
+        <header class="panel-head">
+          <h2>自检</h2>
+          <span class="panel-note">真实请求结果</span>
+        </header>
+        <div class="panel-body">
+          <div class="form-row">
+            <div class="form-label">
+              <span>连通性</span>
+              <small>依次请求 status / alerts / analysis</small>
+            </div>
+            <div class="form-control form-control-inline">
+              <button class="btn" id="set-test" type="button">
+                <svg class="ic" aria-hidden="true"><use href="#i-plug"/></svg><span>运行自检</span>
+              </button>
+              <button class="btn btn-ghost" id="set-reset" type="button">重置本机偏好</button>
+            </div>
+          </div>
+          <pre class="diag mono" id="set-diag">尚未运行。</pre>
+        </div>
+      </article>
+
+      <article class="card panel">
+        <header class="panel-head">
+          <h2>版本与边界</h2>
+          <span class="panel-note">不要当成发布承诺</span>
+        </header>
+        <div class="panel-body panel-tight" id="set-about"></div>
+      </article>
+    </section>
+
+  </main>
+</div>
+
+<div class="backdrop" id="drawer-backdrop" hidden></div>
+<aside class="drawer" id="drawer" hidden aria-hidden="true" aria-labelledby="drawer-title">
+  <header class="drawer-head">
+    <h2 id="drawer-title">详情</h2>
+    <button class="icon-btn" id="drawer-close" type="button" aria-label="关闭">
+      <svg class="ic" aria-hidden="true"><use href="#i-close"/></svg>
+    </button>
+  </header>
+  <div class="drawer-body" id="drawer-body"></div>
+</aside>
+
+<script src="app.js" defer></script>
+</body>
+</html>

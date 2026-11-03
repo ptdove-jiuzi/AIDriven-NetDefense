@@ -1,0 +1,11 @@
+# Diagnostic-only overlay proving an unapproved overlay is rejected.
+# This file is deliberately unapproved and must never pass production preflight.
+# It mounts an installed-but-unapproved high-risk package
+# (@deepseek-ai/dsh-llm-retry, matched by profile.forbiddenImplementationPatterns),
+# so four-layer validation must report "unapproved plugin", "overlay is not
+# approved" and "high-risk implementation", and the id must never appear in the
+# approved plugin id/package maps. cordis loads whatever an overlay inserts;
+# approval is enforced by validation, not by the loader.
+- insert:
+    - id: probe-unapproved-llm-retry
+      name: '@deepseek-ai/dsh-llm-retry'

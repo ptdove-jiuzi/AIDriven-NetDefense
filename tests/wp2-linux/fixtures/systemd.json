@@ -1,0 +1,56 @@
+{
+  "nowMs": 1700000000000,
+  "files": {
+    "/etc/systemd/system/sshd.service": {
+      "content": "[Unit]\nDescription=OpenBSD Secure Shell server\nAfter=network.target auditd.service\n\n[Service]\nExecStart=/usr/sbin/sshd -D $SSHD_OPTS\nUser=root\nRestart=on-failure\n",
+      "mtimeMs": 1700000100000,
+      "ino": 501,
+      "mode": 420
+    },
+    "/etc/systemd/system/evil.timer": {
+      "content": "[Unit]\nDescription=Housekeeping\n\n[Timer]\nOnCalendar=*:0/5\n\n[Install]\nWantedBy=timers.target\n",
+      "mtimeMs": 1700000200000,
+      "ino": 502,
+      "mode": 420
+    },
+    "/usr/lib/systemd/system/apt-daily.service": {
+      "content": "[Unit]\nDescription=Daily apt download activities\n\n[Service]\nExecStart=/usr/lib/apt/apt.systemd.daily\n",
+      "mtimeMs": 1699000000000,
+      "ino": 503,
+      "mode": 420
+    },
+    "/etc/systemd/system/denied.service": {
+      "content": "[Unit]\nDescription=cannot read me\n",
+      "ino": 504,
+      "mode": 384
+    }
+  },
+  "symlinks": {
+    "/etc/systemd/system/blocked.service": "/dev/null",
+    "/etc/systemd/system/multi-user.target.wants/sshd.service": "/usr/lib/systemd/system/sshd.service",
+    "/etc/systemd/system/timers.target.wants/evil.timer": "/etc/systemd/system/evil.timer"
+  },
+  "directories": {
+    "/etc/systemd/system": {
+      "entries": [
+        "sshd.service",
+        "evil.timer",
+        "blocked.service",
+        "denied.service",
+        "multi-user.target.wants",
+        "timers.target.wants"
+      ]
+    },
+    "/usr/lib/systemd/system": {
+      "entries": [
+        "apt-daily.service"
+      ]
+    }
+  },
+  "denied": [
+    "/etc/systemd/system/denied.service"
+  ],
+  "missing": [
+    "/run/systemd/system"
+  ]
+}

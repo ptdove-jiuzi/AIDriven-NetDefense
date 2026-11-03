@@ -1,0 +1,41 @@
+{
+  "nowMs": 1700000000000,
+  "files": {
+    "/proc/net/tcp": {
+      "content": "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n   0: 0100007F:1F90 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1000        0 123456 1 0000000000000000 100 0 0 10 0\n   1: 0100007F:C1A4 5DB8D822:01BB 01 0000000A:00000000 00:00000000 00000000  1000        0 123457 1 0000000000000000 20 4 30 10 -1\n   2: 0100007F:9C40 0100007F:1F90 06 00000000:00000000 03:00001234 00000000  0        0 0 3 0000000000000000\n"
+    },
+    "/proc/net/tcp6": {
+      "content": "  sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode\n   0: 00000000000000000000000001000000:1F90 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1002        0 123458 1 0000000000000000 100 0 0 10 0\n"
+    },
+    "/proc/net/udp": {
+      "content": "  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode ref pointer drops\n   0: 00000000:0035 00000000:0000 07 00000000:00000000 00:00000000 00000000  0        0 123459 2 0000000000000000 0\n"
+    },
+    "/proc/1000/comm": {
+      "content": "nginx\n"
+    },
+    "/proc/2001/comm": {
+      "content": "sshd\n"
+    },
+    "/proc/3000/comm": {
+      "content": "unknown\n"
+    }
+  },
+  "symlinks": {
+    "/proc/1000/fd/3": "socket:[123456]",
+    "/proc/1000/fd/4": "socket:[123457]",
+    "/proc/2001/fd/7": "socket:[123458]",
+    "/proc/1000/fd/1": "/dev/null"
+  },
+  "directories": {
+    "/proc/3000/fd": {
+      "entries": [
+        "1"
+      ],
+      "denied": true
+    }
+  },
+  "denied": [
+    "/proc/3000/fd"
+  ],
+  "missing": []
+}

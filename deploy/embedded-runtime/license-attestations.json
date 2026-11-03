@@ -1,0 +1,73 @@
+{
+  "schemaVersion": "1.0",
+  "author": "PT-dove",
+  "retrievedAt": "2026-11-03T00:52:00+08:00",
+  "policy": "Every text under licenses/ exists because it was fetched from an upstream source that publishes it. The build re-hashes each file against the digest recorded here and fails on any mismatch, so a text cannot be swapped without editing this record. Nothing here is reconstructed, paraphrased or inferred: a missing text stays an open gap (see manifests/license-gaps.json).",
+  "node": {
+    "version": "v24.20.0",
+    "file": "licenses/node-v24.20.0/LICENSE-NODE.txt",
+    "sha256": "ed34dd8e3f0a78dbaf00d0444ce8e285b015b765379c2e17880455f70370f8e9",
+    "bytes": 160555,
+    "source": "https://nodejs.org/dist/v24.20.0/node-v24.20.0-win-x64.zip",
+    "sourceMember": "node-v24.20.0-win-x64/LICENSE",
+    "container": {
+      "sha256": "6cac9ffbca8f6a47091e4b5c772e0606049c3871cb67d900c0cedde630e545ba",
+      "verifiedAgainst": "https://nodejs.org/dist/v24.20.0/SHASUMS256.txt"
+    },
+    "binary": {
+      "sourceMember": "node-v24.20.0-win-x64/node.exe",
+      "sha256": "5c976096e04e5c2c1f091938926234cc9fbebfe9787ddd149351b3b0ecc707b5",
+      "matchesBundledRuntime": true
+    },
+    "verification": [
+      "The downloaded archive digest equals the line published in the official SHASUMS256.txt for v24.20.0.",
+      "node.exe inside that archive has the same SHA-256 as runtime/node/node.exe in every bundle built from it, so the text and the binary come from one release artifact.",
+      "The same text also exists at raw.githubusercontent.com/nodejs/node/v24.20.0/LICENSE; that copy is byte-identical after normalising the archive's CRLF line endings (157609 vs 160555 bytes = +1 byte per line)."
+    ],
+    "note": "The Windows installer in C:\\Program Files\\nodejs ships no LICENSE file, which is why the text has to come from the release archive rather than from the machine that provides node.exe."
+  },
+  "packages": [
+    {
+      "name": "@deepseek-ai/dsh-experimental-inspector",
+      "version": "0.2.2-alpha.2",
+      "license": "MIT",
+      "file": "licenses/packages/@deepseek-ai__dsh-experimental-inspector@0.2.2-alpha.2.LICENSE.txt",
+      "sha256": "ebb4f09972aee8608be255debaf78451a68e95c290f55c240dec2ecfa16ea6be",
+      "source": "https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/dsh-v0.2.2-alpha.2/LICENSE",
+      "sourcePath": "LICENSE at the repository root; the package manifest declares repository.directory = packages/experimental/inspector",
+      "verification": [
+        "The tag dsh-v0.2.2-alpha.2 is the release this version was published from (registry dist-tag history and the repository tag list agree).",
+        "The published tarball ships no license text of its own; lib/devtools/LICENSE inside it is the bundled Chromium DevTools notice, which is a different work and was NOT used as this package's license."
+      ]
+    },
+    {
+      "name": "@koromix/koffi-win32-x64",
+      "version": "3.1.1",
+      "license": "MIT",
+      "file": "licenses/packages/@koromix__koffi-win32-x64@3.1.1.LICENSE.txt",
+      "sha256": "22bcbbbacd739b026a8dc484f62a31484ce4c4e31f3408b60b29b4e41d62b290",
+      "source": "https://registry.npmjs.org/koffi/-/koffi-3.1.1.tgz",
+      "sourcePath": "package/LICENSE.txt in the koffi@3.1.1 tarball (the platform packages are split out of this release and omit the text)",
+      "verification": [
+        "The platform package @koromix/koffi-win32-x64@3.1.1 and koffi@3.1.1 are one release: the platform package is a binary carrier for the same version and its manifest points at github.com/Koromix/koffi.",
+        "The platform tarball contains only index.js, package.json, win32_x64/koffi.lib, win32_x64/koffi.node and README.md, so the release-level LICENSE.txt is the authoritative text."
+      ]
+    }
+  ],
+  "unobtainable": [
+    {
+      "name": "dfa",
+      "version": "1.2.0",
+      "license": "MIT",
+      "status": "open",
+      "reason": "Upstream publishes no license text at all: not in any published tarball, not in the repository at the published commit, not on the default branch.",
+      "evidence": [
+        "registry tarball dfa-1.2.0.tgz contains only package.json, compile.js(.map), index.js(.map) and README.md — no LICENSE/COPYING/NOTICE.",
+        "registry tarball dfa-2.0.0.tgz likewise contains no license file, so this is not a packaging accident of one version.",
+        "github.com/devongovett/dfa redirects to github.com/foliojs/dfa; the tree at gitHead 3f5e603e5082caedabefefdf53e8a6ca3111e966 and the default branch both list no LICENSE, and the commit history for path LICENSE is empty.",
+        "The only licence statement upstream makes is the package.json field \"license\": \"MIT\" plus \"author\": \"Devon Govett <devongovett@gmail.com>\"."
+      ],
+      "decision": "Closed by removal, not by reconstruction. No text was ever generated for this package, because a copyright line cannot be reconstructed from a package.json field without inventing an attribution the upstream never wrote. M8-DFA-PRUNE then removed dfa@1.2.0 from the distribution entirely (it is unreachable from the mounted profile), so the obligation to ship its text no longer applies to this bundle; `status` stays `open` because the upstream text still does not exist and this record must not imply it was obtained."
+    }
+  ]
+}

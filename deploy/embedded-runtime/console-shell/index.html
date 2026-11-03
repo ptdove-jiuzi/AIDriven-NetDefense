@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>网域智防 · 控制台</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<header class="bar">
+  <h1>网域智防 <span class="sub">本地控制台</span></h1>
+  <span id="badge" class="badge" data-state="unknown">未连接</span>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>守护进程</h2>
+    <p class="hint">页面不会自动读取。点下面的按钮才发请求。</p>
+    <button id="refresh" type="button">连接 / 刷新</button>
+    <dl id="daemon" class="kv">
+      <dt>健康</dt><dd id="k-health">—</dd>
+      <dt>版本</dt><dd id="k-version">—</dd>
+      <dt>状态</dt><dd id="k-status">—</dd>
+      <dt>最近采集</dt><dd id="k-collect">—</dd>
+    </dl>
+    <p id="error" class="error" hidden></p>
+  </section>
+
+  <section class="panel">
+    <h2>告警</h2>
+    <p class="hint">读取 <code>/api/v1/alerts</code>。需要令牌时由本机壳代为注入，浏览器不持有令牌。</p>
+    <table id="alerts">
+      <thead><tr><th>等级</th><th>规则</th><th>主机</th><th>窗口</th></tr></thead>
+      <tbody><tr><td colspan="4" class="empty">尚未读取</td></tr></tbody>
+    </table>
+  </section>
+</main>
+
+<footer>
+  <span>静态页 + 本机壳。<strong>这是打包层提供的最小外壳，不是产品控制台实现。</strong></span>
+  <span id="stamp" class="stamp"></span>
+</footer>
+
+<script src="./app.js"></script>
+</body>
+</html>

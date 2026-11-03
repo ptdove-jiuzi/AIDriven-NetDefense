@@ -1,0 +1,42 @@
+{
+  "nowMs": 1700000000000,
+  "files": {
+    "/proc/stat": {
+      "content": "cpu  100 0 100 900 0 0 0 0 0 0\ncpu0 100 0 100 900 0 0 0 0 0 0\nbtime 1699990000\nprocesses 12345\nprocs_running 2\n"
+    },
+    "/proc/1/stat": {
+      "content": "1 (systemd) S 0 1 1 0 -1 4194560 5000 0 0 0 50 30 0 0 20 0 1 0 12 123456 3000 18446744073709551615 1 1 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0\n"
+    },
+    "/proc/1/status": {
+      "content": "Name:\tsystemd\nUmask:\t0022\nState:\tS (sleeping)\nTgid:\t1\nPid:\t1\nPPid:\t0\nUid:\t0\t0\t0\t0\nGid:\t0\t0\t0\t0\nThreads:\t1\nVmRSS:\t  1200 kB\n"
+    },
+    "/proc/1/cmdline": {
+      "content": "/sbin/init\u0000"
+    },
+    "/proc/4242/stat": {
+      "content": "4242 (postgres) S 1 4131 4131 0 -1 4194304 200 0 0 0 10 5 0 0 20 0 12 0 900 300000 4000 18446744073709551615 0 0 0 0 0 0 0 0 0 0 0 0 17 3 0 0 0 0 0\n"
+    },
+    "/proc/4242/status": {
+      "content": "Name:\tpostgres\nState:\tS (sleeping)\nTgid:\t4242\nPid:\t4242\nPPid:\t1\nUid:\t1001\t1001\t1001\t1001\nGid:\t1001\t1001\t1001\t1001\nThreads:\t12\nVmRSS:\t   4000 kB\n"
+    },
+    "/proc/4242/cmdline": {
+      "content": "postgres\u0000-D\u0000/var/lib/postgresql/data\u0000"
+    },
+    "/proc/5150/stat": {
+      "content": "5150 (weird ) name) R 4242 5150 5150 0 -1 4194304 10 0 0 0 1 0 0 0 20 0 1 0 1500 1000 100 18446744073709551615 0 0 0 0 0 0 0 0 0 0 0 0 17 0 0 0 0 0 0\n"
+    },
+    "/proc/5150/status": {
+      "content": "Name:\tweird ) name\nUid:\t1001\t1001\t1001\t1001\nGid:\t1001\t1001\t1001\t1001\nThreads:\t1\n"
+    },
+    "/proc/5150/cmdline": {
+      "content": "sh\u0000-c\u0000sleep 1\u0000"
+    }
+  },
+  "symlinks": {
+    "/proc/1/exe": "/usr/lib/systemd/systemd",
+    "/proc/4242/exe": "/usr/lib/postgresql/16/bin/postgres",
+    "/proc/5150/exe": "/usr/bin/dash"
+  },
+  "denied": [],
+  "missing": []
+}
