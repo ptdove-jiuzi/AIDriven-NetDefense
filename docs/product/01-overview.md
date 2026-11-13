@@ -64,10 +64,16 @@ AIDriven NetDefense 的取法是：
 
 以下目录存在但**为空**，不要从目录名推断能力：
 
-- `apps/console/` —— 没有图形控制台
+> **2026-11-05 订正**：本清单成文于 2026-11-03，其中两项已不成立——
+> `apps/console/` 现有 **15 个文件**（图形控制台，另有 `apps/console-next/` 6 页随 rc.5 载荷分发）；
+> `deploy/windows/` 现有**完整安装链**（`Setup.ps1` 54 583 B、`app/aidn/install.py` 40 489 B、
+> `VERSION`=`0.0.1-rc.5`）并产出候选安装包（未签名）。
+> `apps/sandbox-launcher/` 与 `packages/{ipc,policy,response}/` **仍为空**，
+> `deploy/systemd/` 仍为空（Linux 无服务单元）。
+
 - `apps/sandbox-launcher/` —— 没有沙箱启动器
 - `packages/ipc/`、`packages/policy/`、`packages/response/` —— 没有 IPC 通道、没有独立策略包、没有响应执行包（真的策略在 `packages/response-policy`，计划器在 `apps/response-helper`）
-- `deploy/windows/`、`deploy/systemd/` —— 没有服务单元、没有安装器
+- `deploy/systemd/` —— 没有服务单元（`deploy/windows/` 已有安装器，见上方 2026-11-05 订正）
 
 ---
 

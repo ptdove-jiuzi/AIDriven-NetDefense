@@ -21,14 +21,19 @@
  * What this module deliberately does **not** do: finish an install forward (service
  * registration, receipts, DB migration). A half-finished tree with no receipt is not an
  * install, and §6.2 gives no convergence target for it — so it rolls back instead.
+ *
+ * It also does not implement the rollback itself. Convergence is delegated to the caller's
+ * `rollback` (i.e. `rollbackInstall`), because that is the only implementation that knows
+ * which side effects this transaction performed and how `install.json` must be reconciled.
+ * A second, "recovery-flavoured" undo here is how H3 came back once already.
  */
 
 import { createHash } from 'node:crypto';
-import { readFileSync, renameSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { EXIT } from './exit-codes.mjs';
-import { pathExists, removeTree } from './fsx.mjs';
+import { pathExists } from './fsx.mjs';
 import { MANIFEST_REL_PATH, PHASES, TERMINAL_PHASES } from './journal.mjs';
 
 /** Phases whose interrupted state §6.2 gives a convergent action for. */
@@ -77,10 +82,6 @@ export function diskFacts(layout) {
   };
 }
 
-function removeIfPresent(path, roots) {
-  if (pathExists(path)) removeTree(path, roots);
-}
-
 function sameDigest(a, b) {
   return typeof a === 'string' && typeof b === 'string' && a === b;
 }
@@ -92,7 +93,7 @@ function sameDigest(a, b) {
  * @returns {Promise<{outcome: 'skip'|'none'|'converged'|'manual'|'failed', code: number,
  *   message: string, facts?: object, action?: string}>}
  */
-export async function recoverTransaction({ layout, journal, logger, ops }) {
+export async function recoverTransaction({ layout, journal, logger, ops, rollback }) {
   const phase = journal.phase;
   if (TERMINAL_PHASES.has(phase)) {
     return { outcome: 'none', code: EXIT.OK, message: '无进行中事务' };
@@ -124,48 +125,62 @@ export async function recoverTransaction({ layout, journal, logger, ops }) {
     };
   }
 
-  try {
-    await applyPlan({ layout, journal, logger, ops, facts, plan });
-
-    const after = diskFacts(layout);
-    if (after.appPrev) {
-      throw new Error(`恢复后 app.prev 仍存在：${layout.appPrevRoot}`);
-    }
-    if (plan.expectApp && !after.app) {
-      throw new Error(`恢复后 app\\\\ 仍缺失：${layout.appRoot}`);
-    }
-
-    journal.patch({
-      recovery: {
-        at: new Date().toISOString(),
-        action: plan.kind,
-        restoredFrom: plan.restore === true ? 'app.prev' : null,
-        factsBefore: facts,
-        factsAfter: after,
-      },
-    });
-    journal.enter(PHASES.ROLLED_BACK, `中断恢复：${plan.summary}`).settle(true);
-
-    logger.warn('中断恢复完成', { phase, action: plan.kind, summary: plan.summary });
-    return {
-      outcome: 'converged',
-      code: EXIT.ROLLED_BACK,
-      message: `中断恢复已完成（phase=${phase} → ROLLED_BACK）：${plan.summary}`,
-      facts: after,
-      action: plan.kind,
-    };
-  } catch (error) {
-    journal.patch({ recovery: { at: new Date().toISOString(), action: plan.kind, error: error.message } });
-    journal.persist();
-    logger.error('中断恢复失败，需人工介入', error.message);
+  // Converge through the **same** rollback the in-process failure path uses.
+  //
+  // This is not a style choice. `rollbackInstall` is idempotent, op-aware (a fresh install
+  // removes what it created; a repair leaves the restored install's service, group
+  // membership, shortcut, `bin\` and data area alone), revokes every side effect the journal
+  // recorded, and reconciles `install.json` with the tree on disk. Recovery used to do its
+  // own reduced version — delete the tree, delete the service — which brought H3 straight
+  // back on the new path: a crash in the window between writing the receipts and flushing
+  // `COMMITTED` left `install.json` saying "installed" while `/verify` said "not installed",
+  // plus a `bin\aegis-svc.exe` and a data area nothing described. One journal, one answer.
+  if (typeof rollback !== 'function') {
     return {
       outcome: 'failed',
       code: EXIT.ROLLBACK_FAILED,
-      message: `中断恢复失败（phase=${phase}）：${error.message}`,
+      message: `phase=${phase} 需要收敛，但调用方未注入回滚实现（内部错误）`,
       facts,
       action: plan.kind,
     };
   }
+
+  const rolled = await rollback({ layout, journal, logger, ops });
+  if (!rolled.ok) {
+    journal.patch({
+      recovery: { at: new Date().toISOString(), action: plan.kind, viaRollback: true, error: rolled.reason ?? 'unknown' },
+    }).persist();
+    logger.error('中断恢复失败，需人工介入', rolled.reason ?? 'unknown');
+    return {
+      outcome: 'failed',
+      code: EXIT.ROLLBACK_FAILED,
+      message: `中断恢复失败（phase=${phase}）：${rolled.reason ?? 'unknown'}`,
+      facts,
+      action: plan.kind,
+    };
+  }
+
+  const after = diskFacts(layout);
+  journal.patch({
+    recovery: {
+      at: new Date().toISOString(),
+      action: plan.kind,
+      viaRollback: true,
+      actions: rolled.actions ?? [],
+      restoredFrom: plan.restore === true ? 'app.prev' : null,
+      factsBefore: facts,
+      factsAfter: after,
+    },
+  }).persist();
+
+  logger.warn('中断恢复完成', { phase, action: plan.kind, summary: plan.summary });
+  return {
+    outcome: 'converged',
+    code: EXIT.ROLLED_BACK,
+    message: `中断恢复已完成（phase=${phase} → ROLLED_BACK）：${plan.summary}`,
+    facts: after,
+    action: plan.kind,
+  };
 }
 
 /**
@@ -237,45 +252,22 @@ export function classify({ journal, facts }) {
     return { kind: 'manual', reason: 'SWAP_B 现场既无 app.prev 也无法识别 app' };
   }
 
-  // ROLLING_BACK: the rollback is idempotent by construction, so re-run it.
-  if (facts.appPrev) return { ...restore, summary: '续跑未完成的回滚' };
+  // ROLLING_BACK: the rollback is idempotent by construction, so re-run it — but only over
+  // trees it can identify. `app.prev` next to an `app\` whose manifest is neither the old nor
+  // the new digest is the same "facts do not decide it" situation as §6.2 combination 4:
+  // `restore` starts by deleting `app\`, and that tree may be the only trustworthy copy.
+  if (facts.appPrev) {
+    if (!facts.app) return { ...restore, summary: '续跑未完成的回滚' };
+    if (sameDigest(facts.appDigest, from)) {
+      return { kind: 'drop-appprev', restore: false, expectApp: true, summary: '回滚已完成，删除重复的 app.prev' };
+    }
+    return {
+      kind: 'manual',
+      reason: `ROLLING_BACK 现场 app 与 app.prev 并存，且 app 的清单既非旧版也非待装版（app=${short(facts.appDigest)}）`,
+    };
+  }
   if (facts.staging) return dropStaging;
   return { kind: 'drop-appprev-noop', restore: false, expectApp: facts.app, summary: '回滚已完成，清理遗留' };
-}
-
-async function applyPlan({ layout, journal, logger, ops, facts, plan }) {
-  const programRoot = layout.programRoot;
-  const roots = [programRoot, layout.installDir, layout.dataRoot];
-
-  if (plan.kind === 'discard-uncommitted' && facts.app) {
-    // Owned by this transaction: `toManifestDigest` proves it is the tree we just staged.
-    removeTree(layout.appRoot, roots);
-  }
-  if (plan.restore === true && facts.app) {
-    // Only a tree proven to be the uncommitted new one may be removed before the rename.
-    removeTree(layout.appRoot, roots);
-  }
-  if (plan.restore === true && pathExists(layout.appPrevRoot)) {
-    renameSync(layout.appPrevRoot, layout.appRoot);
-    logger.warn('已把 app.prev 还原为 app（中断恢复）');
-  }
-  if (plan.kind === 'drop-appprev' && pathExists(layout.appPrevRoot)) {
-    removeTree(layout.appPrevRoot, roots);
-  }
-  if (pathExists(layout.stagingRoot) && layout.stagingRoot !== null) {
-    removeTree(layout.stagingRoot, [layout.installDir, layout.dataRoot, programRoot]);
-  }
-
-  // The service may have been registered before the crash. Removing a service that is not
-  // there is a success (H5), so this is safe on every branch.
-  const progress = journal.data.progress ?? {};
-  if (progress.serviceInstalled === true) {
-    try {
-      ops.serviceDelete();
-    } catch (error) {
-      logger.warn('恢复阶段注销服务失败（可能在未创建时调用）', error.message);
-    }
-  }
 }
 
 function short(digest) {

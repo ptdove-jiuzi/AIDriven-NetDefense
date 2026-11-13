@@ -19,6 +19,8 @@ export const WINDOWS_ERROR_CODES = Object.freeze({
   CHANNEL_NOT_FOUND: 'CHANNEL_NOT_FOUND',
   NO_EVENTS: 'NO_EVENTS',
   BAD_JSON: 'BAD_JSON',
+  EMPTY_OUTPUT: 'EMPTY_OUTPUT',
+  INVALID_OUTPUT: 'INVALID_OUTPUT',
   COMMAND_FAILED: 'COMMAND_FAILED',
   SOURCE_LIMIT_EXCEEDED: 'SOURCE_LIMIT_EXCEEDED',
   SOURCE_UNKNOWN: 'SOURCE_UNKNOWN',
@@ -47,6 +49,10 @@ const REMEDIATIONS = Object.freeze({
   NO_EVENTS: 'No action required: the channel or query simply has no matching records yet',
   BAD_JSON:
     'The PowerShell output was not valid JSON; verify the local PowerShell version emits ConvertTo-Json output and that no profile writes to stdout',
+  EMPTY_OUTPUT:
+    'The interpreter exited successfully but printed nothing. A JSON-producing script must always emit at least one object; an empty stdout means the script did not run (truncation, profile, or wrong interpreter). Never treat it as "no new events"',
+  INVALID_OUTPUT:
+    'The interpreter exited successfully but printed a degenerate JSON value (`null` or `{}`) instead of a result structure. That is a script/serialization defect, not an empty read; inspect the generated script and make sure no profile writes to stdout',
   COMMAND_FAILED:
     'Run the failing PowerShell command manually under the collector account to see the full error',
   SOURCE_LIMIT_EXCEEDED:

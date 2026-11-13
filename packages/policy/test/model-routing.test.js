@@ -39,6 +39,8 @@ function baseInput(overrides = {}) {
     signal: {
       severity: 'high',
       hasStructuredConclusion: true,
+      // ADR-0010 §2.5 第 2 条：结构化结论**并附带 evidenceRef**。没有它不许升级。
+      evidenceRef: 'ev-fp-a',
       fingerprint: 'fp-a',
       at: NOW,
     },
@@ -111,7 +113,7 @@ describe('uniform mode (ADR-0010 §2.4.1)', () => {
     const result = selectRoute(baseInput({
       mode: 'uniform',
       uniformModelId: 'deepseek-chat',
-      signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+      signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW },
       escalation: { enabled: true, minSeverity: 'critical', cooldownSeconds: 3600, maxPerHour: 1 },
       recent,
     }));
@@ -146,7 +148,7 @@ describe('uniform mode (ADR-0010 §2.4.1)', () => {
 describe('low severity does not escalate (ADR-0010 §2.5 第 1 条)', () => {
   it('rejects severity below the default threshold', () => {
     for (const severity of ['low', 'medium']) {
-      const result = selectRoute(baseInput({ signal: { severity, hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW } }));
+      const result = selectRoute(baseInput({ signal: { severity, hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW } }));
       assert.equal(result.ok, false, severity);
       assert.equal(result.code, 'E_SEVERITY_BELOW');
       assert.equal(result.detail.severity, severity);
@@ -156,7 +158,7 @@ describe('low severity does not escalate (ADR-0010 §2.5 第 1 条)', () => {
 
   it('stays at the default tier when the threshold is lowered to medium', () => {
     const result = selectRoute(baseInput({
-      signal: { severity: 'medium', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+      signal: { severity: 'medium', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW },
       escalation: { enabled: true, minSeverity: 'medium', cooldownSeconds: 300, maxPerHour: 20 },
     }));
     assert.equal(result.ok, true, JSON.stringify(result));
@@ -168,7 +170,7 @@ describe('low severity does not escalate (ADR-0010 §2.5 第 1 条)', () => {
 
   it('stays at watch when escalation is explicitly disabled, whatever the severity', () => {
     const result = selectRoute(baseInput({
-      signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+      signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW },
       escalation: { enabled: false, minSeverity: 'critical', cooldownSeconds: 300, maxPerHour: 20 },
     }));
     assert.equal(result.ok, true, JSON.stringify(result));
@@ -180,7 +182,7 @@ describe('low severity does not escalate (ADR-0010 §2.5 第 1 条)', () => {
 
 describe('escalation by severity (ADR-0010 §2.5)', () => {
   it('escalates high to triage', () => {
-    const result = selectRoute(baseInput({ signal: { severity: 'high', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW } }));
+    const result = selectRoute(baseInput({ signal: { severity: 'high', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW } }));
     assert.equal(result.ok, true, JSON.stringify(result));
     assert.equal(result.mode, 'tiered');
     assert.equal(result.tier, 'triage');
@@ -191,7 +193,7 @@ describe('escalation by severity (ADR-0010 §2.5)', () => {
   });
 
   it('escalates critical to respond', () => {
-    const result = selectRoute(baseInput({ signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-b', at: NOW } }));
+    const result = selectRoute(baseInput({ signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-b', at: NOW } }));
     assert.equal(result.ok, true, JSON.stringify(result));
     assert.equal(result.tier, 'respond');
     assert.equal(result.modelId, 'deepseek-chat');
@@ -213,6 +215,151 @@ describe('escalation by severity (ADR-0010 §2.5)', () => {
       signal: { severity: 'low', hasStructuredConclusion: false, fingerprint: 'fp-a', at: NOW },
     }));
     assert.equal(result.code, 'E_SEVERITY_BELOW', 'first failing check wins');
+  });
+});
+
+describe('evidenceRef belongs to the escalation contract (ADR-0010 §2.5 第 2 条)', () => {
+  it('refuses a critical escalation that carries no evidenceRef', () => {
+    const input = baseInput({ signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW } });
+    assert.equal(Object.hasOwn(input.signal, 'evidenceRef'), false, 'fixture must really omit the field');
+    const result = selectRoute(input);
+    assert.equal(result.ok, false, 'no evidence means no escalation, whatever the severity');
+    assert.equal(result.code, 'E_NO_STRUCTURED_CONCLUSION');
+    assert.equal(result.detail.reason, 'evidence_ref_missing');
+    assert.equal(result.detail.severity, 'critical');
+    assert.equal(Object.hasOwn(result, 'tier'), false, 'a denied escalation must not name a tier');
+  });
+
+  it('refuses the triage escalation too, not only respond', () => {
+    const result = selectRoute(baseInput({
+      signal: { severity: 'high', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(result.ok, false);
+    assert.equal(result.code, 'E_NO_STRUCTURED_CONCLUSION');
+    assert.equal(result.detail.reason, 'evidence_ref_missing');
+  });
+
+  it('treats null, empty and blank refs as missing', () => {
+    // 空串/纯空格 = "没有证据"，与"没给"同码；而带控制字符的值（下一组）是形态错误。
+    for (const evidenceRef of [null, '', '   ']) {
+      const result = selectRoute(baseInput({
+        signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef, fingerprint: 'fp-a', at: NOW },
+      }));
+      assert.equal(result.ok, false, JSON.stringify(evidenceRef));
+      assert.equal(result.code, 'E_NO_STRUCTURED_CONCLUSION', JSON.stringify(evidenceRef));
+      assert.equal(result.detail.reason, 'evidence_ref_missing');
+    }
+  });
+
+  it('rejects a malformed evidenceRef instead of coercing it', () => {
+    const notString = selectRoute(baseInput({
+      signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 42, fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(notString.ok, false);
+    assert.equal(notString.code, 'E_MODE_INVALID');
+    assert.equal(notString.detail.field, 'signal.evidenceRef');
+
+    const tooLong = selectRoute(baseInput({
+      signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'e'.repeat(513), fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(tooLong.code, 'E_MODE_INVALID');
+    assert.equal(tooLong.detail.field, 'signal.evidenceRef');
+
+    // 换行/制表符是日志注入的入口，不允许原样进审计。
+    const controlChar = selectRoute(baseInput({
+      signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'ev-a\nforged', fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(controlChar.code, 'E_MODE_INVALID');
+    assert.equal(controlChar.detail.field, 'signal.evidenceRef');
+  });
+
+  it('accepts a bounded non-empty ref', () => {
+    const exact = selectRoute(baseInput({
+      signal: {
+        severity: 'critical',
+        hasStructuredConclusion: true,
+        evidenceRef: 'e'.repeat(512),
+        fingerprint: 'fp-a',
+        at: NOW,
+      },
+    }));
+    assert.equal(exact.ok, true, JSON.stringify(exact));
+    assert.equal(exact.tier, 'respond');
+  });
+
+  it('checks severity first and the structured-conclusion flag second', () => {
+    const lowFirst = selectRoute(baseInput({
+      signal: { severity: 'low', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(lowFirst.code, 'E_SEVERITY_BELOW', 'severity gate stays ahead of the evidence gate');
+
+    const unstructuredFirst = selectRoute(baseInput({
+      signal: { severity: 'critical', hasStructuredConclusion: false, fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(unstructuredFirst.code, 'E_NO_STRUCTURED_CONCLUSION');
+    assert.equal(unstructuredFirst.detail.reason, 'not_structured');
+  });
+
+  it('does not require evidenceRef on paths that never escalate', () => {
+    const disabled = selectRoute(baseInput({
+      signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+      escalation: { enabled: false, minSeverity: 'critical', cooldownSeconds: 300, maxPerHour: 20 },
+    }));
+    assert.equal(disabled.ok, true, JSON.stringify(disabled));
+    assert.equal(disabled.tier, 'watch');
+
+    const belowThreshold = selectRoute(baseInput({
+      signal: { severity: 'low', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(belowThreshold.code, 'E_SEVERITY_BELOW');
+
+    const uniform = selectRoute(baseInput({
+      mode: 'uniform',
+      uniformModelId: 'deepseek-chat',
+      signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+    }));
+    assert.equal(uniform.ok, true, 'uniform never escalates, so it never needs evidence');
+    assert.equal(uniform.escalate, false);
+  });
+
+  it('keeps the ADR §2.5 order: evidence is checked before cooldown', () => {
+    // 冷却属于"第 3 条"，证据属于"第 2 条"：两条都不满足时先报第 2 条。
+    // 这不是细节——错误码的顺序决定了运维先修哪一个。
+    const result = selectRoute(baseInput({
+      signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+      recent: [{ fingerprint: 'fp-a', at: NOW }],
+    }));
+    assert.equal(result.code, 'E_NO_STRUCTURED_CONCLUSION');
+    assert.equal(result.detail.reason, 'evidence_ref_missing');
+  });
+});
+
+describe('request record fields carried by the decision (ADR-0010 §2.7)', () => {
+  it('reports fingerprint and escalatedFrom when it escalates', () => {
+    const result = selectRoute(baseInput({
+      signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'ev-1', fingerprint: 'fp-b', at: NOW },
+    }));
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.fingerprint, 'fp-b');
+    assert.equal(result.escalatedFrom, 'watch');
+    assert.equal(result.escalate, true);
+  });
+
+  it('reports escalatedFrom null when it stays at the default tier', () => {
+    const result = selectRoute(baseInput({
+      escalation: { enabled: false, minSeverity: 'high', cooldownSeconds: 300, maxPerHour: 20 },
+    }));
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(result.escalate, false);
+    assert.equal(result.escalatedFrom, null, 'a non-escalation must be explicit, not an absent key');
+    assert.equal(result.fingerprint, 'fp-a');
+  });
+
+  it('omits escalatedFrom entirely in uniform mode (ADR-0010 §2.4.1 第 6 条)', () => {
+    const result = selectRoute(baseInput({ mode: 'uniform', uniformModelId: 'deepseek-chat' }));
+    assert.equal(result.ok, true, JSON.stringify(result));
+    assert.equal(Object.hasOwn(result, 'escalatedFrom'), false, 'uniform must not emit a two-source field');
+    assert.equal(result.fingerprint, 'fp-a', 'the fingerprint is still the join key for the usage page');
   });
 });
 
@@ -307,7 +454,7 @@ describe('hourly cap (ADR-0010 §2.5 第 4 条)', () => {
 describe('tier availability (ADR-0010 §2.5, no silent fallback)', () => {
   it('rejects a missing respond model instead of falling back to watch', () => {
     const result = selectRoute({
-      ...baseInput({ signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW } }),
+      ...baseInput({ signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW } }),
       models: inputWithoutModelTier('respond').models,
     });
     assert.equal(result.ok, false);
@@ -320,7 +467,7 @@ describe('tier availability (ADR-0010 §2.5, no silent fallback)', () => {
     const models = MODELS.filter((model) => model.tier !== 'triage').map((model) => ({ ...model }));
     const result = selectRoute(baseInput({
       models,
-      signal: { severity: 'high', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+      signal: { severity: 'high', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW },
     }));
     assert.equal(result.ok, false);
     assert.equal(result.code, 'E_TIER_UNAVAILABLE');
@@ -388,7 +535,7 @@ describe('invalid input fails closed without throwing (ADR-0010 §2.4.1, 契约�
       const result = selectRoute(baseInput({
         mode,
         uniformModelId: 'local-7b',
-        signal: { severity: 'high', hasStructuredConclusion: true, fingerprint: '', at: NOW },
+        signal: { severity: 'high', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: '', at: NOW },
       }));
       assert.equal(result.ok, false, mode);
       assert.equal(result.code, 'E_MODE_INVALID');
@@ -398,13 +545,13 @@ describe('invalid input fails closed without throwing (ADR-0010 §2.4.1, 契约�
 
   it('rejects an unknown severity and a non-numeric clock', () => {
     const bad = selectRoute(baseInput({
-      signal: { severity: 'urgent', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW },
+      signal: { severity: 'urgent', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW },
     }));
     assert.equal(bad.code, 'E_MODE_INVALID');
     assert.equal(bad.detail.field, 'signal.severity');
 
     const noClock = selectRoute(baseInput({
-      signal: { severity: 'high', hasStructuredConclusion: true, fingerprint: 'fp-a', at: undefined },
+      signal: { severity: 'high', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: undefined },
     }));
     assert.equal(noClock.code, 'E_MODE_INVALID');
     assert.equal(noClock.detail.field, 'signal.at');
@@ -459,7 +606,7 @@ describe('invalid input fails closed without throwing (ADR-0010 §2.4.1, 契约�
 
 describe('purity', () => {
   it('is deterministic for identical input', () => {
-    const input = baseInput({ signal: { severity: 'critical', hasStructuredConclusion: true, fingerprint: 'fp-a', at: NOW } });
+    const input = baseInput({ signal: { severity: 'critical', hasStructuredConclusion: true, evidenceRef: 'ev-fp-a', fingerprint: 'fp-a', at: NOW } });
     assert.deepEqual(selectRoute(input), selectRoute(input));
   });
 

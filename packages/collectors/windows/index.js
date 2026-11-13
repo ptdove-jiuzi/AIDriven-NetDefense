@@ -10,6 +10,8 @@
  * - `diff.js`       snapshot diffing and stable entity identities
  * - `adapter.js`    binding onto `@aegisharness/collector-common`
  * - `sources/`      one module per declared source
+ * - `win32/`        koffi → Win32 kernel tables (process / endpoint), the default transport
+ *                   for the two hot sources; the script transport stays as its fallback
  *
  * The seven first-version sources of §5.1 are registered in {@link SOURCE_FACTORIES}; each
  * one is a plain factory so the daemon decides which sources to run, and nothing in this
@@ -23,6 +25,7 @@ export * from './payload.js';
 export * from './descriptor.js';
 export * from './diff.js';
 export * from './adapter.js';
+export * from './win32/index.js';
 
 export * from './sources/processes.js';
 export * from './sources/connections.js';
@@ -37,7 +40,17 @@ import { WINDOWS_ERROR_CODES, WindowsCollectorError } from './errors.js';
 import { DEFAULT_ALLOWLIST, createCommandRunner } from './runner.js';
 import { createPowerShellClient } from './powershell.js';
 import { createProcessSource, PROCESS_DESCRIPTOR } from './sources/processes.js';
-import { createConnectionsSource, CONNECTIONS_DESCRIPTOR } from './sources/connections.js';
+import {
+  createConnectionsSource,
+  CONNECTIONS_DESCRIPTOR,
+  CONNECTIONS_SUPPLEMENT_INTERVAL_MS,
+} from './sources/connections.js';
+
+/** Deadline for the once-a-minute `state=Bound` supplement (the poll keeps its own 15 s). */
+const CONNECTIONS_SUPPLEMENT_TIMEOUT_MS = Math.max(
+  60_000,
+  CONNECTIONS_SUPPLEMENT_INTERVAL_MS,
+);
 import {
   createEventLogSource,
   describeEventLog,
@@ -47,6 +60,7 @@ import { createServicesSource, SERVICES_DESCRIPTOR } from './sources/services.js
 import { createScheduledTasksSource, SCHEDULED_TASKS_DESCRIPTOR } from './sources/scheduled-tasks.js';
 import { createRunKeysSource, RUN_KEYS_DESCRIPTOR, RUN_KEY_PATHS } from './sources/run-keys.js';
 import { createDirectoriesSource, DIRECTORIES_INTERVAL_MS, DIRECTORIES_SOURCE_ID } from './sources/directories.js';
+import { createWin32Provider } from './win32/index.js';
 
 /**
  * The declared first-version source matrix. `event` sources are created per channel, which is
@@ -85,6 +99,7 @@ export const SOURCE_FACTORIES = Object.freeze({
 export function createWindowsSources({
   runner = null,
   powershell = null,
+  win32 = undefined,
   clock = Date.now,
   intervalMs = null,
   channels = EVENT_SOURCE_DEFAULTS.channels,
@@ -109,6 +124,19 @@ export function createWindowsSources({
       return entry;
     }));
 
+  // PERF-CPU: the process and network tables are read through koffi instead of one
+  // `powershell.exe` per poll. The two rules below keep every existing caller working:
+  //
+  // - `win32: null` disables the native path explicitly;
+  // - an injected `powershell` client or `runner` means "drive the transport I gave you"
+  //   (that is how the test suite and any embedder pin the script path), so the native path
+  //   stays off;
+  // - otherwise the provider is created and falls back to the script client on its own when
+  //   koffi or a Win32 export is unavailable.
+  const nativeProvider = win32 === undefined
+    ? (powershell === null && runner === null ? createWin32Provider() : null)
+    : win32;
+
   const needsPowerShell = [...wanted].some((name) => name !== 'directories');
   let client = powershell;
   if (client === null && needsPowerShell) {
@@ -124,16 +152,30 @@ export function createWindowsSources({
       name: 'processes',
       source: createProcessSource({
         powershell: client,
+        win32: nativeProvider,
         clock,
         ...(intervalMs === null ? {} : { intervalMs: pick(intervalMs, 5_000) }),
       }),
     });
   }
   if (wanted.has('connections')) {
+    // The `state=Bound` supplement runs the NetTCPIP cmdlets once a minute; those cmdlets
+    // need far more than the 5 s poll timeout (21.6 s measured), so they get their own
+    // client with their own deadline instead of inheriting the poll's.
+    let supplementClient = null;
+    if (nativeProvider !== null && needsPowerShell) {
+      supplementClient = createPowerShellClient({
+        runner: createCommandRunner({ allowlist, timeoutMs: CONNECTIONS_SUPPLEMENT_TIMEOUT_MS }),
+        executable,
+        timeoutMs: CONNECTIONS_SUPPLEMENT_TIMEOUT_MS,
+      });
+    }
     sources.push({
       name: 'connections',
       source: createConnectionsSource({
         powershell: client,
+        win32: nativeProvider,
+        supplementPowershell: supplementClient,
         clock,
         ...(intervalMs === null ? {} : { intervalMs: pick(intervalMs, 5_000) }),
       }),
@@ -239,7 +281,12 @@ export function attachWindowsSources({ runtime, sources } = {}) {
       subscriptionProbeIntervalMs: descriptor.intervalMs,
     });
     const binding = createSourceBinding({ source: entry.source, collector });
-    return Object.freeze({ name: entry.name, descriptor, collector, binding });
+    // D3: the daemon's `--collectors` seam consumes a **flat** binding (`poll()` at the
+    // top level). Keep the `{ name, descriptor, collector, binding }` wrapper for callers
+    // that already use `entry.binding`, but also expose the binding's own fields so this
+    // object satisfies the flat contract directly instead of only through the daemon's
+    // compatibility branch.
+    return Object.freeze({ name: entry.name, ...binding, descriptor, collector, binding });
   }));
 }
 

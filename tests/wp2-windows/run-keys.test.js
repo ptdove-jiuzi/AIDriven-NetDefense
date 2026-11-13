@@ -97,7 +97,10 @@ test('a value removed from the key is reported as removed', async () => {
   const source = createRunKeysSource({ powershell: createScriptedPowerShell(routes), clock });
 
   await source.read();
-  routes['run-keys'] = [];
+  // R3-005: a genuine "zero values" read must still carry the script's shape
+  // (`{ values: [], deniedKeys: [] }`). A bare `[]` no longer means "empty", it means
+  // "the script produced no structure" and is rejected.
+  routes['run-keys'] = { values: [], deniedKeys: [] };
   const second = await source.read();
 
   assert.equal(second.records.length, 1);
@@ -143,8 +146,11 @@ test('the script classifies a refused key instead of folding it into "missing"',
   const script = buildRunKeysScript([HKCU_RUN]);
 
   // Both read paths (Get-Item and GetValueNames) must record the denial, and the reported
-  // key list has to be part of the output rather than a comment.
-  assert.equal(script.split('$deniedKeys += $k').length - 1, 2, 'both catch blocks must record the denied key');
+  // key list has to be part of the output rather than a comment. The variable name changed
+  // when the fix started deriving a drive-qualified provider path: `$k` carries the provider
+  // form inside the loop, so the denial is recorded from `$declaredKey` (same declared form
+  // the payload reports). The intent of this assertion is unchanged.
+  assert.equal(script.split('$deniedKeys += $declaredKey').length - 1, 2, 'both catch blocks must record the denied key');
   assert.match(script, /Test-AccessDenied \$_\u002eException/u);
   assert.match(script, /System\.UnauthorizedAccessException/u);
   assert.match(script, /deniedKeys = @\(\$deniedKeys\)/u);

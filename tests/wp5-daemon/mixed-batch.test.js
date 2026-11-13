@@ -102,6 +102,65 @@ function evidence(handle) {
   return { events, alerts, analyses };
 }
 
+
+/**
+ * PERF-CPU N-034: a batched run must not bypass an injected store failure.
+ *
+ * The pipeline commits a run of alert-free events through `store.ingestBatch()`. These fixtures
+ * inject failures by wrapping `store.ingest()`, so without this seam a batched write would skip the
+ * injection and the test would quietly stop testing what it claims to. The seam mirrors the same
+ * per-record decision into the batch entry point and commits the surviving records in ONE
+ * transaction, which is exactly the production shape.
+ *
+ * @param {object} store Event store (real adapter).
+ * @param {(request: object) => (Error|null)} decide Per-record decision; returns an error to inject.
+ * @param {(request: object, value: object|undefined) => void} [onCommitted] Book-keeping for rows
+ *   that the batch actually committed.
+ * @returns {() => void} Restores the original batch entry point.
+ */
+function mirrorBatchSeam(store, decide, onCommitted) {
+  const original = store.ingestBatch;
+  const batch = typeof original === 'function' ? original.bind(store) : null;
+  if (batch === null) {
+    return () => {};
+  }
+  store.ingestBatch = (requests) => {
+    const blocked = new Map();
+    const allowed = [];
+    requests.forEach((request, index) => {
+      const error = decide(request);
+      if (error !== null && error !== undefined) {
+        blocked.set(index, error);
+      } else {
+        allowed.push(index);
+      }
+    });
+    const out = allowed.length === 0
+      ? { accepted: 0, duplicates: 0, failed: 0, results: [] }
+      : batch(allowed.map((index) => requests[index]));
+    const results = new Array(requests.length);
+    allowed.forEach((originalIndex, position) => {
+      results[originalIndex] = out.results[position];
+      if (onCommitted !== undefined) {
+        onCommitted(requests[originalIndex], out.results[position]?.value);
+      }
+    });
+    for (const [index, error] of blocked) {
+      results[index] = { ok: false, error };
+    }
+    return {
+      received: requests.length,
+      accepted: out.accepted,
+      duplicates: out.duplicates,
+      failed: (out.failed ?? 0) + blocked.size,
+      results,
+    };
+  };
+  return () => {
+    store.ingestBatch = original;
+  };
+}
+
 describe('ADR-0006 混合批次：重放事件 + 新观测', () => {
   it('alert.count 只增加真实新观测，且没有悬空 event id', async (t) => {
     const { pipeline, read } = await boot(t);
@@ -182,13 +241,18 @@ describe('第 6 轮 P1 回归：跨批保留与批内同键', () => {
 
     const original = store.ingest.bind(store);
     let calls = 0;
-    store.ingest = (request) => {
+    const decide = () => {
       calls += 1;
-      if (calls === 1) {
-        throw new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure');
+      return calls === 1 ? new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure') : null;
+    };
+    store.ingest = (request) => {
+      const error = decide();
+      if (error !== null) {
+        throw error;
       }
       return original(request);
     };
+    const restoreBatch = mirrorBatchSeam(store, decide);
 
     const failed = makeEvent({ source_seq: 41 });
     const first = pipeline.ingestBatch([failed]);
@@ -253,13 +317,18 @@ describe('ADR-0006 事务失败：不留半批状态', () => {
 
     const original = store.ingest.bind(store);
     let calls = 0;
-    store.ingest = (request) => {
+    const decide = () => {
       calls += 1;
-      if (calls === 1) {
-        throw new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure');
+      return calls === 1 ? new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure') : null;
+    };
+    store.ingest = (request) => {
+      const error = decide();
+      if (error !== null) {
+        throw error;
       }
       return original(request);
     };
+    const restoreBatch = mirrorBatchSeam(store, decide);
 
     const summary = pipeline.ingestBatch([
       makeEvent({ source_seq: 11, observed_at: '2026-11-02T00:00:00.000Z' }),
@@ -300,13 +369,18 @@ describe('ADR-0006 事务失败：不留半批状态', () => {
 
     const original = store.ingest.bind(store);
     let calls = 0;
-    store.ingest = (request) => {
+    const decide = () => {
       calls += 1;
-      if (calls === 2) {
-        throw new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure');
+      return calls === 2 ? new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure') : null;
+    };
+    store.ingest = (request) => {
+      const error = decide();
+      if (error !== null) {
+        throw error;
       }
       return original(request);
     };
+    mirrorBatchSeam(store, decide);
 
     const summary = pipeline.ingestBatch([
       makeEvent({ source_seq: 31, observed_at: '2026-11-02T00:00:00.000Z' }),
@@ -433,7 +507,7 @@ describe('第 8 轮 P1 回归：写入顺序与观测顺序不一致', () => {
     const violations = [];
     const original = store.ingest.bind(store);
     let calls = 0;
-    store.ingest = (request) => {
+    const decide = (request) => {
       for (const alert of request.alerts ?? []) {
         for (const id of alert.event_ids ?? []) {
           if (id !== request.event.event_id && !written.has(id)) {
@@ -442,8 +516,12 @@ describe('第 8 轮 P1 回归：写入顺序与观测顺序不一致', () => {
         }
       }
       calls += 1;
-      if (calls === 2) {
-        throw new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure');
+      return calls === 2 ? new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure') : null;
+    };
+    store.ingest = (request) => {
+      const error = decide(request);
+      if (error !== null) {
+        throw error;
       }
       const out = original(request);
       if (out.duplicate !== true) {
@@ -451,6 +529,11 @@ describe('第 8 轮 P1 回归：写入顺序与观测顺序不一致', () => {
       }
       return out;
     };
+    mirrorBatchSeam(store, decide, (request, value) => {
+      if (value !== undefined && value.duplicate !== true) {
+        written.add(request.event.event_id);
+      }
+    });
 
     // 数组顺序与观测时间顺序相反，但同属一个 15 分钟窗口。
     const later = makeEvent({

@@ -20,6 +20,7 @@ import webbrowser
 from pathlib import Path
 
 from . import SHELL_VERSION, PRODUCT_NAME, paths, settings as settings_mod
+from . import webview_suspend
 from .daemon import DaemonSupervisor
 from .server import LocalServer
 from .tray import Tray
@@ -41,6 +42,7 @@ class ShellController:
         self._quit_event = threading.Event()
         self._quitting = False
         self._window_visible = False
+        self._webview_suspended = False
         self._started_at = time.time()
         self.supervisor = DaemonSupervisor(self.settings, self._persist_settings)
 
@@ -69,7 +71,8 @@ class ShellController:
             icon_path=paths.icon_path(),
             tooltip=f"{PRODUCT_NAME} · {SHELL_VERSION}",
             actions={
-                "show": lambda: self.request_show_window("tray"),
+                # 托盘左键 = 显示/隐藏切换；菜单里的「打开界面」是明确的显示。
+                "show": self.toggle_window,
                 "browser": self.open_in_browser,
                 "settings": lambda: self.request_show_window("tray", view="settings"),
                 "quit": lambda: self.request_quit("tray"),
@@ -136,8 +139,107 @@ class ShellController:
                 self._window.hide()
                 self._window_visible = False
                 log.info("窗口已隐藏")
+                # 先告诉页面"你被藏了"：WebView2 的 hide() 不触发 visibilitychange，页面自己
+                # 发现不了（实测关窗 5 分钟后 document.hidden 仍是 false），前端定时器会一直满速跑。
+                # 这一步是省电的主力，且完全在 JS 侧，不碰 compositor。
+                self._notify_shell_hidden()
+                # 之后才尝试挂起 WebView2（默认关闭，需 AIDN_ENABLE_WEBVIEW_SUSPEND=1）。
+                self._suspend_webview()
         except Exception:  # noqa: BLE001
             log.exception("隐藏窗口失败")
+
+    def _notify_shell_hidden(self) -> None:
+        """告诉页面前端"窗口已收起"，让它停表并暂停常驻动画（webui 与 console-next 各一份）。"""
+        if self._window is None:
+            return
+        try:
+            self._window.evaluate_js(
+                "window.__aidnShellHidden && window.__aidnShellHidden();"
+            )
+        except Exception:  # noqa: BLE001 - 页面未就绪时忽略，隐藏本身不受影响
+            log.debug("通知页面停止轮询失败（页面可能还没加载完）")
+
+    # ------------------------------------------------------- WebView2 空闲挂起
+    def _suspend_enabled(self) -> bool:
+        """WebView2 挂起**默认关闭**：需要显式 `AIDN_ENABLE_WEBVIEW_SUSPEND=1` 才开启。
+
+        为什么默认关：2026-11-05 Window B 抓到功能回退 —— 挂起成功后约 18 分钟，壳进程连同它的
+        WebView2 子进程一起消失（日志最后一行是 `mode=trysuspend` 的挂起成功，之后没有任何退出
+        记录；`shell-post.log` 出现 `Failed to unregister class Chrome_WidgetWin_0. Error = 1411`）。
+        用户视角就是"托盘壳闲置十几分钟后自己没了"。
+        功能不回退优先于省电：默认不动 compositor，省电改由页面侧停表承担
+        （壳调 `window.__aidnShellHidden()` / `window.__aidnShellResume()`，见 webui/app.js）。
+        `AIDN_NO_WEBVIEW_SUSPEND=1` 仍作为硬关闭开关保留（优先级更高）。
+        """
+        if os.environ.get("AIDN_NO_WEBVIEW_SUSPEND") == "1":
+            return False
+        return os.environ.get("AIDN_ENABLE_WEBVIEW_SUSPEND") == "1"
+
+    def _suspend_webview(self) -> None:
+        """窗口收起后挂起 WebView2：页面 JS 与合成器一起停，renderer 不再被定时器唤醒。
+
+        为什么允许重试：`hide()` 是瞬时的，而页面/引擎可能还在加载或导航，此时
+        `TrySuspendAsync` 必然失败 —— 用 6×0.5 s 的窗口等它稳定；期间一旦窗口重新可见
+        就立刻放弃，绝不把用户眼前的窗口挂起。
+        """
+        if self._quitting or not self._suspend_enabled():
+            return
+        if self._window is None or self._webview_suspended:
+            return
+        result = webview_suspend.suspend(
+            self._window,
+            should_continue=lambda: not self._window_visible and not self._quitting,
+            attempts=6,
+            delay=0.5,
+        )
+        self._webview_suspended = bool(result.get("suspended"))
+        if result.get("ok"):
+            log.info("WebView2 已挂起：%s（mode=%s，第 %s 次尝试）",
+                     result.get("reason"), result.get("mode"), result.get("attempts"))
+        else:
+            log.warning("WebView2 未能挂起，已降级为不挂起：%s（尝试 %s 次）",
+                        result.get("reason"), result.get("attempts"))
+
+    def _resume_webview(self, source: str = "") -> None:
+        """窗口要重新出现/导航前先恢复渲染。幂等；没挂起时是空操作。"""
+        if self._window is None:
+            return
+        result = webview_suspend.resume(self._window)
+        if result.get("resumed"):
+            log.info("WebView2 已恢复渲染（%s）", source or "窗口显示")
+        elif not result.get("ok"):
+            # 引擎尚未初始化时 resume 也会失败：属于正常时序，别打 warning 吓用户。
+            log.debug("WebView2 恢复渲染未执行（%s）：%s", source, result.get("reason"))
+        self._webview_suspended = False
+
+    def _notify_shell_visible(self) -> None:
+        """告诉页面前端"窗口真的可见了"，让它恢复轮询/动画。
+
+        为什么需要这一句：WebView2 的 `hide()` / `show()` 都不触发 `visibilitychange`
+        （实测：关窗 5 分钟后页面仍 `document.hidden=true`；挂起并重载后的页面会继承 hidden），
+        而前端为了省电在 hidden 时停表 —— 两者叠加就是"重开窗口后数据不刷新"。
+        这里调用页面暴露的 `window.__aidnShellResume()`（webui 与 console-next 各实现一份）。
+        """
+        if self._window is None:
+            return
+        try:
+            self._window.evaluate_js(
+                "window.__aidnShellResume && window.__aidnShellResume();"
+            )
+        except Exception:  # noqa: BLE001 - 页面还没加载完时忽略，下一次显示会再发
+            log.debug("通知页面恢复轮询失败（页面可能还没加载完）")
+
+    def _schedule_visible_notify(self, delays: tuple[float, ...] = (0.8, 2.5)) -> None:
+        """导航/重载之后补发恢复通知：页面加载完才知道自己该不该轮询，所以要等一会儿再喊。"""
+
+        def worker() -> None:
+            for delay in delays:
+                time.sleep(delay)
+                if not self._window_visible or self._quitting:
+                    return
+                self._notify_shell_visible()
+
+        threading.Thread(target=worker, name="aidn-visible-notify", daemon=True).start()
 
     def request_show_window(self, source: str, view: str | None = None) -> tuple[int, dict]:
         log.info("显示窗口（来源 %s）", source)
@@ -146,15 +248,33 @@ class ShellController:
             self.open_in_browser()
             return (200, {"ok": True, "window": "browser", "state": self.state()})
         try:
+            self._resume_webview("显示窗口")
             self._window.show()
             self._window.restore()
+            self._window_visible = True
+            # 显示之后兜底解冻 + **明确告知页面"窗口真的可见了"**：
+            # WebView2 的 hide()/show() 不触发 visibilitychange，挂起后重载的页面会一直认为
+            # 自己是 hidden（实测重开后 document.hidden=true），前端因此停表、界面不刷新。
+            # 页面里的 window.__aidnShellResume() 就是给这一句话用的（webui 与 console-next 都有）。
+            self._resume_webview("显示后兜底")
+            self._notify_shell_visible()
+            # 立即那次常常打在"页面还在重载"的时间窗里（钩子还没定义），补两次延迟重试。
+            self._schedule_visible_notify()
             if view:
                 self._window.evaluate_js(f"location.hash = '#/{view}';")
-            self._window_visible = True
         except Exception as error:  # noqa: BLE001
             log.exception("显示窗口失败：%s", error)
             return (500, {"ok": False, "error": str(error)})
         return (200, {"ok": True, "window": "embedded", "state": self.state()})
+
+    def toggle_window(self) -> tuple[int, dict]:
+        """托盘左键：可见就收起来，不可见就亮出来。"""
+        if self._window is None:
+            return self.open_in_browser()
+        if self._window_visible:
+            self._hide_window()
+            return (200, {"ok": True, "window": "hidden", "state": self.state()})
+        return self.request_show_window("tray")
 
     def request_close_window(self) -> tuple[int, dict]:
         """与「用户点窗口关闭按钮」走同一条路径：隐藏，不退出。"""
@@ -264,6 +384,16 @@ class ShellController:
             self.settings.open_mode = mode
             self._open_mode_override = None
             changed.append(f"open_mode={mode}")
+            # 立即生效只做得到一半，且必须说清楚：
+            # - 切到浏览器：现在就把页面交给默认浏览器，并把内嵌窗口收起来；
+            # - 切回内嵌：无窗口模式没有 GUI 循环可以接管（pywebview 的 start() 只能
+            #   在主线程调一次），所以只能下次启动生效 —— 与其假装生效，不如直说。
+            if mode == "browser":
+                self.open_in_browser()
+                if self._window is not None and self._window_visible:
+                    self._hide_window()
+            elif self._window is None:
+                notes.append("当前以浏览器方式运行，切回内嵌窗口需要重启程序")
 
         if "autostart" in payload:
             enabled = bool(payload.get("autostart"))
@@ -349,6 +479,7 @@ class ShellController:
         window = self._window
         if window is None:
             return
+        self._resume_webview("导航前")  # 挂起状态下导航不会执行，先恢复渲染
         try:
             window.load_url(url)
         except Exception:  # noqa: BLE001 - 旧版 pywebview 没有 load_url
@@ -356,6 +487,9 @@ class ShellController:
                 window.evaluate_js(f"location.replace({url!r});")
             except Exception:  # noqa: BLE001
                 log.exception("窗口导航到 %s 失败", url)
+        # 导航出来的新页面同样会继承 hidden 态（hide()/show() 不触发 visibilitychange），
+        # 加载完补发一次"窗口可见"通知，否则页面会一直不轮询。
+        self._schedule_visible_notify()
 
     def apply_log_dir(self, raw: str) -> Path:
         """把日志切到新目录；空串表示回到默认目录。返回真实目录。"""
@@ -462,3 +596,4 @@ def open_log_dir_on_explorer(path: Path) -> None:
         subprocess.Popen(["explorer", str(path)])  # noqa: S603,S607
     except OSError:
         pass
+

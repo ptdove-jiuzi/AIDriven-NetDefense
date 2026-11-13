@@ -1,8 +1,14 @@
 /**
  * Process table source (§5.1 "进程": 5 s poll).
  *
- * `Win32_Process` is used instead of `tasklist` because it returns the parent pid, the
- * creation time and the full command line in one structured call. The creation time is
+ * The table is read natively through `NtQuerySystemInformation(SystemProcessInformation)`
+ * plus a PEB walk for `ExecutablePath`/`CommandLine` (`win32/process-table.js`, koffi).
+ * `Win32_Process` is still the *contract* — the native reader returns WMI-shaped rows — and
+ * the WMI script remains the fallback transport, because a missing koffi install must never
+ * turn into an empty table.
+ *
+ * `Win32_Process` was chosen originally over `tasklist` because it returns the parent pid,
+ * the creation time and the full command line in one structured call. The creation time is
  * what makes pid reuse tractable: identity is `pid + creationEpochMs`, so a recycled pid
  * is a different entity and therefore a different stable key.
  *
@@ -54,7 +60,7 @@ export function processDescriptor({ intervalMs = PROCESS_INTERVAL_MS } = {}) {
     kind: 'poll',
     intervalMs,
     permissions: {
-      required: ['WMI read access to root\\cimv2 (Win32_Process)'],
+      required: ['Read access to the process table: NtQuerySystemInformation(SystemProcessInformation) with a per-process PEB read, or WMI root\\cimv2 Win32_Process on the fallback transport'],
       optional: ['SeDebugPrivilege (administrator) for other users command lines and image paths'],
       degradedWithout: ['command_line', 'image_path'],
     },
@@ -109,11 +115,13 @@ function normalizeRow(row) {
 
 export function createProcessSource({
   powershell,
+  win32 = null,
   clock = Date.now,
   intervalMs = PROCESS_INTERVAL_MS,
   maxEntities = DEFAULT_MAX_ENTITIES,
 } = {}) {
-  if (!powershell || typeof powershell.runJson !== 'function') {
+  const native = win32 !== null && typeof win32?.readProcessTable === 'function' ? win32 : null;
+  if (!native && (!powershell || typeof powershell.runJson !== 'function')) {
     throw new WindowsCollectorError(
       WINDOWS_ERROR_CODES.INVALID_ARGUMENT,
       'a PowerShell client exposing runJson() is required',
@@ -126,12 +134,53 @@ export function createProcessSource({
   const differ = createSnapshotDiffer({ maxEntities });
   const descriptor = processDescriptor({ intervalMs });
 
+  /**
+   * Read the table, preferring the native provider.
+   *
+   * PERF-CPU: one `powershell.exe` start-up costs ~812 ms of CPU and `Get-CimInstance
+   * Win32_Process` another ~1156 ms, every 5 s. The native path answers the same question
+   * from the kernel in a few milliseconds with no subprocess at all.
+   *
+   * A native failure is a *value*: when a script client exists the read falls back to it and
+   * the fallback is recorded in `stats`, so a broken koffi install degrades the transport
+   * visibly instead of emptying the table.
+   */
+  async function readTableRows() {
+    if (native !== null) {
+      try {
+        const rows = await native.readProcessTable();
+        return { rows: toArray(rows), transport: native.transport ?? 'win32-koffi', fallback: null };
+      } catch (error) {
+        if (!powershell || typeof powershell.runJson !== 'function') {
+          throw error;
+        }
+        const rows = toArray(await powershell.runJson(PROCESS_SCRIPT));
+        return {
+          rows,
+          transport: 'powershell',
+          fallback: Object.freeze({
+            from: native.transport ?? 'win32-koffi',
+            to: 'powershell',
+            errorCode: error?.code ?? null,
+            message: error?.message ?? String(error),
+          }),
+        };
+      }
+    }
+    return {
+      rows: toArray(await powershell.runJson(PROCESS_SCRIPT)),
+      transport: 'powershell',
+      fallback: null,
+    };
+  }
+
   return Object.freeze({
     descriptor,
     sourceId: PROCESS_SOURCE_ID,
 
     async read() {
-      const rows = toArray(await powershell.runJson(PROCESS_SCRIPT));
+      const table = await readTableRows();
+      const rows = table.rows;
       const items = [];
       let missingImagePath = 0;
       let missingCommandLine = 0;
@@ -190,6 +239,8 @@ export function createProcessSource({
           missingCommandLine,
           duplicateEntities: diff.duplicateEntities,
           suppressedRemovals: diff.suppressedRemovals,
+          transport: table.transport,
+          fallback: table.fallback,
         }),
       };
     },

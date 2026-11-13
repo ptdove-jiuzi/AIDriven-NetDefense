@@ -14,6 +14,9 @@
  * - binds to 127.0.0.1/::1 only; `--host 0.0.0.0` is rejected, not silently
  *   downgraded, because a console on a LAN interface is a different product;
  * - GET and HEAD only;
+ * - refuses to serve a WebUI v2 page (see `consoleGeneration()`): v2 needs writes and
+ *   streaming, and this shell has neither, so staying up would render a page whose every
+ *   save/chat/explain silently fails — the pin below is the only correct instruction;
  * - no directory listing, no dot files, no extension outside the allowlist;
  * - no redirect that could be pointed at another origin;
  * - it never opens a browser itself. Printing a URL is a message; launching a
@@ -24,7 +27,7 @@
  *                          [--host 127.0.0.1] [--port 0]
  */
 
-import { createReadStream, existsSync, statSync } from 'node:fs';
+import { createReadStream, existsSync, readFileSync, statSync } from 'node:fs';
 import { createServer, request as httpRequest } from 'node:http';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -111,6 +114,34 @@ function staticTarget(pathname) {
   return absolute;
 }
 
+/** How many `data-route="..."` nav items the WebUI v2 index carries (contract §7.1). */
+const V2_NAV_ROUTES = 6;
+
+/**
+ * Which console generation sits next to this file.
+ *
+ * This shell is the *packaging* baseline: it exists for the legacy product console
+ * (`apps/console`), whose page only reads. WebUI v2 (`apps/console-next`) ships its own
+ * `serve.mjs` because it needs the same-origin write path (PUT settings, POST
+ * chat/explain, SSE) and the `x-console-v2` gate; none of that exists here. Detecting it
+ * by the frozen page shape (six `data-route` nav items, contract §7.1) turns a silent
+ * half-working install into a startup refusal that names the fix.
+ *
+ * @returns {{generation: 'legacy'|'v2'|'unknown', routes: number}}
+ */
+function consoleGeneration() {
+  try {
+    const entry = join(HERE, 'index.html');
+    if (!existsSync(entry)) return { generation: 'unknown', routes: 0 };
+    const html = readFileSync(entry, 'utf8');
+    const routes = (html.match(/\bdata-route="/gu) ?? []).length;
+    if (routes >= V2_NAV_ROUTES) return { generation: 'v2', routes };
+    return { generation: 'legacy', routes };
+  } catch {
+    return { generation: 'unknown', routes: 0 };
+  }
+}
+
 function proxy(req, res) {
   const headers = { accept: 'application/json', host: `${daemonHost}:${daemonPort}` };
   if (options.token !== '') headers.authorization = `Bearer ${options.token}`;
@@ -136,6 +167,20 @@ function proxy(req, res) {
     else res.destroy();
   });
   req.pipe(upstream);
+}
+
+// Fail closed on a WebUI v2 page. The alternative — serving it and answering 405 to every
+// write — produces a console that looks installed and loses every save, which is the
+// failure mode this check exists to prevent. (Runs after `consoleGeneration` and its
+// constants are initialized, so the check cannot trip over a temporal dead zone.)
+const page = consoleGeneration();
+if (page.generation === 'v2') {
+  fail(`the page next to this shell is WebUI v2 (${page.routes} data-route nav items), but this `
+    + 'packaging shell is GET/HEAD only: settings saves (PUT), credentials (PUT/DELETE), '
+    + 'chat/explain (POST) and SSE would all fail after the page rendered. Stage the v2 console '
+    + 'with its own server instead — build with --console-source apps/console-next so '
+    + 'console/serve.mjs is console-next/serve.mjs — or launch that file directly instead of '
+    + 'falling back to this one.', 3);
 }
 
 const server = createServer((req, res) => {
@@ -174,6 +219,7 @@ server.listen(options.port, options.host, () => {
     schemaVersion: '1.0',
     listening: `http://${options.host}:${address.port}/`,
     daemon: `${daemon.protocol}//${daemonHost}:${daemonPort}`,
+    generation: page.generation,
     tokenInjected: options.token !== '',
     note: 'Open the printed URL yourself. This process never opens a browser and never polls.',
   }, null, 2)}\n`);

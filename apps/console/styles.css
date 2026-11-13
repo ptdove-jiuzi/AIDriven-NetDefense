@@ -194,6 +194,11 @@ a:hover { text-decoration: underline; }
 .view { padding: 14px 16px 28px; display: flex; flex-direction: column; gap: 12px; }
 .view[hidden] { display: none; }
 
+/* 作者样式里的 display 会盖掉 UA 对 [hidden] 的 display:none。
+   .drawer 声明了 display:flex，于是 closeDrawer() 设了 hidden 也收不起来
+   （遮罩没有 display 声明，所以遮罩消失、面板留着）。这条兜底一次管住所有同类。 */
+[hidden] { display: none !important; }
+
 .card {
   background: var(--panel);
   border: 1px solid var(--line);

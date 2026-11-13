@@ -16,9 +16,11 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 import { createHarness } from './dom-harness.mjs';
+import { assertAtRulesHarmless, drawerElement, hasGlobalHiddenImportant, resolveDisplay } from './css-cascade.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(HERE, 'fixtures');
+const LEGACY_STYLES = path.join(HERE, '..', '..', 'apps', 'console', 'styles.css');
 
 const read = (name) => JSON.parse(fs.readFileSync(path.join(FIXTURES, name), 'utf8'));
 const STATUS = read('status.json');
@@ -123,6 +125,17 @@ describe('告警页', () => {
     assert.match(body, /window_end/u);
     assert.equal(body.includes('class="missing"'), false, '完整条目不应出现「未提供」');
     assert.match(body, /本抽屉只展示列表接口的白名单字段/u);
+  });
+
+  it('抽屉关闭后的可见性必须由层叠决定：hidden 元素算出 display:none（SEED-02/R6-002）', () => {
+    // 只断言 `drawer.hidden` 是不够的：`.drawer{display:flex}` 会在层叠里打败 UA 的
+    // `[hidden]{display:none}`，DOM 属性设了也关不掉。删掉 `!important` 本用例必须转红。
+    const css = fs.readFileSync(LEGACY_STYLES, 'utf8');
+    assertAtRulesHarmless(css);
+    assert.equal(hasGlobalHiddenImportant(css), true,
+      'apps/console/styles.css 缺 [hidden]{display:none !important}：抽屉关不掉（SEED-02）');
+    assert.equal(resolveDisplay(css, drawerElement()).display, 'none',
+      'hidden 抽屉的层叠结果必须是 none，不能是 .drawer 的 flex');
   });
 
   it('空页显示空态文案，而不是空白表格', async () => {

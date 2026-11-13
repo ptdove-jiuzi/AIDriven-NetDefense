@@ -75,6 +75,14 @@ function emptyCounters() {
     store_errors_consecutive: 0,
     detection_faults: 0,
     detection_rebuilds: 0,
+    // PERF-CPU N-034: the write-path shape has to be observable, otherwise "the transaction count
+    // went down" cannot be checked from `/status`. `store_calls` is the number of store write
+    // entry points invoked (one T1 transaction each, on the real store); `store_batch_calls` is how
+    // many of those were batch calls. Before the change store_calls == events_accepted.
+    store_calls: 0,
+    store_batch_calls: 0,
+    /** Batches that had at least one per-item write failure (the safety valve then disables batching). */
+    batch_partial_failures: 0,
   };
 }
 
@@ -114,6 +122,27 @@ export function createPipeline(options) {
   const createDetection = typeof options.createDetection === 'function' ? options.createDetection : null;
   const logger = options.logger ?? null;
   const counters = emptyCounters();
+  /**
+   * PERF-CPU N-034 — batched write path.
+   *
+   * `batchFlushMax` bounds one T1 transaction. It is a *count* bound, not a time bound, because
+   * `ingestBatch()` is synchronous: the chunk is written before the call returns, so nothing can
+   * be held back across a poll and event→alert latency is unchanged by batching.
+   *
+   * `batchWritesEnabled` is the safety valve: the first time a store cannot batch (no `ingestBatch`
+   * entry point, or a run that was partially rejected) it turns `false` for the rest of the process
+   * and the proven per-event path takes over.
+   */
+  const batchFlushMax = Number.isInteger(options.batchFlushMax) && options.batchFlushMax > 0
+    ? options.batchFlushMax
+    : 200;
+  // Default **on**: batching is the measured fix for the fsync-per-event write amplification, and a
+  // flag that defaults off is a fix that does not exist in production. `AEGIS_DAEMON_BATCH_WRITES=0`
+  // is kept as the emergency/mutation switch (acceptor uses it as M1). An explicit
+  // `options.batchWrites` wins over the environment, so a test can pin the path it is testing.
+  let batchWritesEnabled = typeof options.batchWrites === 'boolean'
+    ? options.batchWrites
+    : process.env.AEGIS_DAEMON_BATCH_WRITES !== '0';
   /**
    * Alert contributions that could not be written because their anchor event's T1
    * call failed.
@@ -1162,7 +1191,15 @@ export function createPipeline(options) {
     return { ...group, alerts, requests };
   }
 
-  function writeOne(event, group, sourceId = null) {
+  /**
+   * Build the store request for one event (PERF-CPU N-034: split out of `writeOne` so the batched
+   * and the per-event write paths share exactly one request shape).
+   *
+   * @param {object} event Telemetry event.
+   * @param {object|undefined} group Detection group or `undefined`.
+   * @returns {object} Store ingest request.
+   */
+  function buildRequest(event, group) {
     const request = {
       event,
       findings: group?.findings ?? [],
@@ -1177,22 +1214,45 @@ export function createPipeline(options) {
         counters.requests_dropped += group.requests.length - 1;
       }
     }
-    const result = store.ingest(request);
+    return request;
+  }
+
+  /**
+   * Book-keeping for one committed store write (duplicate or accepted).
+   *
+   * @param {object} entry Prepared write entry.
+   * @param {object} result Store result.
+   * @returns {object} The store result.
+   */
+  function applyWritten(entry, result) {
+    const { event, group, outcomes } = entry;
+    const sourceId = entry.sourceId ?? null;
     if (result.duplicate === true) {
       counters.events_duplicate += 1;
       // 预过滤器本应拦下这个事件（同一 event_id）。走到这里说明是并发写入，或 store
       // 与 `hasEvent` 的判断不一致：T1 命中了稳定键上的旧行，本次的派生物一个都没写。
       // 不能无条件保留——旧行里已经计过这份观测；只保留仍然成立的贡献。
       retainDuplicateContribution(group, event, result, sourceId);
+      // T1 wrote nothing for this call: the planned part is not in the store, so the entry's
+      // row stays unless the remainder alone replaced it (identity-checked in `settleAttached`).
+      settleAttached(outcomes, false, null);
       return result;
     }
     counters.events_accepted += 1;
-    counters.alerts_written += request.alerts.length;
-    counters.findings_written += request.findings.length;
-    if (request.analysisRequest !== undefined) {
+    counters.alerts_written += group?.alerts.length ?? 0;
+    counters.findings_written += group?.findings.length ?? 0;
+    if (group !== undefined && group.requests.length > 0) {
       counters.analysis_requests += 1;
     }
+    settleAttached(outcomes, true, null);
     return result;
+  }
+
+  function writeOne(event, group, sourceId = null, outcomes = []) {
+    const entry = { event, group, outcomes, sourceId };
+    counters.store_calls += 1;
+    const result = store.ingest(buildRequest(event, group));
+    return applyWritten(entry, result);
   }
 
   return {
@@ -1312,52 +1372,166 @@ export function createPipeline(options) {
       /** Event ids whose T1 call already failed: later alerts must not cite them. */
       const failedEventIds = new Set();
 
+      /** One event's failed-write bookkeeping (shared by the write paths). */
+      const applyFailure = (entry, error) => {
+        summary.store_errors += 1;
+        counters.store_errors += 1;
+        counters.store_errors_consecutive += 1;
+        summary.dropped += 1;
+        counters.events_dropped += 1;
+        failedEventIds.add(entry.event.event_id);
+        const reRetained = retainContribution(entry.group, batchSourceId);
+        // Identity-checked: the re-retained content may UPSERT the very row being settled.
+        settleAttached(entry.outcomes, false, reRetained);
+        logger?.error?.('event store write failed', {
+          code: error?.code ?? 'WRITE_FAILED',
+          source_id: meta.source_id ?? null,
+        });
+      };
+
+      // PERF-CPU N-034 — batched writes, on the narrowest safe boundary.
+      //
+      // With `synchronous=FULL` every T1 transaction is one fsync, so one-event-per-transaction
+      // meant 2009 fsyncs in the 330 s measured window and a 385-event first snapshot that held the
+      // event loop for ~45 s. A *run* of consecutive events is written in one transaction here.
+      //
+      // **Which events are batch-safe.** Only events that write no alert row, no analysis request
+      // and no retained contribution. That is exactly the boundary the per-event loop's ordering
+      // refinement lives on — "a failed write removes that event's observation from every *later*
+      // alert of the same batch" needs the writes to be sequential, so an event that produces an
+      // alert is never batched. In the measured idle workload ~91 % of events are findings-only,
+      // which is where the volume is. `batchFlushMax` is the flush bound: the run is written as soon
+      // as it reaches that many entries and whatever is left is written before this call returns;
+      // there is no timer and no cross-poll buffer, so batching cannot delay an event.
+      const useBatch = batchWritesEnabled && typeof store.ingestBatch === 'function';
+
+      /** Write one event through the store's single-event entry point (the proven path). */
+      const writeSingle = (entry) => {
+        try {
+          const result = writeOne(entry.event, entry.group, batchSourceId, entry.outcomes);
+          if (result.duplicate === true) {
+            summary.duplicate += 1;
+          } else {
+            summary.accepted += 1;
+            summary.alerts += entry.group?.alerts.length ?? 0;
+            summary.findings += entry.group?.findings.length ?? 0;
+            if (entry.group !== undefined && entry.group.requests.length > 0) {
+              summary.analysis_requests += 1;
+            }
+          }
+        } catch (error) {
+          applyFailure(entry, error);
+        }
+      };
+
+      /** Write a run of batch-safe events in one transaction. */
+      const writeChunk = (chunk) => {
+        let batchResult = null;
+        let batchError = null;
+        counters.store_calls += 1;
+        counters.store_batch_calls += 1;
+        try {
+          batchResult = store.ingestBatch(chunk.map((entry) => entry.request));
+        } catch (error) {
+          batchError = error;
+        }
+        if (batchResult === null || batchResult === undefined) {
+          // No batch entry point on this store build, or the transaction rolled back with nothing
+          // written: replay the run through the proven path and stop batching this process.
+          batchWritesEnabled = false;
+          for (const entry of chunk) {
+            writeSingle(entry);
+          }
+          return;
+        }
+        const results = Array.isArray(batchResult.results) ? batchResult.results : [];
+        for (let index = 0; index < chunk.length; index += 1) {
+          const entry = chunk[index];
+          const item = results[index];
+          if (item !== undefined && item.ok === true) {
+            const value = item.value;
+            if (value?.duplicate === true) {
+              summary.duplicate += 1;
+            } else {
+              summary.accepted += 1;
+              summary.findings += entry.group?.findings.length ?? 0;
+            }
+            applyWritten(entry, value);
+          } else {
+            applyFailure(entry, item?.error ?? batchError);
+          }
+        }
+        if (Number(batchResult.failed ?? 0) > 0) {
+          // A partially rejected run cannot be batched safely (the committed part is already in the
+          // store). Count it, stop batching and say so — silently degrading back to the per-event
+          // path is exactly what this daemon must not do.
+          counters.batch_partial_failures += 1;
+          batchWritesEnabled = false;
+          logger?.error?.('event store batch was partially rejected; falling back to per-event writes', {
+            failed: Number(batchResult.failed),
+            chunk: chunk.length,
+            source_id: meta.source_id ?? null,
+          });
+        }
+      };
+
+      let run = [];
+      const flushRun = () => {
+        if (run.length === 0) {
+          return;
+        }
+        const chunk = run;
+        run = [];
+        writeChunk(chunk);
+      };
+
       for (const event of fresh) {
         // A failed write removes that event's observation from every later alert of the
         // same batch, so a row can never reference an event that has no row. The stricken
         // observation is retained as its own deferred contribution: if the event lands on
         // a later retry, its observation rejoins the window's `count` instead of being
         // silently dropped.
+        //
+        // Order matters: a run of batched entries may still be in flight when this event is
+        // prepared, and a failure inside that run changes what `stripFailedObservations` must
+        // strip from *this* event's alert. So the run is flushed before the group is computed,
+        // never after — otherwise the alert would cite an event whose write is about to fail.
+        const rawGroup = plan.groups.get(event.event_id);
+        const outcomes = plan.attachedOutcomes?.get(event.event_id) ?? [];
+        const preSafe = useBatch
+          && outcomes.length === 0
+          && (rawGroup === undefined || (rawGroup.alerts.length === 0 && rawGroup.requests.length === 0));
+        if (!preSafe) {
+          flushRun();
+        }
         const recovered = [];
-        const group = stripFailedObservations(plan.groups.get(event.event_id), failedEventIds, recovered);
+        const group = stripFailedObservations(rawGroup, failedEventIds, recovered);
         for (const contribution of recovered) {
           retainContribution({ alerts: [contribution] }, batchSourceId);
         }
         // Retained entries anchored on *this* event: their spool rows are settled only after the
         // call above/below is known to have committed (第 13 轮 P1-9).
-        const outcomes = plan.attachedOutcomes?.get(event.event_id) ?? [];
-        try {
-          const result = writeOne(event, group, batchSourceId);
-          if (result.duplicate === true) {
-            summary.duplicate += 1;
-            // T1 wrote nothing for this call: the planned part is not in the store, so the entry's
-            // row stays unless the remainder alone replaced it (identity-checked in `settleAttached`).
-            settleAttached(outcomes, false, null);
-          } else {
-            summary.accepted += 1;
-            summary.alerts += group?.alerts.length ?? 0;
-            summary.findings += group?.findings.length ?? 0;
-            if (group !== undefined && group.requests.length > 0) {
-              summary.analysis_requests += 1;
-            }
-            settleAttached(outcomes, true, null);
-          }
-        } catch (error) {
-          summary.store_errors += 1;
-          counters.store_errors += 1;
-          counters.store_errors_consecutive += 1;
-          summary.dropped += 1;
-          counters.events_dropped += 1;
-          failedEventIds.add(event.event_id);
-          const reRetained = retainContribution(group, batchSourceId);
-          // Identity-checked: the re-retained content may UPSERT the very row being settled.
-          settleAttached(outcomes, false, reRetained);
-          logger?.error?.('event store write failed', {
-            code: error?.code ?? 'WRITE_FAILED',
-            source_id: meta.source_id ?? null,
-          });
+        const entry = {
+          event,
+          group,
+          outcomes,
+          request: buildRequest(event, group),
+        };
+        const batchSafe = preSafe
+          && recovered.length === 0
+          && (group === undefined || (group.alerts.length === 0 && group.requests.length === 0));
+        if (!batchSafe) {
+          flushRun();
+          writeSingle(entry);
+          continue;
+        }
+        run.push(entry);
+        if (run.length >= batchFlushMax) {
+          flushRun();
         }
       }
+      flushRun();
+
       if (summary.store_errors === 0) {
         counters.store_errors_consecutive = 0;
       }

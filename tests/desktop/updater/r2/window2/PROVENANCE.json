@@ -1,0 +1,17 @@
+{
+  "note": "窗口-2 用副本：判据逻辑零改动，仅证据/测试树路径指到 window2（不覆盖窗口-1 正式证据）",
+  "source": "tests/desktop/updater/r2/run_scenarios_r2.py",
+  "source_sha256": "cbceddd5d4be8ccc7849d93f8a6eaf5714d5e92720737084c65f3bc66155170b",
+  "dest": "tests/desktop/updater/r2/window2/run_scenarios_w2.py",
+  "dest_sha256": "01f521a040d72b1b5134da20599898bee7e0b837e4cb84224e193a5145b606d5",
+  "path_ops": [
+    {
+      "from": "REPO / \"evidence\" / \"p1-close-2\" / \"updater\" / \"scenarios\"",
+      "to": "REPO / \"evidence\" / \"p1-close-2\" / \"updater\" / \"window2\" / \"scenarios\""
+    },
+    {
+      "from": "C:\\Users\\user\\AppData\\Local\\Temp\\p1-close-2\\updater\\scenarios",
+      "to": "C:\\Users\\user\\AppData\\Local\\Temp\\p1-close-2\\updater\\window2\\scenarios"
+    }
+  ]
+}

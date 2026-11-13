@@ -1,0 +1,174 @@
+#!/bin/sh
+# AIDriven NetDefense — post-installation script.
+#
+# Author: PT-dove
+#
+# Contract (docs/implementation/release/linux-install.md §5):
+#   * idempotent: configure runs on install, upgrade and reinstall;
+#   * non-interactive: never reads stdin, never calls debconf;
+#   * never overwrites an existing conffile or an existing API token;
+#   * fails closed when the shipped payload does not match its own manifest.
+#
+# `set -e` is on, every optional step is explicitly guarded with `|| log ...`, so a
+# missing tool degrades to a logged warning instead of a half-configured package.
+
+set -e
+
+PKG=aidriven-netdefense
+SVC=aidriven-netdefense-daemon
+OPT=/opt/aidriven-netdefense
+ETC=/etc/aidriven-netdefense
+VAR=/var/lib/aidriven-netdefense
+CONF="$ETC/aegis.conf.json"
+RULES_SRC="$OPT/app/rules/defense-seed-pack.json"
+RULES_DST="$VAR/rules/defense-seed-pack.json"
+TOKEN="$VAR/secrets/api-token"
+
+log() {
+  logger -t "$PKG" -- "$*" 2>/dev/null || true
+}
+
+say() {
+  printf '%s: %s\n' "$PKG" "$*" >&2
+}
+
+ensure_group() {
+  getent group aegis >/dev/null 2>&1 || addgroup --system aegis >/dev/null
+}
+
+# A system user with no home directory of its own: the daemon's writable state lives
+# in /var/lib/aidriven-netdefense, which postinst owns, not the account.
+ensure_user() {
+  ensure_group
+  if ! getent passwd aegis >/dev/null 2>&1; then
+    adduser --system --home "$VAR" --no-create-home --ingroup aegis \
+      --shell /usr/sbin/nologin --gecos "AIDriven NetDefense" aegis >/dev/null
+    log "created system user aegis"
+  fi
+  for grp in adm systemd-journal; do
+    getent group "$grp" >/dev/null 2>&1 || continue
+    if ! id -nG aegis 2>/dev/null | tr ' ' '\n' | grep -qx "$grp"; then
+      adduser aegis "$grp" >/dev/null 2>&1 || log "could not add aegis to group $grp"
+    fi
+  done
+}
+
+# Directories are created here rather than shipped in the .deb on purpose: a package
+# that owns /var/lib/<name> turns every future upgrade into a file-ownership question.
+install_dirs() {
+  install -d -m 0755 -o root -g root "$OPT" "$OPT/app" "$OPT/bin"
+  install -d -m 0750 -o root -g aegis "$ETC"
+  install -d -m 0750 -o aegis -g aegis "$VAR"
+  install -d -m 0750 -o aegis -g aegis \
+    "$VAR/store" "$VAR/secrets" "$VAR/analysis" "$VAR/rules" \
+    "$VAR/install" "$VAR/install/backup" "$VAR/install/backup/db"
+}
+
+# The conffile ships root:root 0644 so dpkg can unpack it as an unprivileged builder;
+# the mode the ADR asks for (root:aegis 0640) is applied here, after unpack.
+tighten_conf() {
+  [ -f "$CONF" ] || return 0
+  chown root:aegis "$CONF" 2>/dev/null || true
+  chmod 0640 "$CONF" 2>/dev/null || true
+}
+
+# Generated once and never replaced. The value is never logged; only its length is.
+ensure_token() {
+  if [ -s "$TOKEN" ]; then
+    return 0
+  fi
+  if command -v openssl >/dev/null 2>&1; then
+    openssl rand -hex 32 >"$TOKEN"
+  else
+    od -An -tx1 -N32 /dev/urandom | tr -d ' \n' >"$TOKEN"
+  fi
+  chown aegis:aegis "$TOKEN"
+  chmod 0600 "$TOKEN"
+  log "generated API token ($(wc -c <"$TOKEN" | tr -d ' ') bytes)"
+}
+
+# The daemon refuses to start without a rule pack, and the pack must live inside the
+# data directory (config.resolveInside). Seeded once; a later edit by the operator wins.
+seed_rules() {
+  if [ ! -f "$RULES_SRC" ]; then
+    return 0
+  fi
+  if [ -f "$RULES_DST" ]; then
+    return 0
+  fi
+  cp -f "$RULES_SRC" "$RULES_DST"
+  chown aegis:aegis "$RULES_DST"
+  chmod 0640 "$RULES_DST"
+  log "seeded rule pack"
+}
+
+# G4 integrity gate: the payload carries manifests/files.sha256 (relative paths,
+# manifests/ excluded because it cannot contain its own digest). Failing here makes
+# dpkg report the package as broken instead of leaving a half-trusted /opt tree.
+verify_payload() {
+  manifest="$OPT/app/manifests/files.sha256"
+  if [ ! -f "$manifest" ]; then
+    say "payload manifest missing: $manifest"
+    log "payload manifest missing"
+    exit 1
+  fi
+  if [ "${AIDN_SKIP_PAYLOAD_VERIFY:-0}" = "1" ]; then
+    log "payload verification skipped (AIDN_SKIP_PAYLOAD_VERIFY=1)"
+    return 0
+  fi
+  if ! ( cd "$OPT/app" && sha256sum -c --quiet --strict manifests/files.sha256 >/dev/null ); then
+    say "payload integrity check failed; refusing to configure"
+    log "payload integrity check FAILED"
+    exit 1
+  fi
+  log "payload integrity check passed"
+}
+
+# Debian policy: a maintainer script must ask policy-rc.d before starting a service,
+# and must treat exit 101 as "do not start" (containers, image builds).
+policy_allows_start() {
+  [ -x /usr/sbin/policy-rc.d ] || return 0
+  rc=0
+  /usr/sbin/policy-rc.d "$SVC" start >/dev/null 2>&1 || rc=$?
+  [ "$rc" -ne 101 ]
+}
+
+reload_units() {
+  [ -d /run/systemd/system ] || return 0
+  command -v systemctl >/dev/null 2>&1 || return 0
+  systemctl daemon-reload >/dev/null 2>&1 || log "daemon-reload failed"
+}
+
+start_service() {
+  [ -d /run/systemd/system ] || { log "systemd absent; service not started"; return 0; }
+  command -v systemctl >/dev/null 2>&1 || return 0
+  systemctl enable "$SVC.service" >/dev/null 2>&1 || log "systemctl enable failed"
+  if policy_allows_start; then
+    systemctl start "$SVC.service" >/dev/null 2>&1 || log "systemctl start failed; see: systemctl status $SVC"
+  else
+    log "start suppressed by policy-rc.d"
+  fi
+}
+
+case "$1" in
+  configure)
+    ensure_user
+    install_dirs
+    tighten_conf
+    ensure_token
+    seed_rules
+    verify_payload
+    reload_units
+    start_service
+    log "configured version ${2:-unknown}"
+    say "installed ${2:-?}; service $SVC; data in $VAR"
+    ;;
+  abort-upgrade|abort-remove|abort-deconfigure)
+    reload_units
+    ;;
+  *)
+    say "postinst called with unsupported argument '$1'"
+    ;;
+esac
+
+exit 0

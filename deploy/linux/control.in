@@ -1,0 +1,23 @@
+Package: aidriven-netdefense
+Version: @VERSION@
+Architecture: amd64
+Maintainer: PT-dove <pt-dove@users.noreply.github.com>
+Installed-Size: @INSTALLED_SIZE@
+Depends: adduser, libc6 (>= 2.28), libstdc++6
+Recommends: systemd, openssl
+Section: admin
+Priority: optional
+Homepage: https://github.com/ptdove-jiuzi/AIDriven-NetDefense
+Description: security monitoring daemon for AIDriven NetDefense (网域智防)
+ AIDriven NetDefense collects local security telemetry, evaluates it against a
+ bundled detection rule pack, and exposes a loopback-only HTTP API used by the
+ console and by the optional model broker. No traffic leaves the host unless a
+ model provider is configured explicitly by the administrator.
+ .
+ This package installs the daemon, the bundled Node.js runtime it runs on, the
+ default configuration in /etc/aidriven-netdefense, the writable data tree in
+ /var/lib/aidriven-netdefense and a hardened systemd unit. The service runs as
+ the unprivileged system user "aegis".
+ .
+ The package is unsigned. Verify the sha256 published with the release before
+ installing; the hash proves the download was not altered, not who built it.

@@ -145,6 +145,57 @@ async function boot(t) {
     return result;
   };
 
+  // PERF-CPU N-034: the pipeline commits a run of alert-free events through `store.ingestBatch()`.
+  // This fixture used to wrap only `ingest()`, so a batched write would bypass both the injected
+  // failure and the `written` book-keeping, and the suite would quietly stop testing what it claims
+  // to. Mirror the same rules into the batch entry point: decide per record, commit the survivors in
+  // ONE transaction (the production shape).
+  if (typeof store.ingestBatch === 'function') {
+    const batchIngest = store.ingestBatch.bind(store);
+    store.ingestBatch = (requests) => {
+      const blocked = new Map();
+      const allowed = [];
+      requests.forEach((request, index) => {
+        recorder.calls += 1;
+        // A batched run never carries alerts (the pipeline only batches alert-free events), so this
+        // dangling-citation scan has nothing to inspect here; it is kept for a future batching rule.
+        for (const alert of request.alerts ?? []) {
+          for (const id of alert.event_ids ?? []) {
+            if (id !== request.event.event_id && !written.has(id)) {
+              violations.push({ source_seq: request.event.source_seq, cited: id });
+            }
+          }
+        }
+        if (recorder.failWhen(request) === true) {
+          blocked.set(index, new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure'));
+        } else {
+          allowed.push(index);
+        }
+      });
+      const out = allowed.length === 0
+        ? { accepted: 0, duplicates: 0, failed: 0, results: [] }
+        : batchIngest(allowed.map((index) => requests[index]));
+      const results = new Array(requests.length);
+      allowed.forEach((originalIndex, position) => {
+        results[originalIndex] = out.results[position];
+        const value = out.results[position]?.value;
+        if (value !== undefined && value.duplicate !== true) {
+          written.add(requests[originalIndex].event.event_id);
+        }
+      });
+      for (const [index, error] of blocked) {
+        results[index] = { ok: false, error };
+      }
+      return {
+        received: requests.length,
+        accepted: out.accepted,
+        duplicates: out.duplicates,
+        failed: (out.failed ?? 0) + blocked.size,
+        results,
+      };
+    };
+  }
+
   t.after(() => {
     for (const handle of readers) {
       try {

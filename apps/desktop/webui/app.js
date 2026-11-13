@@ -547,9 +547,18 @@ function bind() {
   });
 
   window.addEventListener('hashchange', () => showView((location.hash || '#/overview').slice(2)));
+  // 窗口收起到托盘 / 重新亮出来：隐藏时停掉一切轮询与常驻动画，可见时立刻补一次刷新。
+  // 这一层是「挂起 WebView2」之外的双保险：挂起失败（引擎未就绪）时也不能白唤醒 renderer。
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) refreshAll();
+    document.documentElement.toggleAttribute('data-aidn-hidden', document.hidden === true);
+    if (document.hidden) {
+      clearTimeout(state.timer);
+      state.timer = null;
+      return;
+    }
+    refreshAll().then(schedule, schedule);
   });
+  document.documentElement.toggleAttribute('data-aidn-hidden', document.hidden === true);
 }
 
 /*
@@ -561,15 +570,54 @@ const POLL_OFFLINE_MS = 1200;
 
 function schedule() {
   clearTimeout(state.timer);
+  state.timer = null;
+  // 窗口隐藏（托盘驻留）时**彻底不再排定时器**。隐藏页里的 setTimeout 实测仍每 5.2 s
+  // 触发一次（PERF-CPU prof-shell），每次都是一次无用的 renderer 唤醒；何况壳随后会把
+  // WebView2 挂起，JS 本来也不会执行。重新可见时由 visibilitychange 立即补一次刷新。
+  //
+  // 例外：壳把窗口重新显示、页面自己却仍认为 hidden 时（hide()/show() 都不触发
+  // visibilitychange，挂起后重载的页面也会继承 hidden），壳会调用 `__aidnShellResume()`
+  // 明确告知"窗口真的可见了"，此时以壳为准继续轮询。
+  if (state.shellVisible === false) return;
+  if (document.hidden && state.shellVisible !== true) return;
   const delay = state.status === null ? POLL_OFFLINE_MS : POLL_ONLINE_MS;
-  state.timer = setTimeout(async () => {
-    if (!document.hidden) await refreshAll();
-    schedule();
+  state.timer = setTimeout(() => {
+    refreshAll().then(schedule, schedule);
   }, delay);
 }
+
+/*
+ * 壳侧隐藏钩子：aidn/app.py::_notify_shell_hidden 在窗口收起（托盘驻留）后调用。
+ * 为什么必须由壳来说：WebView2 的 hide() 不触发 visibilitychange，页面自己永远发现不了
+ * "窗口已经收起来了"（实测关窗 5 分钟后 document.hidden 仍是 false），于是定时器照跑、
+ * 常驻动画照转，壳侧为此白烧 3% 单核。壳说一句，页面自己停表即可 —— 不需要动 WebView2。
+ */
+window.__aidnShellHidden = () => {
+  state.shellVisible = false;
+  clearTimeout(state.timer);
+  state.timer = null;
+  document.documentElement.setAttribute('data-aidn-hidden', '');
+};
+
+/*
+ * 壳侧恢复钩子：aidn/app.py::_resume_webview 在窗口真正显示之后调用一次。
+ * 为什么需要它：WebView2 的 hide()/show() 不触发 visibilitychange，挂起后重载的页面会
+ * 一直认为自己是 hidden；只靠 visibilitychange 的话，用户重开窗口会看到不刷新的旧数据。
+ */
+window.__aidnShellResume = () => {
+  state.shellVisible = true;
+  document.documentElement.removeAttribute('data-aidn-hidden');
+  refreshAll().then(schedule, schedule);
+};
 
 function boot() {
   bind();
   showView((location.hash || '#/overview').slice(2));
   refreshAll().then(schedule, schedule);
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot, { once: true });
+} else {
+  boot();
 }

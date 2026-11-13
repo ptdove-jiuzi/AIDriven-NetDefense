@@ -49,6 +49,8 @@ export function createFakeRunner(handler = null) {
  * source issues two scripts in one read.
  */
 export function createScriptedPowerShell(routes = {}) {
+  // No native reader: a fixture must be answered by the fixture, never by the live host.
+  const nativeCapable = false;
   const calls = [];
   function resolveRoute(script) {
     const match = /^# aegis-source:([A-Za-z0-9-]+)/m.exec(String(script));
@@ -73,6 +75,7 @@ export function createScriptedPowerShell(routes = {}) {
   }
   return {
     calls,
+    nativeCapable,
     async runJson(script) {
       calls.push({ kind: 'json', script });
       return materialize(resolveRoute(script), script);
@@ -129,3 +132,4 @@ export function createTestCollector({ sandbox, source, clock }) {
   });
   return { collector, capability, store };
 }
+

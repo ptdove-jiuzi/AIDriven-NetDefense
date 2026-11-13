@@ -1,0 +1,241 @@
+/* ==========================================================================
+   AIDriven NetDefense · WebUI v2 设计 token
+   B1 / PT-dove · 形状来源：docs/implementation/CONSOLE-V2-CONTRACT.md §9
+   --------------------------------------------------------------------------
+   默认暗色；[data-theme="light"] 并列。所有 token 名与合同 §9 一致。
+   与合同的偏差（合同允许在通过 AA 实测后微调，实测表见 styles/demo.html）：
+   1) light --c-text-faint：合同 #6b7f95 → 实测 3.87:1（bg）未达 4.5:1；
+      本文件用 #5c6f84（4.86:1 / 4.60:1 / 5.17:1）。
+   2) 新增 --c-input-border：非文本控件边界需 3:1（WCAG 1.4.11），
+      合同 --c-border-strong 只有 1.7–1.8:1，故新增专用 token，合同值不动。
+   3) 新增 --c-hover / --c-active / --c-selected 交互叠加层（组件需要）。
+   4) 新增 --c-accent-text：accent 文本压在 accent 叠加层（badge/选中）上的一档。
+      实测 light 的 --c-accent 在 --c-selected 叠色面上只有 4.42:1（AA 要 4.5:1），
+      故 badge 的 accent 文本改用该 token（dark #7cc9ff / light #0952a6）。
+   5) 新增 --density-* 密度 token（comfortable 默认 / [data-density="compact"] 覆盖）：
+      组件层的 padding/gap/行高只读这些 token，密度不得靠改 --sp-* 刻度实现。
+   全部实测结果见 docs/implementation/status/UI2-B1.md 与 styles/demo.html；
+   两档密度与双主题的运行期实测见 evidence/ui-polish/visual/。
+   ========================================================================== */
+
+/* ---------- 与主题无关的尺度 ---------- */
+:root {
+  /* 间距 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+  --sp-8: 64px;
+
+  /* 字号 11 / 12 / 14 / 15 / 17 / 20 / 24 */
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 14px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+
+  /* 行高 */
+  --lh-tight: 1.25;
+  --lh-normal: 1.5;
+  --lh-relaxed: 1.6;
+
+  /* 字重 */
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* 圆角 */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+
+  /* 动效 */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --dur-slow: 240ms;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  /* 层级 */
+  --z-sticky: 10;
+  --z-dropdown: 20;
+  --z-drawer: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+
+  /* 字体栈（不引 webfont） */
+  --font-sans: system-ui, -apple-system, "Segoe UI", "Microsoft YaHei",
+    "PingFang SC", "Noto Sans CJK SC", "Noto Sans SC", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Cascadia Code", Consolas,
+    "SF Mono", "Liberation Mono", monospace;
+
+  /* 布局 */
+  --layout-topbar-h: 56px;
+  --layout-sidebar-w: 232px;
+  --layout-max: 1440px;
+  --layout-gutter: 24px;
+
+  /* 控件/行高（组件自用；density 覆盖） */
+  --ctl-h-sm: 28px;
+  --ctl-h: 32px;
+  --ctl-h-lg: 40px;
+  --table-row-h: 40px;
+  --focus-ring-w: 2px;
+  --focus-ring-offset: 2px;
+  --table-max-h: 560px;
+
+  /* 密度 token（comfortable = 默认档；[data-density="compact"] 覆盖）
+     —— 组件层**只许**读这些 token 落 padding/gap/行高，禁止再写死 --sp-* 当密度用。
+     取值仍引用间距刻度，保证两档都在同一套尺度上（4/8/12/16/24）。 */
+  --density-card-pad: var(--sp-4);
+  --density-card-gap: var(--sp-3);
+  --density-stack-gap: var(--sp-3);
+  --density-section-gap: var(--sp-5);
+  --density-empty-pad-y: var(--sp-6);
+  --density-row-h: var(--table-row-h);
+  --density-line: var(--lh-normal);
+}
+
+/* ---------- 暗色（默认） ---------- */
+:root,
+:root[data-theme="dark"],
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-bg: #0b0f14;
+  --c-bg-elev: #0f151c;
+  --c-surface: #121821;
+  --c-border: #22303d;
+  --c-border-strong: #33465a;
+
+  --c-text: #e6edf3;
+  --c-text-muted: #9fb0c0;
+  --c-text-faint: #6f8496;
+
+  --c-accent: #3ea8ff;
+  --c-accent-hover: #66bbff;
+  --c-accent-contrast: #04121f;
+  /* accent 文本压在「accent 叠加层」（badge/选中态）上的专用色：
+     --c-accent 在 light 的叠加底上只有 4.42:1，按 AA 需要更深/更亮的一档。 */
+  --c-accent-text: #7cc9ff;
+
+  --c-danger: #ff6b7a;
+  --c-warn: #f5a524;
+  --c-ok: #3ddc97;
+  --c-info: #60a5fa;
+
+  --c-focus: #7dd3fc;
+  --c-overlay: rgb(0 0 0 / 0.62);
+
+  /* 非文本控件边界（≥3:1，实测 3.17/3.42/3.27） */
+  --c-input-border: #4e6a88;
+
+  /* 交互叠加层 */
+  --c-hover: rgb(255 255 255 / 0.06);
+  --c-active: rgb(255 255 255 / 0.1);
+  --c-selected: rgb(62 168 255 / 0.14);
+
+  /* 严重度（各自色 + 12% 底） */
+  --c-sev-critical: #ff6b7a;
+  --c-sev-critical-bg: rgb(255 107 122 / 0.12);
+  --c-sev-high: #ff9f43;
+  --c-sev-high-bg: rgb(255 159 67 / 0.12);
+  --c-sev-medium: #f5c451;
+  --c-sev-medium-bg: rgb(245 196 81 / 0.12);
+  --c-sev-low: #60a5fa;
+  --c-sev-low-bg: rgb(96 165 250 / 0.12);
+  --c-sev-info: #9fb0c0;
+  --c-sev-info-bg: rgb(159 176 192 / 0.12);
+
+  /* 阴影：暗色用浅色描边 + 深投影 */
+  --sh-1: 0 0 0 1px rgb(255 255 255 / 0.04);
+  --sh-2: 0 8px 24px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.05);
+  --sh-3: 0 24px 64px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.06);
+}
+
+/* ---------- 亮色 ---------- */
+:root[data-theme="light"],
+[data-theme="light"] {
+  color-scheme: light;
+
+  --c-bg: #f6f8fb;
+  --c-bg-elev: #eef2f8;
+  --c-surface: #ffffff;
+  --c-border: #d8e0ea;
+  --c-border-strong: #b6c4d6;
+
+  --c-text: #101826;
+  --c-text-muted: #52657a;
+  /* 合同 #6b7f95 → 实测未达 AA，见文件头说明 */
+  --c-text-faint: #5c6f84;
+
+  --c-accent: #0b63ce;
+  --c-accent-hover: #0951a8;
+  --c-accent-contrast: #ffffff;
+  /* 实测：#0b63ce 压在 --c-selected 叠色面上仅 4.42:1；这一档 ≥4.9:1。 */
+  --c-accent-text: #0952a6;
+
+  --c-danger: #c62b3c;
+  --c-warn: #8a5a00;
+  --c-ok: #067647;
+  --c-info: #0b63ce;
+
+  --c-focus: #0b63ce;
+  --c-overlay: rgb(16 24 38 / 0.42);
+
+  /* 实测 3.39/3.19/3.02 */
+  --c-input-border: #7a8da6;
+
+  --c-hover: rgb(16 24 38 / 0.06);
+  --c-active: rgb(16 24 38 / 0.1);
+  --c-selected: rgb(11 99 206 / 0.1);
+
+  --c-sev-critical: #b4232f;
+  --c-sev-critical-bg: rgb(180 35 47 / 0.1);
+  --c-sev-high: #9a4a00;
+  --c-sev-high-bg: rgb(154 74 0 / 0.1);
+  --c-sev-medium: #7a5b00;
+  --c-sev-medium-bg: rgb(122 91 0 / 0.1);
+  --c-sev-low: #0b63ce;
+  --c-sev-low-bg: rgb(11 99 206 / 0.1);
+  --c-sev-info: #52657a;
+  --c-sev-info-bg: rgb(82 101 122 / 0.1);
+
+  --sh-1: 0 1px 2px rgb(16 24 38 / 0.06);
+  --sh-2: 0 8px 24px rgb(16 24 38 / 0.1), 0 1px 2px rgb(16 24 38 / 0.06);
+  --sh-3: 0 24px 64px rgb(16 24 38 / 0.16), 0 1px 2px rgb(16 24 38 / 0.08);
+}
+
+/* ---------- 密度 ---------- */
+[data-density="compact"] {
+  --ctl-h-sm: 24px;
+  --ctl-h: 28px;
+  --ctl-h-lg: 34px;
+  --table-row-h: 32px;
+  --layout-gutter: 16px;
+
+  /* 密度 token：卡片留白 16→12、堆叠间距 12→8、区块间距 24→16、
+     空态上下留白 32→24、行内文本行高 1.5→1.45。 */
+  --density-card-pad: var(--sp-3);
+  --density-card-gap: var(--sp-2);
+  --density-stack-gap: var(--sp-2);
+  --density-section-gap: var(--sp-4);
+  --density-empty-pad-y: var(--sp-5);
+  --density-row-h: var(--table-row-h);
+  --density-line: 1.45;
+}
+
+/* ---------- 动画归零 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+  }
+}

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import ctypes
+import hashlib
 import json
 import logging
 import os
@@ -56,6 +57,17 @@ def message_box(text: str, title: str = PRODUCT_NAME, flags: int = MB_ICONERROR)
         pass
 
 
+def instance_mutex_name() -> str:
+    """互斥体按**数据目录**区分，不按 exe 区分。
+
+    同一个数据目录只能有一个壳（否则两个进程抢同一个 api-token、同一份设置）；
+    不同数据目录（内测包 vs 已安装版、AIDN_DATA_DIR 隔离的测试实例）本来就该能
+    同时运行，用全局固定名字会把它们互相顶掉。
+    """
+    digest = hashlib.sha256(str(paths.data_dir()).lower().encode("utf-8")).hexdigest()[:16]
+    return f"Local\\AIDrivenNetDefense.Desktop.{digest}"
+
+
 def acquire_single_instance() -> tuple[bool, int]:
     kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
     # 不声明 argtypes 时 Python str 会被按 ANSI 传递，句柄可能因参数不合法而返回 0，
@@ -64,7 +76,7 @@ def acquire_single_instance() -> tuple[bool, int]:
     kernel32.CreateMutexW.restype = ctypes.c_void_p
     kernel32.CloseHandle.argtypes = [ctypes.c_void_p]
 
-    handle = kernel32.CreateMutexW(None, 0, MUTEX_NAME)
+    handle = kernel32.CreateMutexW(None, 0, instance_mutex_name())
     if not handle:
         log.error("创建单实例互斥体失败（GetLastError=%s），按独占继续启动", ctypes.get_last_error())
         return (True, 0)
@@ -117,9 +129,19 @@ def main(argv: list[str] | None = None) -> int:
 
     unique, mutex_handle = acquire_single_instance()
     if not unique:
-        log.info("已有实例在运行，尝试把它叫到前台后退出")
-        focus_running_instance()
-        return 0
+        log.info("同一数据目录已有实例在运行，尝试把它叫到前台")
+        if focus_running_instance():
+            log.info("已请已有实例显示窗口，本进程退出")
+            return 0
+        # 抢到了名字却唤不醒对方：多半是上一个进程被强杀后残留的互斥体，
+        # 或者它的界面端口已经不通。静默退出会让用户以为「双击没反应」。
+        log.warning("已有实例无响应（运行时文件缺失或端口不通）")
+        message_box(
+            "AIDriven NetDefense 已有一个实例在用同一份数据目录，但它的界面没有响应。\n\n"
+            f"如果任务管理器里仍有进程，请结束它后重试。\n\n数据目录：{paths.data_dir()}\n日志：{log_file}",
+            flags=MB_ICONINFORMATION,
+        )
+        return 3
 
     if args.port is not None and 0 <= args.port <= 65535:
         settings.ui_port = args.port

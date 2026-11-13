@@ -1,16 +1,45 @@
 THIRD-PARTY NOTICES
 ===================
 
-AegisHarness is authored by PT-dove and licensed under Apache-2.0.
-This file preserves notices for the fixed upstream baseline. Runtime
-npm dependency names, exact versions, hashes, and declared licenses are
-generated from package-lock.json in sbom.cdx.json.
+AIDriven NetDefense / 网域智防 is authored by PT-dove and licensed under
+Apache-2.0 (see `LICENSE`). `AegisHarness` is the internal technical codename and
+the historical npm scope (`@aegisharness/*`); it is not a separate product and
+carries no separate licence.
+
+This file lists the third-party components that are **shipped** with this project
+(inside `Setup.exe`, inside the portable payload, or inside the bundled Node
+runtime), the components that are **build-host only**, and the obligations that
+follow. Three different inventories are involved and they are deliberately kept
+separate:
+
+  1. npm packages — authoritative machine-readable record: `package-lock.json`;
+     generated summary: `sbom.cdx.json` (CycloneDX 1.6, 886 components, generated
+     by `npm run sbom:generate`).
+  2. Python build chain of the Windows installer — authoritative input:
+     `deploy/windows/installer/app/requirements.lock.txt` (17 pinned wheels, one
+     SHA-256 each) and `deploy/windows/installer/app/requirements.sbom.cdx.json`.
+  3. The embedded Node runtime — authoritative record:
+     `dist/bundle/win32-x64-v17/bundle.json` (§`license`) plus
+     `dist/bundle/win32-x64-v17/manifests/license-attestations.json`, which the
+     build re-hashes on every bundle run.
+
+Evidence for every version below was read from this machine on 2026-11-05 and is
+reproduced in `evidence/docs/changelog/third-party-versions.txt`,
+`evidence/docs/changelog/npm-licenses.txt` and
+`evidence/docs/changelog/license-check.txt`. Where a fact could not be read from
+disk it is marked "(未确认 / unconfirmed)" instead of being filled in by guess.
+This file records an engineering compliance position, not a legal opinion.
 
 DeepSeek Harness 0.2.2-alpha.2
 ------------------------------
 Project: https://github.com/deepseek-ai/deepseek-harness
 Reviewed upstream commit: ce7073d51254c26cd63b22a60835b8f948deb447
 License: MIT
+
+AIDriven NetDefense embeds DeepSeek Harness as a real dependency, not merely as a
+name reference: `apps/harness-worker/package.json` depends on
+`@deepseek-ai/dsh@0.2.2-alpha.2`, and the package is present in the shipped
+payload's `manifests/third-party-packages.json` (245 packages, listed below).
 
 MIT License
 
@@ -41,15 +70,14 @@ hashes are recorded in package-lock.json, sbom.cdx.json, and
 tests/wp0/evidence/harness-package-layer.json. No upstream package is replaced
 by a shim or locally simulated implementation.
 
-
 Weak-copyleft components (MPL-2.0 and LGPL-3.0-or-later)
 --------------------------------------------------------
 Policy: docs/implementation/adr/ADR-0002-third-party-license-policy.md (option A).
 
 These components arrive as transitive dependencies of the DeepSeek Harness
 launcher tree. They are shipped unmodified, as published on the npm registry.
-AegisHarness source code remains Apache-2.0; the licenses below apply only to
-the listed packages.
+AIDriven NetDefense source code remains Apache-2.0; the licenses below apply only
+to the listed packages.
 
 1. Mozilla Public License 2.0 — 6 packages
    @deepseek-ai/libreoffice-kit
@@ -77,11 +105,11 @@ the listed packages.
 MPL-2.0 obligations (file-level copyleft):
   - The MPL-2.0 license text and copyright notices of the named packages are
     retained, unmodified, in this distribution.
-  - The packages are used as published, without AegisHarness modifications. If
-    any file of these packages is ever modified, that file must be made
+  - The packages are used as published, without AIDriven NetDefense modifications.
+    If any file of these packages is ever modified, that file must be made
     available under MPL-2.0 and its source disclosed.
-  - No AegisHarness source file is combined into an MPL-2.0 covered file, so the
-    Apache-2.0 licensing of this repository is unaffected.
+  - No AIDriven NetDefense source file is combined into an MPL-2.0 covered file,
+    so the Apache-2.0 licensing of this repository is unaffected.
 
 LGPL-3.0-or-later obligations (dynamic linking and relinkability):
   - The libvips binaries are loaded at process start as separate shared
@@ -114,7 +142,204 @@ node_modules/@img/sharp-win32-x64/LICENSE (and the equivalent files in the other
 platform packages). This file adds the obligations and the source-availability
 statement; it does not replace the license texts shipped inside the packages.
 
-Release checklist additions (ADR-0002 §3):
+npm dependency inventory (lockfile and payload)
+-----------------------------------------------
+
+Locked tree (all of it is reviewed by the gate, only part of it is shipped):
+
+  $ npm run license:check          # exit code 0
+  Toolchain gate passed: Node.js v24.20.0, npm 11.19.0
+  License check passed: 869 external and 18 local locked packages.
+  Reviewed licenses: 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause,
+  BlueOak-1.0.0, CC-BY-3.0, CC0-1.0, ISC, LGPL-3.0-or-later, MIT, MPL-2.0,
+  Python-2.0, Unlicense, WTFPL
+
+  $ node -e "const l=require('./package-lock.json');const p=Object.entries(l.packages||{}).filter(([k])=>k.startsWith('node_modules/'));console.log('locked packages:',p.length)"
+  locked packages: 886
+
+  (886 counts only keys that *start* with `node_modules/`. Adding the nested
+  `apps/*/node_modules/*` entries gives 869 external + 18 local = 887 checked
+  by the gate — the 18 local entries are the root package plus the 17 workspace
+  packages — plus 17 workspace symlink entries that the gate skips; see
+  evidence/docs/changelog/npm-licenses.txt §2 for the reconciliation.)
+
+License distribution of all 886 SBOM components (`sbom.cdx.json`, CycloneDX 1.6):
+
+  686 MIT                                  10 LGPL-3.0-or-later
+   94 Apache-2.0                           10 BlueOak-1.0.0
+   43 ISC                                   6 MPL-2.0
+   20 BSD-3-Clause                          4 BSD-2-Clause
+    3 Apache-2.0 AND LGPL-3.0-or-later      2 CC0-1.0
+    1 each: Apache-2.0 AND LGPL-3.0-or-later AND MIT, Python-2.0,
+            (MIT OR WTFPL), Unlicense, (BSD-2-Clause OR MIT OR Apache-2.0),
+            CC-BY-3.0, 0BSD, (MIT OR CC0-1.0)
+
+Direct dependencies (workspace `dependencies`, from package-lock.json):
+
+  root devDependency: @cyclonedx/cyclonedx-npm@6.0.1 (build tooling only)
+  apps/daemon, apps/harness-worker, apps/model-broker, apps/response-helper,
+  packages/{detection,event-store,response-policy}, plugins/dsh-defense-profile —
+  first-party `@aegisharness/*` packages plus `@deepseek-ai/dsh@0.2.2-alpha.2`
+  and the 21 `@deepseek-ai/*` packages of the defense profile plugin (that plugin
+  declares 22 dependencies; the 22nd is the first-party `@aegisharness/dsh-defense-tools`).
+
+Reproduce all of the above:
+
+  node -e "const l=require('./package-lock.json');const all=Object.entries(l.packages||{});const starts=all.filter(([k])=>k.startsWith('node_modules/')).length;const includes=all.filter(([k])=>k.includes('node_modules/')&&!l.packages[k].link).length;const local=all.filter(([k])=>!k.includes('node_modules/')&&!l.packages[k].link).length;const links=all.filter(([k])=>l.packages[k].link).length;console.log({total:all.length,starts,includes,local,links,lockfileVersion:l.lockfileVersion})"
+  node -e "const s=require('./sbom.cdx.json');const d={};for(const c of s.components){const k=(c.licenses||[]).map(x=>x.license?x.license.id||x.license.name:x.expression).join(' OR ')||'(none)';d[k]=(d[k]||0)+1}console.log(d)"
+  npm run license:check      # must exit 0; enforces ADR-0002 and this file
+
+What the shipped payload actually contains (win32-x64-v17, 50,832 files):
+
+  manifests/third-party-packages.json   245 packages — 224 MIT, 12 Apache-2.0,
+                                        6 ISC, 3 BSD-3-Clause
+  manifests/licenses/                   185 license texts
+  manifests/license-gaps.json           count = 0 (every shipped package carries text)
+  manifests/license-provenance.json     2 packages whose text comes from the release
+                                        they were cut from:
+                                          @deepseek-ai/dsh-experimental-inspector@0.2.2-alpha.2
+                                          @koromix/koffi-win32-x64@3.1.1
+  manifests/license-attestations.json   one recorded gap that is *not* hidden:
+                                        dfa@1.2.0 declares MIT but upstream publishes no
+                                        license text anywhere; it was removed from the
+                                        distribution by M8-DFA-PRUNE, so the obligation no
+                                        longer applies to this payload. The record stays
+                                        `open` because the upstream text still does not
+                                        exist — it is not reconstructed.
+  manifests/THIRD-PARTY-NOTICES.txt     31,033 B, generated by
+                                        deploy/embedded-runtime/build.mjs and shipped
+                                        next to the payload's own copy of these notices.
+
+Node.js runtime (embedded in the payload)
+-----------------------------------------
+
+  Version:    v24.20.0        (verified by executing the bundled binary:
+                               runtime/node/node.exe --version -> v24.20.0;
+                               PE FileVersion/ProductVersion = 24.20.0;
+                               launch-plan.json node.version = "v24.20.0";
+                               bundle.json license.node.attestedVersion = "v24.20.0")
+  Binary:     runtime/node/node.exe, 93,381,448 B,
+              sha256 5C976096E04E5C2C1F091938926234CC9FBEBFE9787DDD149351B3B0ECC707B5
+  License:    MIT, "Copyright Node.js contributors. MIT license." (PE LegalCopyright)
+  License text shipped: runtime/node/LICENSE-NODE.txt, 160,555 B,
+              sha256 ED34DD8E3F0A78DBAF00D0444CE8E285B015B765379C2E17880455F70370F8E9
+              (this file is Node's own LICENSE, which enumerates the licenses of the
+              components Node itself bundles — OpenSSL, ICU, V8, zlib, etc. Those
+              texts travel inside that one file and are not re-listed here.)
+
+  Known record defect (reported, not fixed here): bundle.json and
+  manifests/license-attestations.json record the text at
+  `licenses/node-v24.20.0/LICENSE-NODE.txt`, but in the v17 payload that path does
+  not exist — the file is at `runtime/node/LICENSE-NODE.txt` (same sha256). The
+  attestation record and the on-disk location disagree.
+
+Python build chain (Windows installer Setup.exe)
+------------------------------------------------
+
+`AIDrivenNetDefense-Setup-<ver>.exe` is produced by `PyInstaller --onefile`, which
+embeds a CPython interpreter, the PyInstaller bootloader and every module the
+installer imports into one executable. The components below are therefore
+delivered *inside the .exe*, not as files a user can open on disk. They are part
+of the release and are listed here because they are not npm packages.
+
+Why they are not rows in `sbom.cdx.json`: that file is generated by
+`cyclonedx-npm --package-lock-only` from `package-lock.json` and can only describe
+npm components, and `scripts/check-sbom.mjs` asserts a one-to-one mapping between
+the lockfile and that file. The Python chain is recorded instead in
+`deploy/windows/installer/app/requirements.sbom.cdx.json` (CycloneDX 1.6, one
+SHA-256 per wheel), with the pinned resolution in the sibling
+`requirements.lock.txt`.
+
+Verified build facts (not guesses):
+
+  - The rc.5 artifact was built with `D:\Python311\python.exe`, i.e. **CPython
+    3.11.9** — `docs/implementation/evidence/rc5/release/04-setup/build-setup.log`
+    records the exact command line; `D:\Python311\python.exe -V` prints 3.11.9.
+  - `python311.dll`, `tcl86t.dll`, `tk86t.dll` are all present inside the shipped
+    `AIDrivenNetDefense-Setup-0.0.1-rc.5.exe` (binary string scan), so 3.11 and
+    Tcl/Tk are embedded, not assumed.
+  - `requirements.lock.txt` was resolved for CPython 3.13 (cp313) as a *target*
+    manifest; the CI-side BOM (`requirements.sbom.cdx.json`) likewise says
+    `cpython 3.13`. That is the intended runner, **not** what produced the local
+    rc.5 artifact. The difference is recorded here rather than smoothed over.
+
+| Component | Version | License | In Setup.exe |
+|---|---|---|---|
+| CPython | 3.11.9 (local rc.5 build); CI target 3.13 | PSF-2.0 | yes - python311.dll |
+| Tcl/Tk | 8.6 (patch level not read from the artifact) | TCL | yes - tcl86t.dll / tk86t.dll |
+| PyInstaller | 6.22.3 | GPL-2.0-or-later WITH Bootloader-exception | yes - the bootloader |
+| PyInstaller Community Hooks | 2026.8 in the installer build env (`D:\Python311`: the only dist-info present, dated 2026-10-13, i.e. before the rc.5 build); 2026.7 in the 3.13 shell env; 2026.9 is only the lock pin | GPL-2.0-or-later (standard hooks) / Apache-2.0 (rthooks) | rthooks only |
+| py7zr | 1.1.4 | LGPL-2.1-or-later | yes - the payload decoder |
+| pybcj, pyppmd, inflate64, multivolumefile | 1.0.8, 1.3.1, 1.0.4, 0.2.3 (lock) | LGPL-2.1-or-later | py7zr's decoder chain |
+| pycryptodomex | 3.24.1 | BSD-2-Clause AND Public Domain | yes |
+| brotli | 1.2.1 | MIT | yes |
+| backports.zstd | 1.8.0 | PSF-2.0 | yes (py7zr, Python < 3.14) |
+| psutil | 7.2.2 | BSD-3-Clause | yes |
+| texttable | 1.7.2 | MIT | yes |
+| altgraph, pefile, pywin32-ctypes | 0.17.5, 2024.8.26, 0.2.3 | MIT, MIT, BSD-3-Clause | no - 0 string hits in the exe, build host only (`scope=excluded` in the BOM) |
+| packaging | 26.3 in both build hosts; 26.3 is also the lock pin | Apache-2.0 OR BSD-2-Clause | no - 0 `packaging-` byte strings in the exe, build host only (`scope=excluded` in the BOM) |
+| setuptools | 84.2.1 is the lock/BOM pin, **not** what either host ran: 65.5.0 in the installer build env, 84.0.0 in the 3.13 shell env | MIT | no - 0 string hits in the exe, build host only (`scope=excluded` in the BOM) |
+
+Version sources for the table: `D:\Python311\python.exe -V`,
+`D:\Python311\python.exe -m PyInstaller --version` and `importlib.metadata` for the
+installed values; `requirements.lock.txt` for the pinned wheel versions and hashes;
+binary string scan of the shipped exe for what is embedded.
+`requirements.lock.txt` / `requirements.sbom.cdx.json` are a **cp313 target manifest**,
+not a record of what either build host had installed, so for the build-host-only rows
+the installed value is given per host and the lock pin is labelled as such (this was
+the one place where the earlier text merged the two — corrected against a re-read on
+2026-11-05T18:2x, see `evidence/docs/changelog/legal-recompute.log` §B).
+`evidence/docs/changelog/third-party-versions.txt` §A has the raw commands and
+outputs.
+
+7-Zip is a build-host tool, not a redistributed component: `build_setup.py`
+invokes `7z.exe` to create and verify `payload.7z`, and no `7z.exe` / `7za.exe`
+exists in the v17 payload (0 files matched by name in
+`dist/bundle/win32-x64-v17`). The build host carries 7-Zip 25.00 (x64). 7-Zip's
+LGPL-2.1-or-later-with-unRAR-restriction terms therefore place no obligation on
+the artifact.
+
+Desktop shell (AIDrivenNetDefense.exe)
+--------------------------------------
+
+The tray shell is a second PyInstaller `--onefile` binary built with a different
+interpreter from the installer (it needs a GUI stack):
+
+| Component | Version | License | Evidence |
+|---|---|---|---|
+| CPython | 3.13.14 | PSF-2.0 | `dist/desktop/build.log`: "INFO: Python: 3.13.14" |
+| PyInstaller | 6.22.3 | GPL-2.0-or-later WITH Bootloader-exception | same log line; dist-info |
+| PyInstaller Community Hooks | 2026.7 | GPL-2.0-or-later (hooks) / Apache-2.0 (rthooks) | `pyinstaller_hooks_contrib-2026.7.dist-info` |
+| pywebview | 5.4 | BSD 3-Clause License | `pywebview-5.4.dist-info/METADATA` |
+| pythonnet | 3.1.0 | MIT | `pythonnet-3.1.0.dist-info/METADATA` (`License-Expression: MIT`) |
+| clr_loader | 0.3.1 | MIT | `clr_loader-0.3.1.dist-info/licenses/LICENSE` |
+
+The shell embeds `Python.Runtime.dll` (pythonnet) and pywebview's WebView2
+interop files: `WebView2Loader.dll`, `Microsoft.Web.WebView2.Core.dll`,
+`Microsoft.Web.WebView2.WinForms.dll` all appear inside
+`dist/desktop/AIDrivenNetDefense.exe` (13,892,150 B, sha256
+`F8A584C24D8F01861084E01ACB40D8D087A652807986AE71218928AA21B355D1`).
+
+**Microsoft Edge WebView2 Runtime is not redistributed.** The payload contains 0
+files whose name contains `msedgewebview2`; the runtime is a machine-level
+component supplied by Windows. The licence text for the WebView2 interop
+assemblies is not shipped and has no copy in this repository, so its terms are
+recorded as **(未确认 / unconfirmed)** rather than asserted.
+
+Other bundled assets
+--------------------
+
+- Console UI (`apps/console-next`): no third-party fonts and no third-party
+  images. The only image asset is `apps/console-next/assets/mark.svg` (477 B,
+  self-authored, `aria-label="网域智防"`), and the payload ships the same file.
+- Model weights, real API keys and model-broker connection profiles are **not**
+  distributed (see `dist/release/0.0.1-rc.5/RELEASE-NOTES.md`, "known gaps").
+- The Docker/CI tooling in the repository is not part of the Windows artifact and
+  places no obligation on it.
+
+Release checklist additions (ADR-0002 §3)
+----------------------------------------
+
   - [ ] Confirm the two license texts above still match the shipped packages.
   - [ ] Confirm no MPL-2.0 or LGPL-3.0-or-later package was added or removed
         without updating this file and ADR-0002 (scripts/check-licenses.mjs
@@ -124,5 +349,83 @@ Release checklist additions (ADR-0002 §3):
         binary; re-check if the worker packaging changes.
   - [ ] Confirm sbom.cdx.json still lists every copyleft component with its
         version and license.
+  - [ ] `requirements.lock.txt` hashes still match
+        `requirements.sbom.cdx.json` (verify command in that file's
+        `aidn:sbom:verify` property).
+  - [ ] No Python dependency was added or upgraded without a row in the table above.
+  - [ ] Re-check the two recorded discrepancies before the first public release:
+        (a) the lock pins hooks-contrib 2026.9 while the build host ran 2026.7;
+        (b) the Node license text is recorded at `licenses/node-v24.20.0/…` but
+        ships at `runtime/node/LICENSE-NODE.txt`.
+  - [ ] The LGPL-2.1 relinkability position below is re-confirmed, or replaced by
+        a shipped licence/source bundle, before the first public release.
+
+GNU General Public License v2.0 or later, with the Bootloader Exception
+-----------------------------------------------------------------------
+
+PyInstaller itself is GPL-2.0-or-later. Two things are easy to get wrong here, so
+they are stated separately:
+
+  - What is embedded and GPL: the compiled bootloader (`bootloader/` and
+    `PyInstaller/loader/`). It is linked into Setup.exe by design.
+  - What is embedded and *not* GPL: PyInstaller's run-time hooks
+    (`PyInstaller/hooks/rthooks`), `pyi_splash` and `_pyi_rth_utils` are Apache-2.0.
+    The Community Hooks package likewise splits: its standard hooks are
+    GPL-2.0-or-later but run only on the build host, while only its run-time hooks
+    (`_pyinstaller_hooks_contrib/rthooks`, Apache-2.0) are embedded.
+
+The exception, verbatim from PyInstaller's COPYING.txt:
+
+    Bootloader Exception
+    --------------------
+
+    In addition to the permissions in the GNU General Public License, the
+    authors give you unlimited permission to link or embed compiled bootloader
+    and related files into combinations with other programs, and to distribute
+    those combinations without any restriction coming from the use of those
+    files. (The General Public License restrictions do apply in other respects;
+    for example, they cover modification of the files, and distribution when
+    not linked into a combined executable.)
+
+Consequence for this product: Setup.exe is a combination that embeds the compiled
+bootloader, so its distribution is permitted without restriction and no AIDriven
+NetDefense source file becomes GPL-covered by the act of packaging. The GPL still
+governs the bootloader files themselves: this project does not modify them, and it
+does not distribute them outside a combined executable. The corresponding source
+for the bootloader is the PyInstaller 6.22.3 source release (pinned in
+`requirements.lock.txt`); this notice is also a written offer to supply it on
+request through the project's public issue tracker.
+
+GNU Lesser General Public License, version 2.1 or later
+--------------------------------------------------------
+
+py7zr and its four decoder dependencies (pybcj, pyppmd, inflate64,
+multivolumefile) are LGPL-2.1-or-later and are frozen into Setup.exe. They are used
+unmodified, at the versions pinned in `requirements.lock.txt`.
+
+  - Source: each package's PyPI release ships the corresponding source, and the
+    upstream repositories are https://github.com/miurahr/py7zr,
+    https://github.com/miurahr/pybcj, https://github.com/miurahr/pyppmd,
+    https://github.com/miurahr/inflate64 and
+    https://github.com/miurahr/multivolume.
+  - Copyright notices: held by the respective upstream authors; the licence texts
+    are the ones shipped inside each wheel (`*.dist-info/licenses/LICENSE`).
+
+Relinkability - the one obligation this packaging does not satisfy mechanically, and
+the position taken instead. LGPL-2.1 section 6 expects a recipient to be able to
+modify the library and relink to produce a modified executable. A `--onefile`
+PyInstaller bundle is a single compressed archive; nothing inside it can be swapped
+after the fact. What the project offers instead is the equivalent through a rebuild:
+the complete installer source (`deploy/windows/installer/app/`), the exact pinned
+resolution (`requirements.lock.txt`) and the build command are public, so anyone can
+substitute a modified py7zr and rebuild Setup.exe with it. That is a documented
+rebuild path, not a binary-level relink, and it is recorded here as such rather than
+described as something stronger. Replacing the decoder is not blocked by any hash or
+signature check at load time.
+
+This position is an engineering judgement about how to meet the obligation, and it is
+open for the maintainer to replace with a stronger remedy (for example shipping the
+licence texts and the LGPL sources alongside the installer, or dropping py7zr for a
+permissively licensed decoder).
 
 This notice records an engineering compliance position, not a legal opinion.

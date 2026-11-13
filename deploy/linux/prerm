@@ -1,0 +1,52 @@
+#!/bin/sh
+# AIDriven NetDefense — pre-removal script.
+#
+# Author: PT-dove
+#
+# Stops the daemon before dpkg starts deleting files, and disables the unit only on a
+# real removal (an upgrade must leave the unit enabled). A failing `systemctl stop` is
+# logged and swallowed: refusing to uninstall because a service is wedged would be
+# worse than uninstalling with the service still running — dpkg will remove the payload
+# either way, and the operator can kill the cgroup afterwards.
+
+set -e
+
+PKG=aidriven-netdefense
+SVC=aidriven-netdefense-daemon
+
+log() {
+  logger -t "$PKG" -- "$*" 2>/dev/null || true
+}
+
+stop_service() {
+  [ -d /run/systemd/system ] || return 0
+  command -v systemctl >/dev/null 2>&1 || return 0
+  systemctl stop "$SVC.service" >/dev/null 2>&1 || log "systemctl stop failed; continuing"
+}
+
+disable_service() {
+  [ -d /run/systemd/system ] || return 0
+  command -v systemctl >/dev/null 2>&1 || return 0
+  systemctl disable "$SVC.service" >/dev/null 2>&1 || log "systemctl disable failed; continuing"
+  systemctl daemon-reload >/dev/null 2>&1 || true
+}
+
+case "$1" in
+  remove)
+    stop_service
+    disable_service
+    log "stopped before remove"
+    ;;
+  upgrade|deconfigure)
+    stop_service
+    log "stopped before $1"
+    ;;
+  failed-upgrade)
+    log "prerm failed-upgrade: nothing to do"
+    ;;
+  *)
+    printf '%s: prerm called with unsupported argument %s\n' "$PKG" "'$1'" >&2
+    ;;
+esac
+
+exit 0

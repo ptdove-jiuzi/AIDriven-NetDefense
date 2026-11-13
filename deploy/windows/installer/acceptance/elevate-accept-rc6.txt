@@ -1,0 +1,77 @@
+﻿AIDriven NetDefense 0.0.1-rc.6 —— 验收结果怎么读（一页）
+
+本文件与入口 elevate-accept-rc6.cmd 同目录（桌面入口的副本也读这份判读说明）；桌面「说明.txt」是给用户看的极简版（≤200 字）。
+作者：PT-dove
+
+一、怎么用（只做一次）
+1. 双击桌面「一键验收-rc6-点我以管理员运行.cmd」——直接双击，不要右键「以管理员身份运行」。
+2. 入口第一屏是中文说明（装到哪 / 大概多久 / 动不动你的数据），看完按任意键继续。
+3. 之后入口做提权自检：必须是普通（非管理员）窗口才继续，因为六页 UI 阶段必须跑在非提权进程里。
+4. 入口做主机洁净确认（约 60-75 秒）：确认没有残留安装树 / 卸载项 / Run 值 / 产品进程。
+5. 主机干净后才弹 1 次 UAC，点"是"（约 2 分钟内必须点；不点会自动取消，什么都没装）。
+6. 之后全程无交互，约 10-15 分钟：装到 C:\Program Files\AIDriven Net Defense → 五项核对 → 六页 UI（中文+英文）
+   → 走注册表树内副本静默卸载 → 零残留 → 凭据反误伤。
+7. 桌面「说明.txt」是极简版；本文件是「结果怎么读」的细则。
+
+二、结果在哪（按可发现性排序，都在 evidence\rc6\accept\ 下）
+1. LAST-RUN-RESULT.json —— 最近一次的稳定指针（就是该次 RUN-RESULT.json 的原样副本）；
+   旁边 LAST-RUN.txt 是最快的一行摘要（result / runDir / overall / exitCode / totalElapsedSeconds）。
+2. run-<时间戳>\RUN-RESULT.json —— 主结果（本次判定 + 逐条 checks），先看这个文件。
+   （若该轮是 gate-only / 更早版本，主结果名会是 run-all-RESULT.json；入口两种名字都认，RUN-RESULT.json 优先。）
+3. 同一 run 目录：SUMMARY.json（uacCount、各阶段耗时、提权结果、空跑结果）、run-all-transcript.log（逐行日志）。
+4. run-<时间戳>\elevated\RESULT.json —— 提权驱动自己的结果（install / uninstall / residue 的原始值在这里）。
+5. run-<时间戳>\dryrun\DRYRUN-RESULT.json —— %TEMP% 非提权空跑结果。桌面入口这一轮默认用 -SkipDryRun，所以正常一轮
+   不会生成；只有在入口前设 AIDN_ORCH_DRYRUN=1（并配 AIDN_ORCH_EXTRA_ARGS=-StopBeforeUac）时才跑这一阶段。
+6. 入口自身出错：entry-failures\<时间戳>\ENTRY-RESULT.json（提权自检 / 缺件）；
+   编排器一个结果都没写出时的兜底：FALLBACK-RUN-RESULT.json（含日志尾部）。
+
+三、判据字段（RUN-RESULT.json 为主；后面标 [S] 的在 SUMMARY.json）
+- overall：只有 PASS 才算过。FAIL(n) 不算过；blocked(...) 也不算过。
+  PASS(non-elevated-only; UAC not spent) 只证明"非提权空跑走到提权前一步"，不等于提权验收；
+  这种结果里还会带 stopBeforeUac=true、nothingInstalled=true，可用来确认"这次没花 UAC"。
+- exitCode：0=PASS；1=有 FAIL；2=preflight / 主机不干净 / 入口缺件；3=空跑失败（UAC 未花），入口自检"已提权"也返回 3；
+  7=提权失败；8=UAC 取消或超时；9 脚本不产生（出现即未知异常）。
+- summary.failed / summary.failedNames：blocking 检查的失败数与名字，必须 0 / 空数组 []。
+  （注意：RUN-RESULT.json 里的 summary 是"检查计数"，不是 SUMMARY.json 那个文件。）
+- summary.total / summary.blocking / summary.passed / summary.informational：总条目 / 阻断项 / 通过项 / 记录项。
+- checks[]：每条 {name, ok, detail, nonBlocking}。判定只看 ok=false 且 nonBlocking=false 的条目；
+  nonBlocking=true 是记录项，不参与判定（日志里带 " (informational)" 后缀）。
+- uacCount：0=根本没走到提权（闸门挡住 / 空跑 / 提权前停止）；提权轮的 1 写在 SUMMARY.json 和 elevated\RESULT.json，
+  完整提权轮的 RUN-RESULT.json 不含该字段（已知 schema 差异，不是缺数据）。
+- elapsedSeconds：本文件统计的耗时（秒）。完整提权轮的 RUN-RESULT.json 还会另带 totalElapsedSeconds；
+  非提权轮（-StopBeforeUac）只有 elapsedSeconds，没有 totalElapsedSeconds（以实际文件为准）。
+- [S] elevated.install：安装退出码 exitCode / 耗时 seconds（另有 argv、timedOut、stdoutTail）。
+- [S] elevated.uninstall：树内静默卸载的 exitCode / seconds（attempts 列表给出每次尝试）。
+- [S] elevated.residue：{clean, total, items[]}——clean 是"干净项数"，要 clean == total（13/13），
+  也就是"残留项 = total - clean = 0"。
+- [S] dryRun：非提权空跑结论 {overall, failedNames, install, uninstall, hostDiff}；hostDiff 为 {} 表示主机级状态无差异。
+
+四、五项硬核对落在哪些 check 名前缀（都是 blocking，除非标 info）
+- ① 目录树：1a install directory exists；1b 文件数合理 + 逐个 tree item；1c console/index.html 六条路由；1d 字节与载荷一致。
+- ② install.json：2a parses；2b 11 个字段齐全（version / installPath / product / autostart / upgradedFrom / channel 等）；
+  2c ownership 凭据（token 必须是 64-hex）。
+- ③ 卸载注册表项：3a 存在；3b 必须是 HKLM + DisplayName + InstallLocation==目标；
+  3c QuietUninstallString / UninstallString 都指向树内 exe。
+- ③ Run 项四连：3d 值存在 + 3d 指向树内 exe + 3d 该 exe 在盘（三条 blocking）；
+  再加 install.json.autostart 回读一致（2b 的回读判据是 blocking；"info ... agrees with the live Run value" 只记录）。
+- ④ /healthz：4a 返回 200；4b status 原样记录（degraded 不会被改写成 ok）。
+- 收尾：5a 卸载 exit 0；5b 目录被删；6 residue: 共 13 项逐项判。
+
+五、失败了先看哪一行（按顺序，别跳）
+1. 打开 run-all-transcript.log，搜第一个 [FAIL]（行尾没有 " (informational)" 的那条）——那一行就是第一失败点。
+2. 再看 RUN-RESULT.json 的 summary.failedNames（失败项名单）。
+3. 再在 checks[] 里找同名条目的 detail（里面是具体路径 / 退出码 / 原始值）。
+4. 用 phaseResults / phaseSeconds 判断卡在哪个阶段：baseline（A 基线）/ dryrun（B 空跑）/
+   elevated（C 提权，含 uacRequestedAt）/ ownershipNegative（D 反误伤）；再看 checks 里的
+   "phase C1 UI ..."（六页）、"phase C2 real tree copied ..."（复制树）、PHASE1-READY / PHASE2-UI / PHASE2-DONE（握手）。
+5. 提权阶段的问题：看 elevated\RESULT.json 是否存在；再看 UAC-REQUESTED.json 是否存在（存在=UAC 弹过；不存在=没走到提权）。
+
+六、两个最容易误判的地方
+- 主机不干净：另一个会话正在装/卸本产品时，闸门会挡住并写 blocked(host-not-clean)、uacCount=0、exit 2——
+  等安静后重新双击即可，不算产品失败。
+- Run 项：判四连（值存在 + 指向树内 exe + exe 在盘 + install.json.autostart 回读一致）；只看"值存在"会把别人的值当成通过。
+
+七、最后一句：未验证 = 不能宣称已验收
+只有 overall=PASS 且 exitCode=0，并且五项（目录 / install.json+ownership / 卸载项 / Run 项 / healthz 200）、
+六页 UI、静默卸载 exit 0、零残留全部 PASS，才能说"rc.6 通过安装验收"。
+空跑 PASS、日志好看、脚本静态检查通过，都不等于提权验收通过。

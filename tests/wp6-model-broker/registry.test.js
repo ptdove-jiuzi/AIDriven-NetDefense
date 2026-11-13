@@ -511,7 +511,7 @@ test('ADR §4-9：日预算耗尽 / 网络失败 / 鉴权失败三种错误码�
   assert.equal(codes.size, 3, `budget/network/auth must be distinguishable, got ${[...codes].join(', ')}`);
 });
 
-test('ADR §4-10：同一 provider 的用量逐条求和与账本一致（±0）', async (t) => {
+test('ADR §4-10：同一 provider 的用量逐条求和与账本一致（±0，取自日志而非返回值）', async (t) => {
   const usage = { input_tokens: 21, output_tokens: 7 };
   const provider = await startMockProvider(okHandler({ usage }));
   t.after(() => provider.close());
@@ -520,20 +520,24 @@ test('ADR §4-10：同一 provider 的用量逐条求和与账本一致（±0）
   const harness = createRegistryBroker(t, { store, registry });
 
   const analyses = [seedAnalysis(store), seedAnalysis(store), seedAnalysis(store)];
-  const results = [];
   for (const analysis of analyses) {
-    results.push(await harness.broker.request(makeIntent(analysis.analysis_id)));
+    await harness.broker.request(makeIntent(analysis.analysis_id));
   }
 
   assert.equal(provider.requests.length, 3);
-  const reportedInput = results.reduce((sum, item) => sum + item.usage.input_tokens, 0);
-  const reportedOutput = results.reduce((sum, item) => sum + item.usage.output_tokens, 0);
+  // 审查 P1-3：旧写法拿**返回值**求和冒充"日志求和"，等于给一个不存在的功能拍照。
+  // 这里改成从 `request.settled` 事件里取数——那才是用量页会读的那份数据。
+  const settled = harness.logs.events.filter((event) => event.event === 'request.settled');
+  assert.equal(settled.length, 3, 'one settle record per request');
+  const loggedInput = settled.reduce((sum, event) => sum + event.input_tokens, 0);
+  const loggedOutput = settled.reduce((sum, event) => sum + event.output_tokens, 0);
   const rows = ledgerRows(store);
   const ledgerInput = rows.reduce((sum, row) => sum + Number(row.settled_input ?? 0), 0);
   const ledgerOutput = rows.reduce((sum, row) => sum + Number(row.settled_output ?? 0), 0);
-  assert.equal(reportedInput, ledgerInput);
-  assert.equal(reportedOutput, ledgerOutput);
-  assert.equal(reportedInput, usage.input_tokens * 3);
+  assert.equal(loggedInput, ledgerInput);
+  assert.equal(loggedOutput, ledgerOutput);
+  assert.equal(loggedInput, usage.input_tokens * 3);
+  assert.equal(loggedOutput, usage.output_tokens * 3);
   // 日志里能按 provider/model 归集（ADR §2.7 可观测），且不含正文。
   const sent = harness.logs.events.filter((event) => event.event === 'request.sent');
   assert.equal(sent.length, 3);

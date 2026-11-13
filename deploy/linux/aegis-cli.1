@@ -1,0 +1,39 @@
+.TH AEGIS-CLI 1 "2026-11-04" "AIDriven NetDefense" "User Commands"
+.SH NAME
+aegis-cli \- read-only loopback client for the AIDriven NetDefense daemon
+.SH SYNOPSIS
+.B aegis-cli
+.RI [ command ]
+.RI [ options ]
+.SH DESCRIPTION
+.B aegis-cli
+talks to the daemon over its loopback HTTP API and prints status, health, alerts and
+analysis results. It never executes a response action, never reads the event store
+directly and never prints the bearer token.
+.PP
+The daemon listens on a loopback address only, so the client must run on the same host.
+The token is read from
+.I /var/lib/aidriven-netdefense/secrets/api-token
+which the package generates at install time; the client process must be able to read
+that file, either as root or as a member of the
+.I aegis
+group.
+.SH FILES
+.TP
+.I /etc/aidriven-netdefense/aegis.conf.json
+Daemon configuration. A conffile: edits survive upgrades.
+.TP
+.I /var/lib/aidriven-netdefense
+Writable state: event store, checkpoint, analysis attempts, API token.
+.TP
+.I /opt/aidriven-netdefense/app
+Installed payload, including the bundled Node.js runtime.
+.SH SEE ALSO
+.BR systemctl (1),
+.BR journalctl (1)
+.PP
+.BR "systemctl status aidriven-netdefense-daemon"
+.PP
+.BR "journalctl -u aidriven-netdefense-daemon"
+.SH AUTHOR
+PT-dove

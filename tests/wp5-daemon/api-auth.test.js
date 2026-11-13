@@ -108,13 +108,19 @@ describe('safeEqual', () => {
 });
 
 describe('readBearer', () => {
-  it('accepts only the exact bearer form', () => {
+  it('accepts the bearer form and matches the auth-scheme case-insensitively', () => {
     assert.equal(readBearer(`Bearer ${TEST_TOKEN}`), TEST_TOKEN);
-    assert.equal(readBearer(`bearer ${TEST_TOKEN}`), null);
+    // RFC 9110 §11.1: `auth-scheme` is a token compared case-insensitively, so a client
+    // that sends `bearer` must not be refused (BUG-LEDGER R4-003).
+    assert.equal(readBearer(`bearer ${TEST_TOKEN}`), TEST_TOKEN);
+    assert.equal(readBearer(`BEARER ${TEST_TOKEN}`), TEST_TOKEN);
+    assert.equal(readBearer(`BeArEr ${TEST_TOKEN}`), TEST_TOKEN);
     assert.equal(readBearer(TEST_TOKEN), null);
     assert.equal(readBearer('Bearer '), null);
     assert.equal(readBearer(undefined), null);
     assert.equal(readBearer('Bearer short'), null);
+    // Other schemes are still refused: only the bearer grammar is accepted.
+    assert.equal(readBearer(`Basic ${TEST_TOKEN}`), null);
   });
 });
 

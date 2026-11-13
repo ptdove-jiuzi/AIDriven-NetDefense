@@ -36,6 +36,75 @@ function read(path) {
 }
 
 /**
+ * Does the script contain a `${...}` that PowerShell would actually **interpolate**?
+ *
+ * A bare `/\$\{/` match is too strict: the run-keys script embeds the `-replace`
+ * replacement string as a *single-quoted* literal (`'${1}:\$2'`), where `${1}` is a
+ * regex backreference and PowerShell performs no interpolation. Rejecting that form is a
+ * false red (R3-006) — but deleting the guard would let a real `"...${...}..."` through.
+ * So follow PowerShell's quoting rules instead of text-matching:
+ * - single-quoted strings are fully literal (`''` is an escaped quote);
+ * - `#` starts a comment until end of line;
+ * - inside double-quoted strings a backtick escapes the next character;
+ * - bare code and double-quoted strings both interpolate `${`.
+ *
+ * @param {string} script Generated PowerShell script.
+ * @returns {boolean} `true` when a real interpolation is present.
+ */
+function hasPowerShellInterpolation(script) {
+  const text = String(script);
+  let mode = 'bare';
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    const next = text[index + 1];
+    if (mode === 'comment') {
+      if (character === '\n') mode = 'bare';
+      continue;
+    }
+    if (mode === 'single') {
+      if (character === "'") {
+        if (next === "'") {
+          index += 1; // '' is an escaped quote inside a single-quoted string
+        } else {
+          mode = 'bare';
+        }
+      }
+      continue;
+    }
+    if (mode === 'double') {
+      if (character === '`') {
+        index += 1; // backtick escapes the next character
+        continue;
+      }
+      if (character === '"') {
+        mode = 'bare';
+        continue;
+      }
+      if (character === '$' && next === '{') return true;
+      continue;
+    }
+    if (character === '#') {
+      mode = 'comment';
+      continue;
+    }
+    if (character === "'") {
+      mode = 'single';
+      continue;
+    }
+    if (character === '"') {
+      mode = 'double';
+      continue;
+    }
+    if (character === '`') {
+      index += 1;
+      continue;
+    }
+    if (character === '$' && next === '{') return true;
+  }
+  return false;
+}
+
+/**
  * Strip comments before asserting on behaviour: the module headers deliberately quote the
  * patterns they refuse (`Never shell: true`), and a raw text match would flag the warning as
  * if it were the bug.
@@ -256,7 +325,7 @@ test('the runner hands argv as an array and the script only through stdin', asyn
   );
 });
 
-test('the PowerShell client keeps the script off the command line', async () => {
+test('the PowerShell client keeps the plaintext script off the command line', async () => {
   const calls = [];
   const client = createPowerShellClient({
     runner: {
@@ -270,11 +339,20 @@ test('the PowerShell client keeps the script off the command line', async () => 
   await client.runJson('# aegis-source:processes\nGet-Process');
 
   assert.equal(calls.length, 1);
-  assert.deepEqual(calls[0].args, POWERSHELL_FLAGS, 'argv must be the module-level constant');
+  assert.deepEqual(calls[0].args.slice(0, POWERSHELL_FLAGS.length), POWERSHELL_FLAGS, 'argv starts with the module-level constant');
   assert.equal(Object.isFrozen(POWERSHELL_FLAGS), true);
-  assert.equal(POWERSHELL_FLAGS[POWERSHELL_FLAGS.length - 1], '-', 'the trailing - makes stdin the script');
-  assert.equal(calls[0].args.some((arg) => arg.includes('Get-Process')), false, 'the script is not an argument');
-  assert.match(calls[0].stdin, /^[^\n]*\n# aegis-source:processes\nGet-Process/u, 'the script travels on stdin');
+  assert.equal(
+    POWERSHELL_FLAGS[POWERSHELL_FLAGS.length - 1],
+    '-EncodedCommand',
+    // CL-5: the stdin variant (`-Command -`) is truncated by PowerShell 5.1 on multi-line
+    // brace blocks; the script must be one opaque base64 (UTF-16LE) argument instead.
+    'the script is passed as one encoded argument, never through stdin',
+  );
+  assert.equal(calls[0].args.length, POWERSHELL_FLAGS.length + 1, 'exactly one encoded argument follows the flags');
+  assert.equal(calls[0].stdin, undefined, 'the script no longer travels on stdin');
+  const decoded = Buffer.from(calls[0].args[POWERSHELL_FLAGS.length], 'base64').toString('utf16le');
+  assert.match(decoded, /# aegis-source:processes\nGet-Process/u, 'the encoded argument decodes to the whole script');
+  assert.equal(calls[0].args.some((arg) => arg.includes('Get-Process')), false, 'the plaintext script is not an argument');
 });
 
 test('every script is derived from a module-level constant, never from runtime concatenation', () => {
@@ -282,8 +360,10 @@ test('every script is derived from a module-level constant, never from runtime c
   assert.equal(/args\s*:\s*[^,\n}]*\+/u.test(runner), false, 'argv must not be concatenated');
 
   const powershell = codeOnly(read(join(PACKAGE_ROOT, 'powershell.js')));
-  assert.match(powershell, /args: POWERSHELL_FLAGS/u);
+  // The flags are still the module constant; the only appended argument is the encoded script.
+  assert.match(powershell, /args: \[\.\.\.POWERSHELL_FLAGS, encodeCommand\(script\)\]/u);
   assert.equal(/args\s*:\s*`/u.test(powershell), false, 'argv must not be a template literal');
+  assert.equal(/args\s*:\s*[^,\n}]*\+/u.test(powershell), false, 'argv must not be concatenated');
 
   // The Run key script is a pure function of the declared constant: same input, same text,
   // and the only interpolation allowed is a single-quoted `psQuote` literal.
@@ -291,7 +371,12 @@ test('every script is derived from a module-level constant, never from runtime c
   const script = buildRunKeysScript(RUN_KEY_PATHS);
   assert.equal(script.split('$(').length - 1, 0, 'no subexpression can reach the script');
   assert.equal(script.includes('`'), false, 'no backtick can reach the script');
-  assert.equal(/\$\{/u.test(script), false, 'no interpolation can reach the script');
+  // R3-006: a bare `/\$\{/` also matches the single-quoted `-replace` backreference
+  // `'${1}:\$2'`, which PowerShell never interpolates. The guard must distinguish the
+  // single-quoted literal from a real `"${...}"` interpolation, not be deleted.
+  assert.equal(hasPowerShellInterpolation(script), false, 'no interpolation can reach the script');
+  // Positive control: the guard must still fire on the exact form it exists to reject.
+  assert.equal(hasPowerShellInterpolation(`${script}\n$probe = \"\${1}:x\"`), true, 'the guard must catch a real interpolation');
   assert.equal(script.split("'HKCU\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run'").length - 1, 1);
 });
 

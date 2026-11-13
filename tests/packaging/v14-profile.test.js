@@ -31,13 +31,15 @@
  */
 
 import assert from 'node:assert/strict';
-import { spawn, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve, sep } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { reapAll, stop, trackedSpawn } from './child-reaper.mjs';
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const BUILD = join(REPO_ROOT, 'deploy', 'embedded-runtime', 'build.mjs');
@@ -46,6 +48,10 @@ const RULE_PACK = join(REPO_ROOT, 'deploy', 'embedded-runtime', 'rules', 'defens
 const BUNDLE_ROOT = resolve(process.env.M8_BUNDLE_V14_DIR ?? join(REPO_ROOT, 'dist', 'bundle', 'win32-x64-v14'));
 /** The bundled runtime: the whole point is that the host node is not used. */
 const BUNDLED_NODE = join(BUNDLE_ROOT, 'runtime', 'node', 'node.exe');
+
+function sha256File(path) {
+  return createHash('sha256').update(readFileSync(path)).digest('hex');
+}
 
 const WORKER_ROOTS = [
   '@deepseek-ai/dsh',
@@ -65,6 +71,14 @@ function requireBundle() {
       + 'node deploy/embedded-runtime/build.mjs --profile daemon-console');
   }
 }
+
+/**
+ * A child that outlives its test is invisible: every assertion passes and the runner
+ * simply never exits. Reap at file level so a leak fails here, with a pid, instead.
+ */
+after(async () => {
+  await reapAll();
+});
 
 /** A sanitized environment: no host PATH entry can provide node. */
 function minimalEnv(extra = {}) {
@@ -209,10 +223,18 @@ test('bundle: the console shell serves the page and proxies /healthz to the daem
   requireBundle();
   const dataDir = mkdtempSync(join(tmpdir(), 'aegis-v14-'));
   const bundle = readJson(join(BUNDLE_ROOT, 'bundle.json'));
-  const daemon = spawn(BUNDLED_NODE, [
+  // The daemon refuses a rule pack outside its data directory (config.js calls
+  // resolveInside), so the bundled pack is copied in first. That is a real
+  // constraint of the shipped daemon, not a test convenience: a bundle whose
+  // only rule pack lives outside every legal data directory would be useless.
+  const shippedRules = join(BUNDLE_ROOT, ...bundle.paths.rules.split('/'));
+  const stagedRules = join(dataDir, 'defense-seed-pack.json');
+  cpSync(shippedRules, stagedRules);
+  assert.equal(sha256File(stagedRules), sha256File(shippedRules), 'the staged rule pack must be byte-identical');
+  const daemon = trackedSpawn(BUNDLED_NODE, [
     join(BUNDLE_ROOT, ...bundle.paths.daemonEntry.split('/')),
     '--data-dir', dataDir,
-    '--rules', join(BUNDLE_ROOT, ...bundle.paths.rules.split('/')),
+    '--rules', stagedRules,
     '--mock',
   ], { cwd: BUNDLE_ROOT, env: minimalEnv(), stdio: ['ignore', 'pipe', 'pipe'] });
   let transcript = '';
@@ -227,7 +249,7 @@ test('bundle: the console shell serves the page and proxies /healthz to the daem
     const health = await fetchJson(`http://127.0.0.1:${port}/healthz`);
     assert.equal(health.status, 200, `expected /healthz 200, saw ${health.status}`);
 
-    shell = spawn(BUNDLED_NODE, [
+    shell = trackedSpawn(BUNDLED_NODE, [
       join(BUNDLE_ROOT, ...bundle.paths.consoleServer.split('/')),
       '--daemon', `http://127.0.0.1:${port}`,
       '--port', '0',
@@ -254,9 +276,10 @@ test('bundle: the console shell serves the page and proxies /healthz to the daem
     const escape = await fetchText(`${shellURL}..%2f..%2fbundle.json`);
     assert.equal(escape.status, 404, `path traversal must be refused, saw ${escape.status}`);
   } finally {
-    if (shell !== undefined) shell.kill();
-    daemon.kill();
-    await delay(200);
+    // `kill()` alone is not cleanup: the pipes stay attached until the process is
+    // actually gone, and an un-reaped child keeps this file's event loop alive.
+    await stop(shell, 'console shell');
+    await stop(daemon, 'daemon');
     rmSync(dataDir, { recursive: true, force: true });
   }
 });
@@ -277,7 +300,7 @@ async function waitForPort(read) {
       } catch {
         continue;
       }
-      if (record.message === 'daemon ready' && Number.isInteger(record.port) && record.port > 0) return record.port;
+      if (record.msg === 'daemon ready' && Number.isInteger(record.port) && record.port > 0) return record.port;
     }
     await delay(100);
   }

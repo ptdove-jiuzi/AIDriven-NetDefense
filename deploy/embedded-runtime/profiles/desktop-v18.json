@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "name": "desktop-v18",
+  "bundleName": "win32-x64-v18",
+  "defaultOut": "dist/bundle/win32-x64-v18",
+  "description": "v18 composition (release 0.0.1-rc.6): byte-for-byte the v17 desktop composition (daemon + desktop shell at the payload root) with the console asset taken from apps/console-next. Nothing about what ships changed: the same six closure roots, the same console/rules/desktop assets, the same daemon entry forwarder and the same three launchers. v15, v16 and v17 are left untouched so the rc.3, rc.4 and rc.5 payloads stay reproducible; this profile differs from desktop-v17 only in its name, bundle name, default output directory and these prose fields. rc.6 is the release in which the Run (autostart) fix finally reaches the shipped bytes: the embedded shell reports PE FileVersion/ProductVersion 0.0.1-rc.6 and the installer app tree carries the post-fix aidn/registry.py.",
+  "closureRoots": [
+    "@deepseek-ai/dsh",
+    "@aegisharness/harness-worker",
+    "@aegisharness/harness-adapter",
+    "@aegisharness/dsh-defense-profile",
+    "@aegisharness/dsh-defense-tools",
+    "@aegisharness/daemon"
+  ],
+  "assets": {
+    "console": {
+      "preferredSource": "apps/console-next",
+      "shellSource": "deploy/embedded-runtime/console-shell",
+      "serverFallback": "deploy/embedded-runtime/console-shell/serve.mjs",
+      "target": "console",
+      "requireEntry": "index.html",
+      "note": "apps/console-next stays the product console for rc.6 (WebUI v2, 6 pages). It ships its own loopback server (js/app.js is an ES module graph), so serve.mjs beside it is the real server; the packaging shell is only the declared fallback the builder would use if the console tree ever lost its server. The builder fails closed if the staged console ends up with neither. Unchanged from v16."
+    },
+    "rules": {
+      "source": "deploy/embedded-runtime/rules",
+      "target": "rules",
+      "requirePattern": "*.json",
+      "note": "Built-in rule pack, validated with the repository's own detection package before staging. Unchanged from v16."
+    },
+    "desktop": {
+      "source": "dist/desktop/AIDrivenNetDefense.exe",
+      "target": "AIDrivenNetDefense.exe",
+      "note": "The Windows desktop shell (tray + WebView2), staged as a single file at the payload root. Unchanged from v16: the shell derives its install root from its own directory, so it must sit beside apps/, runtime/ and console/. The rc.6 build is the 3.13/PyInstaller shell whose PE FileVersion and ProductVersion are both 0.0.1-rc.6 (see docs/implementation/evidence/rc6/release/01-shell/)."
+    }
+  },
+  "entryForwarders": [
+    {
+      "package": "@aegisharness/daemon",
+      "target": "apps/daemon",
+      "note": "Unchanged from v16: a four-line forwarder so node <bundle>/apps/daemon/bin.js resolves the real package in app/node_modules."
+    }
+  ],
+  "launchers": ["worker", "daemon", "console"],
+  "nonGoals": [
+    "code signing",
+    "automatic download/apply of an update",
+    "four-OS packaging (this payload is win32-x64 only)",
+    "model weights",
+    "broker / sandbox-launcher integration",
+    "service registration (apps/service-host is not in this payload)"
+  ],
+  "readme": {
+    "title": "AegisHarness embedded runtime bundle (desktop, console-next / rc.6)"
+  }
+}

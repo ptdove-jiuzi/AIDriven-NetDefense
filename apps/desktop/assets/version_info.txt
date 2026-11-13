@@ -1,0 +1,37 @@
+# 版本资源（PyInstaller VSVersionInfo 格式，作者 PT-dove）。
+#
+# 目的只有一个：资源管理器「属性 → 详细信息」里能看到产品名与版本，而不是一片空白。
+# 打包时由 build.py 与 AIDrivenNetDefense.spec 通过 `version=` 指到这里。
+# 版本号必须与 apps/desktop/aidn/__init__.py 的 SHELL_VERSION 对齐：
+#   filevers/prodvers 用四段整数（Windows 资源格式要求），StringStruct 里保留原始字符串。
+VSVersionInfo(
+  ffi=FixedFileInfo(
+    filevers=(0, 0, 1, 0),
+    prodvers=(0, 0, 1, 0),
+    mask=0x3f,
+    flags=0x0,
+    OS=0x40004,
+    fileType=0x1,
+    subtype=0x0,
+    date=(0, 0),
+  ),
+  kids=[
+    StringFileInfo([
+      StringTable(
+        '080404b0',
+        [
+          StringStruct('CompanyName', 'PT-dove'),
+          # 双语一行：与 DIST-DECISION §2.3 及安装器 version_info.py 的写法一致
+          StringStruct('FileDescription', 'AIDriven NetDefense 0.0.1-rc.6 桌面壳 / Desktop Shell'),
+          StringStruct('FileVersion', '0.0.1-rc.6'),
+          StringStruct('InternalName', 'AIDrivenNetDefense'),
+          StringStruct('LegalCopyright', 'PT-dove'),
+          StringStruct('OriginalFilename', 'AIDrivenNetDefense.exe'),
+          StringStruct('ProductName', 'AIDriven NetDefense'),
+          StringStruct('ProductVersion', '0.0.1-rc.6'),
+        ],
+      )
+    ]),
+    VarFileInfo([VarStruct('Translation', [2052, 1200])]),
+  ],
+)

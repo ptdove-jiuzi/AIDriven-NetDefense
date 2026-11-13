@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "name": "desktop",
+  "bundleName": "win32-x64-v15",
+  "defaultOut": "dist/bundle/win32-x64-v15",
+  "description": "v15 composition: the v14 daemon+console payload plus the Windows desktop shell (tray + WebView2). The shell sits at the payload root because it derives its install root from its own directory and looks for apps/daemon/bin.js, runtime/node/node.exe and console/ beside it; a shell placed under app/ starts, but its daemon cannot be found (evidence: docs/implementation/evidence/rc3/layout-probe.json).",
+  "closureRoots": [
+    "@deepseek-ai/dsh",
+    "@aegisharness/harness-worker",
+    "@aegisharness/harness-adapter",
+    "@aegisharness/dsh-defense-profile",
+    "@aegisharness/dsh-defense-tools",
+    "@aegisharness/daemon"
+  ],
+  "assets": {
+    "console": {
+      "preferredSource": "apps/console",
+      "shellSource": "deploy/embedded-runtime/console-shell",
+      "serverFallback": "deploy/embedded-runtime/console-shell/serve.mjs",
+      "target": "console",
+      "requireEntry": "index.html",
+      "note": "Unchanged from daemon-console. apps/console is the product console and always wins over the packaging shell."
+    },
+    "rules": {
+      "source": "deploy/embedded-runtime/rules",
+      "target": "rules",
+      "requirePattern": "*.json",
+      "note": "Built-in rule pack, validated with the repository's own detection package before staging. Unchanged from daemon-console."
+    },
+    "desktop": {
+      "source": "dist/desktop/AIDrivenNetDefense.exe",
+      "target": "AIDrivenNetDefense.exe",
+      "note": "The Windows desktop shell (tray + WebView2), staged as a single file at the payload root. The root is not cosmetic: aidn.paths.install_root() returns the directory of the running executable, and the shell then resolves apps/daemon/bin.js, runtime/node/node.exe and console/ relative to it. Staging it at app/ was measured to start the tray with a dead daemon (DAEMON_OFFLINE, /healthz 503). AIDrivenNetDefense.exe is also the first entry in the installer's ENTRY_CANDIDATES, so the installed shortcut points at the tray shell instead of degrading to launch/aegis-console.cmd."
+    }
+  },
+  "entryForwarders": [
+    {
+      "package": "@aegisharness/daemon",
+      "target": "apps/daemon",
+      "note": "Unchanged from daemon-console: a four-line forwarder so node <bundle>/apps/daemon/bin.js resolves the real package in app/node_modules."
+    }
+  ],
+  "launchers": ["worker", "daemon", "console"],
+  "nonGoals": [
+    "code signing",
+    "automatic download/apply of an update (apps/desktop/updater ships inside the shell, but no route is wired to it in this build)",
+    "four-OS packaging (this payload is win32-x64 only)",
+    "model weights",
+    "broker / sandbox-launcher integration",
+    "service registration (apps/service-host is not in this payload)"
+  ],
+  "readme": {
+    "title": "AegisHarness embedded runtime bundle (desktop)"
+  }
+}

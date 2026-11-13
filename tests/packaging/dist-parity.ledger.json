@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "author": "PT-dove",
+  "purpose": "R6-003 · 已产出载荷与源码的可重建性/一致性账本。由 docs/implementation/evidence/fix-wave/R6-003/emit-ledger.mjs 生成并被 tests/packaging/dist-source-parity.test.js 校验；两侧任何变化（源码改、载荷改、账本改）都会让断言转红。",
+  "source": "apps/console",
+  "sourceFileCount": 15,
+  "artifacts": [
+    {
+      "id": "bundle-win32-x64-v15-console",
+      "kind": "bundle-console",
+      "bundleRoot": "dist/bundle/win32-x64-v15",
+      "note": "in-repository v15 payload (built 2026-11-04 19:32) — the input the release chain wraps",
+      "bundleProfile": "desktop",
+      "declaredSourcePath": "apps/console",
+      "builtAt": "2026-11-04T11:32:56.343Z",
+      "sourceFileCount": 15,
+      "payloadFileCount": 16,
+      "nonSourceFiles": [
+        "serve.mjs"
+      ],
+      "payloadDigest": "d5d8659c22b29dae84f8aba36a089f9d32d759c2ca1ead9e32247cc6dacee9b1",
+      "missingFromPayload": [],
+      "digestAgreesWithDisk": true
+    }
+  ],
+  "drift": {
+    "recordedAt": "2026-11-05T01:00:00+08:00",
+    "recordedBy": "fix-pkg (FIX-COMMANDER 战役 · task-6, R6-003) — 第 2 次记录，按 Lead 唤醒指令重记",
+    "reason": "交付物侧漂移，两个来源都已有主：①SEED-02 —— 源码 apps/console/styles.css 在 2026-11-04 18:46 修好 `[hidden]` 兜底（源码 sha 5a3c6160…，v15 载荷仍是 02:02 冻结输入的 25b68c6e…）；②SEED-03 —— fix-inst 在 2026-11-05 00:34 把 i18n 入口接进 apps/console/index.html（源码 sha e14b8480…、24330 B，v15 载荷仍是旧的 23fb4365…）。v15 载荷的 console 是 rc.3 的冻结产物（输入 dist/_v14-inputs/console-v2），按发布规则 rc.3 不重建、下一版发布时重冻输入并重打包即清零。本战役禁写 dist/**，因此把这条\"已知、有主、有日期\"的漂移显式登记，而不是放宽断言或让门禁永久为红（永久红会掩盖下一次真漂移）。",
+    "owner": "发布链 / RELEASE-COMMANDER（重建 v15/v16 载荷与 rc 包时重冻 console 输入；rc.3 冻结产物不重建）；本战役无权写 dist/**",
+    "sourceDigest": "9b24b6eb86b70b57ca1319aaf4c74ad4694dbb568c19c69023c506f47ce469a1",
+    "artifacts": {
+      "bundle-win32-x64-v15-console": "d5d8659c22b29dae84f8aba36a089f9d32d759c2ca1ead9e32247cc6dacee9b1"
+    },
+    "changedFiles": [
+      "index.html",
+      "styles.css"
+    ]
+  },
+  "note": "由 docs/implementation/evidence/fix-wave/R6-003/emit-ledger.mjs 生成；断言 tests/packaging/dist-source-parity.test.js 会重新计算两侧摘要，任何一侧变化都会转红。"
+}

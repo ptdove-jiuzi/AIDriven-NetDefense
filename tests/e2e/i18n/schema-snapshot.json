@@ -1,0 +1,1069 @@
+{
+  "_note": "snapshot of GET /api/v1/settings/schema at 2026-11-04T21:35+08:00 (daemon 0.1.0-m5); used to derive schema-driven i18n keys offline",
+  "schemaVersion": "1.0",
+  "schema": {
+    "schemaVersion": "1.0",
+    "groups": [
+      {
+        "id": "models",
+        "appliesAt": "immediate",
+        "dangerous": false,
+        "items": [
+          {
+            "path": "models.egressEnabled",
+            "type": "boolean",
+            "default": false,
+            "appliesAt": "immediate",
+            "dangerous": true,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.egress.label",
+            "hintKey": "settings.models.egress.hint"
+          },
+          {
+            "path": "models.providers",
+            "type": "object[]",
+            "default": [
+              {
+                "id": "deepseek",
+                "kind": "deepseek",
+                "baseUrl": "https://api.deepseek.com/v1",
+                "enabled": false,
+                "allowLoopback": false,
+                "dailyInputTokens": 30000,
+                "dailyOutputTokens": 6000,
+                "pricing": null
+              }
+            ],
+            "appliesAt": "immediate",
+            "dangerous": true,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.providers.label",
+            "hintKey": "settings.models.providers.hint",
+            "maxItems": 8,
+            "fields": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true,
+                "pattern": "^[a-z0-9-]{2,32}$"
+              },
+              {
+                "name": "kind",
+                "type": "enum",
+                "required": true,
+                "values": [
+                  "openai-compatible",
+                  "deepseek",
+                  "ollama"
+                ]
+              },
+              {
+                "name": "baseUrl",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "enabled",
+                "type": "boolean",
+                "required": true,
+                "default": false
+              },
+              {
+                "name": "allowLoopback",
+                "type": "boolean",
+                "required": true,
+                "default": false
+              },
+              {
+                "name": "dailyInputTokens",
+                "type": "integer",
+                "required": true,
+                "default": 30000
+              },
+              {
+                "name": "dailyOutputTokens",
+                "type": "integer",
+                "required": true,
+                "default": 6000
+              },
+              {
+                "name": "pricing",
+                "type": "secret",
+                "required": false,
+                "default": null
+              }
+            ]
+          },
+          {
+            "path": "models.models",
+            "type": "object[]",
+            "default": [
+              {
+                "id": "deepseek-chat",
+                "providerId": "deepseek",
+                "tier": "triage",
+                "maxInputTokens": 8192,
+                "maxOutputTokens": 1024,
+                "costClass": "cheap"
+              }
+            ],
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.models.label",
+            "hintKey": "settings.models.models.hint",
+            "maxItems": 32,
+            "fields": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true,
+                "pattern": "^[A-Za-z0-9._:-]{1,64}$"
+              },
+              {
+                "name": "providerId",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "tier",
+                "type": "enum",
+                "required": true,
+                "values": [
+                  "watch",
+                  "triage",
+                  "respond"
+                ]
+              },
+              {
+                "name": "maxInputTokens",
+                "type": "integer",
+                "required": true
+              },
+              {
+                "name": "maxOutputTokens",
+                "type": "integer",
+                "required": true
+              },
+              {
+                "name": "costClass",
+                "type": "enum",
+                "required": true,
+                "values": [
+                  "free-local",
+                  "cheap",
+                  "standard",
+                  "expensive"
+                ]
+              }
+            ]
+          },
+          {
+            "path": "models.routing.mode",
+            "type": "enum",
+            "default": "tiered",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.routing.mode.label",
+            "hintKey": "settings.models.routing.mode.hint",
+            "values": [
+              "tiered",
+              "uniform"
+            ]
+          },
+          {
+            "path": "models.routing.uniformModelId",
+            "type": "string",
+            "default": null,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.routing.uniform.model.id.label",
+            "hintKey": "settings.models.routing.uniform.model.id.hint"
+          },
+          {
+            "path": "models.routing.defaultTier",
+            "type": "enum",
+            "default": "watch",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.routing.default.tier.label",
+            "hintKey": "settings.models.routing.default.tier.hint",
+            "values": [
+              "watch",
+              "triage",
+              "respond"
+            ]
+          },
+          {
+            "path": "models.routing.escalation.enabled",
+            "type": "boolean",
+            "default": true,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.routing.escalation.enabled.label",
+            "hintKey": "settings.models.routing.escalation.enabled.hint"
+          },
+          {
+            "path": "models.routing.escalation.minSeverity",
+            "type": "enum",
+            "default": "high",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.routing.escalation.min.severity.label",
+            "hintKey": "settings.models.routing.escalation.min.severity.hint",
+            "values": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          {
+            "path": "models.routing.escalation.cooldownSeconds",
+            "type": "integer",
+            "default": 300,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.routing.escalation.cooldown.seconds.label",
+            "hintKey": "settings.models.routing.escalation.cooldown.seconds.hint",
+            "min": 0,
+            "max": 86400
+          },
+          {
+            "path": "models.routing.escalation.maxEscalationsPerHour",
+            "type": "integer",
+            "default": 20,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.routing.escalation.max.escalations.per.hour.label",
+            "hintKey": "settings.models.routing.escalation.max.escalations.per.hour.hint",
+            "min": 0,
+            "max": 10000
+          },
+          {
+            "path": "models.budget.perAnalysis.inputTokens",
+            "type": "integer",
+            "default": 12000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.budget.per.analysis.input.tokens.label",
+            "hintKey": "settings.models.budget.per.analysis.input.tokens.hint",
+            "min": 1,
+            "max": 1000000
+          },
+          {
+            "path": "models.budget.perAnalysis.outputTokens",
+            "type": "integer",
+            "default": 2000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.budget.per.analysis.output.tokens.label",
+            "hintKey": "settings.models.budget.per.analysis.output.tokens.hint",
+            "min": 1,
+            "max": 1000000
+          },
+          {
+            "path": "models.budget.perAnalysis.maxRequests",
+            "type": "integer",
+            "default": 3,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.budget.per.analysis.max.requests.label",
+            "hintKey": "settings.models.budget.per.analysis.max.requests.hint",
+            "min": 1,
+            "max": 10
+          },
+          {
+            "path": "models.budget.daily.inputTokens",
+            "type": "integer",
+            "default": 30000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.budget.daily.input.tokens.label",
+            "hintKey": "settings.models.budget.daily.input.tokens.hint",
+            "min": 0,
+            "max": 1000000000
+          },
+          {
+            "path": "models.budget.daily.outputTokens",
+            "type": "integer",
+            "default": 6000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.budget.daily.output.tokens.label",
+            "hintKey": "settings.models.budget.daily.output.tokens.hint",
+            "min": 0,
+            "max": 1000000000
+          },
+          {
+            "path": "models.budget.maxConcurrentAnalyses",
+            "type": "integer",
+            "default": 2,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.budget.max.concurrent.analyses.label",
+            "hintKey": "settings.models.budget.max.concurrent.analyses.hint",
+            "min": 1,
+            "max": 8
+          },
+          {
+            "path": "models.agent.engine",
+            "type": "enum",
+            "default": "auto",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.agent.engine.label",
+            "hintKey": "settings.models.agent.engine.hint",
+            "values": [
+              "auto",
+              "broker-host",
+              "harness"
+            ]
+          },
+          {
+            "path": "models.agent.maxHistoryMessages",
+            "type": "integer",
+            "default": 20,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.agent.max.history.messages.label",
+            "hintKey": "settings.models.agent.max.history.messages.hint",
+            "min": 1,
+            "max": 100
+          },
+          {
+            "path": "models.agent.temperature",
+            "type": "number",
+            "default": 0.2,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.agent.temperature.label",
+            "hintKey": "settings.models.agent.temperature.hint",
+            "min": 0,
+            "max": 2
+          },
+          {
+            "path": "models.agent.showTokenUsage",
+            "type": "boolean",
+            "default": true,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.models.agent.show.token.usage.label",
+            "hintKey": "settings.models.agent.show.token.usage.hint"
+          }
+        ]
+      },
+      {
+        "id": "collection",
+        "appliesAt": "next-collection",
+        "dangerous": false,
+        "items": [
+          {
+            "path": "collection.channels",
+            "type": "string[]",
+            "default": [
+              "security"
+            ],
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.collection.channels.label",
+            "hintKey": "settings.collection.channels.hint",
+            "values": [
+              "security",
+              "system",
+              "application",
+              "powershell"
+            ],
+            "maxItems": 4
+          },
+          {
+            "path": "collection.registryPaths",
+            "type": "string[]",
+            "default": [],
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.collection.registry.paths.label",
+            "hintKey": "settings.collection.registry.paths.hint",
+            "maxItems": 32
+          },
+          {
+            "path": "collection.services",
+            "type": "string[]",
+            "default": [],
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.collection.services.label",
+            "hintKey": "settings.collection.services.hint",
+            "maxItems": 64
+          },
+          {
+            "path": "collection.pollIntervalMs",
+            "type": "integer",
+            "default": 10000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.collection.poll.interval.ms.label",
+            "hintKey": "settings.collection.poll.interval.ms.hint",
+            "min": 1000,
+            "max": 600000
+          },
+          {
+            "path": "collection.retention.eventDays",
+            "type": "integer",
+            "default": 7,
+            "appliesAt": "restart",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.collection.retention.event.days.label",
+            "hintKey": "settings.collection.retention.event.days.hint",
+            "min": 1,
+            "max": 3650
+          },
+          {
+            "path": "collection.retention.alertDays",
+            "type": "integer",
+            "default": 30,
+            "appliesAt": "restart",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.collection.retention.alert.days.label",
+            "hintKey": "settings.collection.retention.alert.days.hint",
+            "min": 1,
+            "max": 3650
+          },
+          {
+            "path": "collection.retention.maxDbBytes",
+            "type": "integer",
+            "default": 1073741824,
+            "appliesAt": "restart",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.collection.retention.max.db.bytes.label",
+            "hintKey": "settings.collection.retention.max.db.bytes.hint",
+            "min": 1048576,
+            "max": 1000000000000
+          }
+        ]
+      },
+      {
+        "id": "detection",
+        "appliesAt": "next-collection",
+        "dangerous": false,
+        "items": [
+          {
+            "path": "detection.enabledRulePacks",
+            "type": "string[]",
+            "default": [],
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.detection.enabled.rule.packs.label",
+            "hintKey": "settings.detection.enabled.rule.packs.hint",
+            "maxItems": 64
+          },
+          {
+            "path": "detection.severityMapping",
+            "type": "object[]",
+            "default": {
+              "info": "info",
+              "low": "low",
+              "medium": "medium",
+              "high": "high",
+              "critical": "critical"
+            },
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.detection.severity.mapping.label",
+            "hintKey": "settings.detection.severity.mapping.hint"
+          },
+          {
+            "path": "detection.allowlist",
+            "type": "object[]",
+            "default": [],
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.detection.allowlist.label",
+            "hintKey": "settings.detection.allowlist.hint",
+            "maxItems": 200,
+            "fields": [
+              {
+                "name": "id",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "kind",
+                "type": "enum",
+                "required": true,
+                "values": [
+                  "rule",
+                  "host",
+                  "user"
+                ]
+              },
+              {
+                "name": "pattern",
+                "type": "string",
+                "required": true
+              },
+              {
+                "name": "note",
+                "type": "string",
+                "required": false,
+                "default": ""
+              }
+            ]
+          },
+          {
+            "path": "detection.thresholds.count",
+            "type": "integer",
+            "default": 5,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.detection.thresholds.count.label",
+            "hintKey": "settings.detection.thresholds.count.hint",
+            "min": 1,
+            "max": 1000000
+          },
+          {
+            "path": "detection.thresholds.windowMs",
+            "type": "integer",
+            "default": 60000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.detection.thresholds.window.ms.label",
+            "hintKey": "settings.detection.thresholds.window.ms.hint",
+            "min": 1000,
+            "max": 86400000
+          },
+          {
+            "path": "detection.hysteresis.enabled",
+            "type": "boolean",
+            "default": true,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.detection.hysteresis.enabled.label",
+            "hintKey": "settings.detection.hysteresis.enabled.hint"
+          },
+          {
+            "path": "detection.hysteresis.steps",
+            "type": "integer",
+            "default": 1,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.detection.hysteresis.steps.label",
+            "hintKey": "settings.detection.hysteresis.steps.hint",
+            "min": 0,
+            "max": 10
+          }
+        ]
+      },
+      {
+        "id": "response",
+        "appliesAt": "immediate",
+        "dangerous": true,
+        "items": [
+          {
+            "path": "response.approvalMode",
+            "type": "enum",
+            "default": "high-only",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.response.approval.mode.label",
+            "hintKey": "settings.response.approval.mode.hint",
+            "values": [
+              "always",
+              "high-only",
+              "never"
+            ]
+          },
+          {
+            "path": "response.actionMatrix",
+            "type": "object[]",
+            "default": {
+              "observe.record_alert": "allow",
+              "process.suspend": "allow",
+              "process.terminate": "needs_approval",
+              "network.block_connection": "needs_approval",
+              "network.isolate": "needs_approval",
+              "file.quarantine": "needs_approval"
+            },
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.response.action.matrix.label",
+            "hintKey": "settings.response.action.matrix.hint"
+          },
+          {
+            "path": "response.cooldownSeconds",
+            "type": "integer",
+            "default": 300,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.response.cooldown.seconds.label",
+            "hintKey": "settings.response.cooldown.seconds.hint",
+            "min": 0,
+            "max": 86400
+          },
+          {
+            "path": "response.escalationPolicy",
+            "type": "enum",
+            "default": "suggest-only",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.response.escalation.policy.label",
+            "hintKey": "settings.response.escalation.policy.hint",
+            "values": [
+              "suggest-only",
+              "manual"
+            ]
+          },
+          {
+            "path": "response.executionEnabled",
+            "type": "boolean",
+            "default": false,
+            "appliesAt": "immediate",
+            "dangerous": true,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.response.execution.enabled.label",
+            "hintKey": "settings.response.execution.enabled.hint"
+          }
+        ]
+      },
+      {
+        "id": "ui",
+        "appliesAt": "immediate",
+        "dangerous": false,
+        "items": [
+          {
+            "path": "ui.theme",
+            "type": "enum",
+            "default": "system",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.ui.theme.label",
+            "hintKey": "settings.ui.theme.hint",
+            "values": [
+              "system",
+              "dark",
+              "light"
+            ]
+          },
+          {
+            "path": "ui.density",
+            "type": "enum",
+            "default": "comfortable",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.ui.density.label",
+            "hintKey": "settings.ui.density.hint",
+            "values": [
+              "comfortable",
+              "compact"
+            ]
+          },
+          {
+            "path": "ui.locale",
+            "type": "enum",
+            "default": "zh-CN",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.ui.locale.label",
+            "hintKey": "settings.ui.locale.hint",
+            "values": [
+              "en",
+              "zh-CN",
+              "ja",
+              "ko",
+              "es",
+              "ru",
+              "th"
+            ]
+          },
+          {
+            "path": "ui.startView",
+            "type": "enum",
+            "default": "overview",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.ui.start.view.label",
+            "hintKey": "settings.ui.start.view.hint",
+            "values": [
+              "overview",
+              "alerts",
+              "analysis",
+              "agent",
+              "models",
+              "settings"
+            ]
+          },
+          {
+            "path": "ui.autoRefreshMs",
+            "type": "integer",
+            "default": 10000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.ui.auto.refresh.ms.label",
+            "hintKey": "settings.ui.auto.refresh.ms.hint",
+            "min": 0,
+            "max": 3600000
+          },
+          {
+            "path": "ui.trayBehavior",
+            "type": "enum",
+            "default": "show",
+            "appliesAt": "external",
+            "dangerous": false,
+            "wired": false,
+            "readOnly": false,
+            "labelKey": "settings.ui.tray.behavior.label",
+            "hintKey": "settings.ui.tray.behavior.hint",
+            "values": [
+              "show",
+              "minimize",
+              "quit"
+            ]
+          },
+          {
+            "path": "ui.autostart",
+            "type": "boolean",
+            "default": false,
+            "appliesAt": "external",
+            "dangerous": false,
+            "wired": false,
+            "readOnly": false,
+            "labelKey": "settings.ui.autostart.label",
+            "hintKey": "settings.ui.autostart.hint"
+          }
+        ]
+      },
+      {
+        "id": "update",
+        "appliesAt": "restart",
+        "dangerous": false,
+        "items": [
+          {
+            "path": "update.autoCheck",
+            "type": "boolean",
+            "default": false,
+            "appliesAt": "external",
+            "dangerous": false,
+            "wired": false,
+            "readOnly": false,
+            "labelKey": "settings.update.auto.check.label",
+            "hintKey": "settings.update.auto.check.hint"
+          },
+          {
+            "path": "update.channel",
+            "type": "enum",
+            "default": "stable",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.update.channel.label",
+            "hintKey": "settings.update.channel.hint",
+            "values": [
+              "stable",
+              "beta"
+            ]
+          },
+          {
+            "path": "update.checkIntervalHours",
+            "type": "integer",
+            "default": 24,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.update.check.interval.hours.label",
+            "hintKey": "settings.update.check.interval.hours.hint",
+            "min": 1,
+            "max": 168
+          },
+          {
+            "path": "update.lastCheckedAt",
+            "type": "string",
+            "default": null,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.update.last.checked.at.label",
+            "hintKey": "settings.update.last.checked.at.hint"
+          },
+          {
+            "path": "update.currentVersion",
+            "type": "string",
+            "default": null,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.update.current.version.label",
+            "hintKey": "settings.update.current.version.hint"
+          }
+        ]
+      },
+      {
+        "id": "diagnostics",
+        "appliesAt": "immediate",
+        "dangerous": false,
+        "items": [
+          {
+            "path": "diagnostics.logLevel",
+            "type": "enum",
+            "default": "info",
+            "appliesAt": "restart",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.diagnostics.log.level.label",
+            "hintKey": "settings.diagnostics.log.level.hint",
+            "values": [
+              "error",
+              "warn",
+              "info",
+              "debug"
+            ]
+          },
+          {
+            "path": "diagnostics.healthCheckIntervalMs",
+            "type": "integer",
+            "default": 30000,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": false,
+            "labelKey": "settings.diagnostics.health.check.interval.ms.label",
+            "hintKey": "settings.diagnostics.health.check.interval.ms.hint",
+            "min": 1000,
+            "max": 3600000
+          },
+          {
+            "path": "diagnostics.apiPort",
+            "type": "integer",
+            "default": null,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.diagnostics.api.port.label",
+            "hintKey": "settings.diagnostics.api.port.hint"
+          },
+          {
+            "path": "diagnostics.exportBundleLastAt",
+            "type": "string",
+            "default": null,
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.diagnostics.export.bundle.last.at.label",
+            "hintKey": "settings.diagnostics.export.bundle.last.at.hint"
+          }
+        ]
+      },
+      {
+        "id": "about",
+        "appliesAt": "immediate",
+        "dangerous": false,
+        "injected": true,
+        "items": [
+          {
+            "path": "about.version",
+            "type": "string",
+            "default": "0.0.0",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.about.version.label",
+            "hintKey": "settings.about.version.hint"
+          },
+          {
+            "path": "about.license",
+            "type": "string",
+            "default": "Apache-2.0",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.about.license.label",
+            "hintKey": "settings.about.license.hint"
+          },
+          {
+            "path": "about.changelog",
+            "type": "string[]",
+            "default": [],
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.about.changelog.label",
+            "hintKey": "settings.about.changelog.hint"
+          },
+          {
+            "path": "about.privacy",
+            "type": "string",
+            "default": "LOCAL_ONLY_NO_TELEMETRY",
+            "appliesAt": "immediate",
+            "dangerous": false,
+            "wired": true,
+            "readOnly": true,
+            "labelKey": "settings.about.privacy.label",
+            "hintKey": "settings.about.privacy.hint"
+          }
+        ]
+      }
+    ],
+    "actions": [
+      {
+        "id": "diagnostics.exportBundle",
+        "path": "diagnostics.exportBundle",
+        "method": "POST",
+        "available": false,
+        "reason": "NOT_IMPLEMENTED_0_0_1",
+        "requiresConfirm": true
+      },
+      {
+        "id": "diagnostics.rotateToken",
+        "path": "diagnostics.rotateToken",
+        "method": "POST",
+        "available": false,
+        "reason": "NOT_IMPLEMENTED_0_0_1",
+        "requiresConfirm": true
+      },
+      {
+        "id": "update.checkNow",
+        "path": "update.checkNow",
+        "method": "POST",
+        "available": false,
+        "reason": "NOT_IMPLEMENTED_0_0_1",
+        "requiresConfirm": false
+      },
+      {
+        "id": "update.rollback",
+        "path": "update.rollback",
+        "method": "POST",
+        "available": false,
+        "reason": "NOT_IMPLEMENTED_0_0_1",
+        "requiresConfirm": true
+      },
+      {
+        "id": "response.runAction",
+        "path": "response.runAction",
+        "method": "POST",
+        "available": false,
+        "reason": "NOT_IMPLEMENTED_0_0_1",
+        "requiresConfirm": true
+      }
+    ],
+    "actionCatalog": [
+      {
+        "id": "observe.record_alert",
+        "decision": "allow"
+      },
+      {
+        "id": "process.suspend",
+        "decision": "allow"
+      },
+      {
+        "id": "process.terminate",
+        "decision": "needs_approval"
+      },
+      {
+        "id": "network.block_connection",
+        "decision": "needs_approval"
+      },
+      {
+        "id": "network.isolate",
+        "decision": "needs_approval"
+      },
+      {
+        "id": "file.quarantine",
+        "decision": "needs_approval"
+      }
+    ]
+  }
+}

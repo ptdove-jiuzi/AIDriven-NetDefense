@@ -34,9 +34,16 @@
 ├── launch/
 │   ├── launch-plan.json                 # 权威路径（**相对 bundle 根**）+ 环境契约 + 非目标
 │   ├── aegis-harness-worker.cmd         # 启动存根：用 %~dp0.. 现场解析 bundle 根
+│   ├── aegis-daemon.cmd                 # v14：先把内置规则包播进 data dir，再起守护进程
+│   ├── aegis-console.cmd                # v14：起控制台静态服务（只绑回环，不自动开浏览器）
+│   ├── seed-rules.mjs                   # v14：把规则包复制进 <data dir>/rules/ 并复算摘要
 │   └── prepare-attempt.mjs              # 每次分析一次性环境的参考实现（用 import.meta.url 解析根）
+├── apps/daemon/bin.js                   # v14：转发入口 → app/node_modules/@aegisharness/daemon/bin.js
+├── console/                             # v14：控制台静态页（index.html / app.js / styles.css / serve.mjs）
+├── rules/defense-seed-pack.json         # v14：内置规则包（构建期用仓库 detection 包校验）
 └── manifests/
     ├── files.sha256                     # 除 manifests/ 自身外的全量文件哈希
+    ├── rule-packs.json                  # v14：内置规则包的路径与摘要（seed-rules.mjs 据此复算）
     ├── third-party-packages.json        # 每个包的 SPDX 标识与许可文件
     ├── license-gaps.json                # 仍无上游全文的包（open 待办，不是合规声明）
     ├── license-provenance.json          # 每份「包外取得」的全文来自哪个上游发行
@@ -45,18 +52,31 @@
     └── licenses/<name>@<version>/…      # 逐包许可全文（含 licenses/ 子目录）
 ```
 
+**两个 profile**（`profiles/*.json`，决定"打什么"，与运行期 Cordis profile 无关）：
+
+| profile | 闭包根 | 产物默认位置 | 载荷 |
+|---|---|---|---|
+| `worker` | dsh + worker + adapter + 两个 defense 插件包 | 仓库外 `_m8_poc/…v13-relocatable`（历史默认） | v13：只有 stdio worker，**没有服务端、没有界面** |
+| `daemon-console` | 上述 + `@aegisharness/daemon` | **仓库内** `dist/bundle/win32-x64-v14` | v14：worker + 守护进程 + 控制台 + 内置规则包 |
+
 ## 构建
 
 ```powershell
 # 在仓库根执行（license 相关参数都有默认值，通常不需要显式给）
 node deploy/embedded-runtime/build.mjs `
+  [--profile worker|daemon-console] `
+  [--console-source <冻结的 apps/console 副本>] `
   [--node-license <Node LICENSE 路径>] `
   [--node-license-attestation <该文本的通源记录.json>] `
   [--license-attestations <deploy/embedded-runtime/license-attestations.json>] `
   [--allow-license-gap] `
   [--no-prune] [--plan-only] [--profile-snapshot <冻结的 profile 输入目录>] `
-  [--out <仓库外的目录>]
+  [--out <仓库内 dist/bundle/ 下的版本目录>]
 ```
+
+- **默认 profile 是 `worker`**（v13 组合，逐字保留以便 v13 仍能从同一配方重建）。
+  v14 用 `--profile daemon-console`，它自己声明 `defaultOut: dist/bundle/win32-x64-v14`，
+  构建只允许落在仓库内 `dist/bundle/` 之下（`--allow-repo-output` 由 profile 的声明触发）。
 
 - **默认裁剪**：不带 `--prune` 时自动加载 `deploy/embedded-runtime/prune-list.json`，
   与默认输出名 `-v13-relocatable` 一致。`--no-prune` 才会产出全量 654 包的目录——此时**请同时换一个
@@ -87,7 +107,42 @@ node deploy/embedded-runtime/build.mjs `
 - 输出路径保护用 `realpath` 规范化后比较，并拒绝 `\\?\` 扩展长度前缀、指向仓库的 junction、
   以及受保护系统目录（`%TEMP%` 例外）。
 
-## 可搬迁性（本目录的核心不变量）
+## v14 载荷（daemon + console）
+
+v13 只打了 `harness-worker`：装完之后既没有服务端也没有界面。v14 在**不改动 v13 闭包**的前提下，
+把 `@aegisharness/daemon`（服务端）与本机控制台静态页（界面）纳入同一个自包含目录。
+
+```powershell
+# 1) 把 apps/console 冻结成一份稳定输入（另一个 Agent 正在改它，直接读会得到"移动靶"）
+node tests/packaging/freeze-console.mjs          # 产出 dist/_v14-inputs/console
+
+# 2) 构建（产物落在仓库内）
+node deploy/embedded-runtime/build.mjs --profile daemon-console `
+  --console-source dist/_v14-inputs/console
+
+# 3) 起服务端 → 起界面
+dist\bundle\win32-x64-v14\launch\aegis-daemon.cmd --data-dir D:\aegis-data --mock
+dist\bundle\win32-x64-v14\launch\aegis-console.cmd --daemon http://127.0.0.1:<daemon 端口> --port 0
+```
+
+三个必须知道的事实：
+
+1. **内置规则包不能直接喂给 `--rules`。** daemon 用 `resolveInside(dataDir, rulePackPath)` 校验，
+   `<bundle>\rules\...` 会被拒绝（`detection.rulePackPath must stay inside the data directory`，
+   退出码 2）。这是 daemon 的既有不变量（它读的东西不许在唯一可写根之外），不是打包 bug；
+   所以打包层负责把包**播进 data dir**：`launch/seed-rules.mjs` 逐个复算
+   `manifests/rule-packs.json` 里的摘要后复制到 `<data dir>/rules/`，`aegis-daemon.cmd`
+   在读参数后就先跑它。`launch-plan.json` 的 `daemon.argv` 因此指向 data dir 内的副本。
+2. **控制台的页面和服务端是两个输入。** `apps/console` 提供页面（`index.html`/`app.js`/`styles.css`/`assets/`），
+   但不含静态服务；`console/serve.mjs` 由 profile 的 `serverFallback`
+   （`deploy/embedded-runtime/console-shell/serve.mjs`）补入，只绑回环、只服务同目录文件、
+   只代理 `/healthz`、`/readyz`、`/api/v1/*`。staged console 若既无 `serve.mjs` 又无 fallback，
+   **构建直接失败**——否则 `launch-plan.json` 会指向一个不存在的文件。
+3. **`--console-source` 是输入钉扎，不是换壳。** 与 `--profile-snapshot` 同性质：把
+   `apps/console` 钉到一份冻结副本，两次构建才共用同一批字节。bundle.json 记录
+   `console.pinned` / `pinnedPath` / 逐文件摘要；被钉的目录必须非空且含 `index.html`，
+   否则构建拒绝（避免"钉了个空目录、悄悄退回打包壳"）。
+
 
 bundle 内**不存在构建机的绝对路径**。这不是风格问题：只要 `launch/` 里写死了构建目录，
 目录一被复制或改名，启动器仍会去启动**原位置**的树——在构建机上完全看不出来，换台机器立刻报废。
@@ -117,13 +172,20 @@ bundle 内**不存在构建机的绝对路径**。这不是风格问题：只要
 `bundle.json` 单独比白名单字段。
 
 ```powershell
-# 两次构建，输出放在仓库外的不同目录
-node deploy/embedded-runtime/build.mjs --out D:\_g2\run1\bundle
-node deploy/embedded-runtime/build.mjs --out D:\_g2\run2\bundle
+# 两次构建：产物必须落在仓库内 dist/bundle/ 之下（默认 profile 的 defaultOut 已保证这点）
+node deploy/embedded-runtime/build.mjs --profile daemon-console `
+  --console-source dist/_v14-inputs/console
+node deploy/embedded-runtime/build.mjs --profile daemon-console `
+  --console-source dist/_v14-inputs/console `
+  --out dist/bundle/win32-x64-v14-g2run2 --allow-repo-output
 
 # 比较（--verify-disk 会额外用磁盘复算两侧清单）
-node tests/packaging/repro-compare.mjs --left D:\_g2\run1\bundle --right D:\_g2\run2\bundle --verify-disk
+node tests/packaging/repro-compare.mjs `
+  --left dist/bundle/win32-x64-v14 --right dist/bundle/win32-x64-v14-g2run2 --verify-disk
 ```
+
+> 第二次构建的目录只用于比较：比完就该删（本机 shell 对批量删除有安全拦截，
+> 删不掉时改名留档并在状态文件里写明，不要强行 `rm -rf`）。
 
 为什么必须剥离那一行：`bundle.json` 里有 `builtAt`，它的值每次都不同，而它又被 `files.sha256` 覆盖，
 所以整包「一个哈希」在跨构建之间永远不成立。剥离后比的是**内容**，`bundle.json` 的其余字段

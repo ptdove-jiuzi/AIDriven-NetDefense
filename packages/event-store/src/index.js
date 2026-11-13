@@ -60,6 +60,7 @@ export {
   getAlertById,
   getEvent,
   ingestTelemetry,
+  ingestTelemetryBatch,
 } from './ingest.js';
 
 export {

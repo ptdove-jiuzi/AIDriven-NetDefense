@@ -1,0 +1,42 @@
+{
+  "note": "上一轮 p1-close harness 的路径/标签改造副本；判据逻辑零改动；源文件未修改",
+  "source_dir": "tests/desktop/updater/p1-close",
+  "generator": "tests/desktop/updater/r2/make_r2_harness.py",
+  "files": [
+    {
+      "src": "tests/desktop/updater/p1-close/run_scenarios_p1c.py",
+      "src_sha256": "125e776cfc7c204f66b9c3d5f7fdb58d0b3eefbd912d15a704f25b9cf606a3c8",
+      "dst": "tests/desktop/updater/r2/run_scenarios_r2.py",
+      "dst_sha256": "cbceddd5d4be8ccc7849d93f8a6eaf5714d5e92720737084c65f3bc66155170b",
+      "bytes": 53546
+    },
+    {
+      "src": "tests/desktop/updater/p1-close/run_rollback_p1c.py",
+      "src_sha256": "55b6b09bc93ea02b82d7768825bb8a72b045c42e17e060d4bd7de8abce6fb3a6",
+      "dst": "tests/desktop/updater/r2/run_rollback_r2.py",
+      "dst_sha256": "95fa1df321659b37bc62a7fc7578f3413060fb08e59bd0bee43aae386bca24de",
+      "bytes": 42666
+    },
+    {
+      "src": "tests/desktop/updater/p1-close/run_positive_control_p1c.py",
+      "src_sha256": "10dbb64f5b247daa09b00c3ddf6779a5e30ca83dc876681681a0f2ed78860f6e",
+      "dst": "tests/desktop/updater/r2/run_positive_control_r2.py",
+      "dst_sha256": "4c0dbd55c6f88d66b17dd0706093173cdd5b2c6107f007901d88273013991498",
+      "bytes": 7224
+    },
+    {
+      "src": "tests/desktop/updater/p1-close/run_extra_probes_p1c.py",
+      "src_sha256": "bdbe7db8b3232a27bae2464f14721408c9cd8ecf8970486142c2ab677f7af0fb",
+      "dst": "tests/desktop/updater/r2/run_extra_probes_r2.py",
+      "dst_sha256": "f7f73b05b135838248bd885c7fb3bbc7ecd4aae7fc32b595a900c20116036257",
+      "bytes": 23736
+    },
+    {
+      "src": "evidence/p1-close/updater/egress/analyze_monitor.py",
+      "src_sha256": "2487b1956d6c2686a6e4f6aa64e7e45ba603318dad2f2258c5830b22b4772265",
+      "dst": "tests/desktop/updater/r2/analyze_monitor_r2.py",
+      "dst_sha256": "7d27dc9af263c6c3ab83384fe95f546dae63121cb8a4a181d177fc50a4a827bd",
+      "bytes": 10925
+    }
+  ]
+}

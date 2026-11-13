@@ -82,6 +82,14 @@ const SECRET_RULES = Object.freeze([
   ['credential_assignment', () => /\b(?:password|passwd|secret|api[_-]?key|access[_-]?token|client[_-]?secret|authorization)\b\s*[:=]\s*\S{6,}/iu],
   ['cookie_header', () => /\b(?:set-)?cookie\s*:/iu],
   ['connection_string', () => /\b(?:mongodb|postgres|postgresql|mysql|redis|amqp):\/\/[^\s/]+:[^\s@]+@/iu],
+  // R5-009：裸 `key=` / `token=` 赋值（不带 api/access 前缀的常见写法）。
+  ['bare_key_or_token_assignment', () => /\b(?:key|token|apikey|api_key|auth)\s*[:=]\s*[A-Za-z0-9._~+/=-]{6,}/iu],
+  // R5-009：URL userinfo（`scheme://user:pass@host`）—— 凭据常被整段贴进日志/报错。
+  ['url_userinfo', () => /\b[a-z][a-z0-9+.-]*:\/\/[^\s/:@]+:[^\s/@]+@/iu],
+  // R5-009：URL query 里的短凭据参数（`?key=zzz` / `&token=…`），值可以很短。
+  ['url_query_credential', () => /[?&](?:key|token|api[_-]?key|apikey|access[_-]?token|auth)=[^&\s#]{1,}/iu],
+  // R5-009：HuggingFace 形态令牌（`hf_` + 至少 8 位字母数字）。
+  ['huggingface_token', () => /\bhf_[A-Za-z0-9]{8,}\b/u],
 ]);
 
 const CONTROL_ESCAPE_SOURCE = '\\u001B\\[[0-9;?]*[ -/]*[@-~]';

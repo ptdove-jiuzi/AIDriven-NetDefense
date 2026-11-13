@@ -140,7 +140,9 @@ body {
 }
 
 .metrics {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* auto-fit 而不是固定 4 列：窗口在 125% 缩放下宽度只有 900 多 CSS px，
+     固定 4 列会把第 4 格和右侧按钮挤出可视区。 */
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 1px; margin-top: 18px;
   background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden;
 }
@@ -155,7 +157,7 @@ body {
   font-size: 11.5px; font-family: Consolas, "Cascadia Mono", monospace;
 }
 
-.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
 .cols .card { margin-bottom: 14px; }
 
 .mini-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
@@ -243,7 +245,7 @@ body {
 /* 「服务已断开」不是错误页，是一条可以一键恢复的状态条：它解释发生了什么，
    并把恢复动作放在同一行，用户不需要去设置页找。 */
 .banner {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   margin: 0 0 14px;
   padding: 11px 14px;
   background: var(--bad-soft);
@@ -252,9 +254,10 @@ body {
   color: #7d1d16;
 }
 .banner[hidden] { display: none; }
-.banner-text { display: flex; flex-direction: column; line-height: 1.4; flex: 1 1 auto; min-width: 0; }
+.banner-text { display: flex; flex-direction: column; line-height: 1.4; flex: 1 1 240px; min-width: 0; }
 .banner-text strong { font-size: 13.5px; }
 .banner-text span { font-size: 12px; color: #8c3a33; word-break: break-word; }
+.banner .btn { flex: 0 0 auto; margin-left: auto; }
 .btn-primary {
   background: var(--bad); border-color: var(--bad); color: #fff; font-weight: 600;
 }
@@ -275,10 +278,24 @@ body {
 .setting { flex-wrap: wrap; }
 .setting-text { flex: 1 1 auto; min-width: 200px; }
 
-@media (max-width: 900px) {
+/* 1180 设备像素在 125%/150% 缩放下只有 780~944 CSS px，窗口本身并不窄，
+   所以断点提到 1000：到这一档就把侧栏收成图标条，把宽度让给内容。 */
+@media (max-width: 1000px) {
   .sidebar { width: 64px; flex-basis: 64px; padding: 14px 8px; }
   .brand-text, .nav-item span, .sidebar-foot { display: none; }
   .nav-item { justify-content: center; }
   .cols { grid-template-columns: 1fr; }
   .metrics { grid-template-columns: 1fr 1fr; }
+  .setting { align-items: flex-start; }
+  .inline-field-wide { flex-basis: 100%; max-width: none; }
+}
+
+/* ---------------------------------------------------------------- 隐藏态节能
+ * 窗口收起到托盘时 app.js 会给 <html> 加 data-aidn-hidden。此时把常驻动画（infinite
+ * 的 spinner / shimmer / indeterminate）暂停：恢复可见自动继续，动画一条都没删。
+ * 目的不是"省动画"，而是隐藏态不该再有合成器每帧重绘（PERF-CPU / N-034）。 */
+[data-aidn-hidden] *,
+[data-aidn-hidden] *::before,
+[data-aidn-hidden] *::after {
+  animation-play-state: paused !important;
 }

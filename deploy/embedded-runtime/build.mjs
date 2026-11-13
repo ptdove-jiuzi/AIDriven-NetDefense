@@ -264,6 +264,130 @@ function readJson(path) {
 }
 
 /**
+ * Emit the built-in rule pack seeder.
+ *
+ * The daemon validates `detection.rulePackPath` with `resolveInside(dataDir, …)`,
+ * so `<bundle>/rules/defense-seed-pack.json` is refused at startup with
+ * "must stay inside the data directory". That is a deliberate daemon invariant
+ * (nothing the daemon reads may live outside the one writable root), and it is
+ * not a packaging bug — but a bundle that documents `--rules <bundle>/rules/...`
+ * ships an instruction that does not work.
+ *
+ * The seeder closes that gap in the packaging layer: it copies the built-in packs
+ * into `<data dir>/rules/`, verifies every digest against the recorded manifest,
+ * and refuses to overwrite a different file at the same path. The shipped
+ * `.cmd` launcher runs it before the daemon, which is why the launcher's argv can
+ * point inside the data directory honestly.
+ */
+function writeRuleSeeder({ out, packs }) {
+  const script = [
+    '#!/usr/bin/env node',
+    `// AegisHarness embedded runtime — built-in rule pack seeder (author ${AUTHOR}).`,
+    '//',
+    '// usage: node launch/seed-rules.mjs --data-dir <absolute dir> [--force]',
+    '//',
+    '// Why this exists: the daemon refuses a rule pack outside its data directory',
+    '// (detection.rulePackPath is resolved inside it), so the bundle\'s own rules/',
+    '// path cannot be handed to --rules. This copies the shipped packs into',
+    '// <data dir>/rules/ and verifies each digest against manifests/rule-packs.json,',
+    '// which the builder wrote from the bytes it actually staged.',
+    '//',
+    '// Idempotent: an identical file is left untouched; a different file at the same',
+    '// path is a refusal, not a silent overwrite, because the operator may have',
+    '// pinned a reviewed pack there.',
+    '',
+    "import { createHash } from 'node:crypto';",
+    "import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';",
+    "import { basename, dirname, isAbsolute, join, resolve } from 'node:path';",
+    "import { fileURLToPath } from 'node:url';",
+    '',
+    '// Derived from this file, never stored: the bundle has to survive being copied.',
+    "const BUNDLE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');",
+    "const RECORD = join(BUNDLE_ROOT, 'manifests', 'rule-packs.json');",
+    '',
+    'function sha256(path) {',
+    "  return createHash('sha256').update(readFileSync(path)).digest('hex');",
+    '}',
+    '',
+    'function fail(message, code = 1) {',
+    "  process.stderr.write(`seed-rules: ${message}\\n`);",
+    '  process.exit(code);',
+    '}',
+    '',
+    'const argv = process.argv.slice(2);',
+    'let dataDir;',
+    'let force = false;',
+    'for (let index = 0; index < argv.length; index += 1) {',
+    "  if (argv[index] === '--data-dir') dataDir = argv[++index];",
+    "  else if (argv[index] === '--force') force = true;",
+    "  else if (argv[index] === '--help' || argv[index] === '-h') {",
+    "    process.stdout.write('usage: node launch/seed-rules.mjs --data-dir <absolute dir> [--force]\\n');",
+    '    process.exit(0);',
+    "  } else fail(`unknown argument: ${argv[index]}`, 2);",
+    '}',
+    "if (typeof dataDir !== 'string' || dataDir.length === 0) fail('--data-dir is required', 2);",
+    'if (!isAbsolute(dataDir)) fail(`--data-dir must be absolute: ${dataDir}`, 2);',
+    'const root = resolve(dataDir);',
+    'if (!existsSync(RECORD)) fail(`rule pack record missing: ${RECORD}`);',
+    "const record = JSON.parse(readFileSync(RECORD, 'utf8'));",
+    "if (!Array.isArray(record.packs) || record.packs.length === 0) fail('the record lists no rule packs');",
+    '',
+    'mkdirSync(join(root, \'rules\'), { recursive: true });',
+    'const seeded = [];',
+    'const refused = [];',
+    'for (const pack of record.packs) {',
+    '  const source = join(BUNDLE_ROOT, ...pack.path.split(\'/\'));',
+    "  if (!existsSync(source)) { refused.push(`${pack.path}: missing from the bundle`); continue; }",
+    '  const sourceDigest = sha256(source);',
+    "  if (sourceDigest !== pack.sha256) {",
+    '    refused.push(`${pack.path}: staged digest ${sourceDigest.slice(0, 12)}… does not match the recorded ${String(pack.sha256).slice(0, 12)}…`);',
+    '    continue;',
+    '  }',
+    '  // The daemon reads <data dir>/rules/<basename>; keeping the leaf name means',
+    '  // the pack id in a log line still names the file an operator can find.',
+    "  const target = join(root, 'rules', basename(pack.path));",
+    '  if (existsSync(target)) {',
+    '    if (sha256(target) === sourceDigest) { seeded.push({ name: basename(pack.path), path: target, sha256: sourceDigest, action: \'unchanged\' }); continue; }',
+    "    if (!force) { refused.push(`${target}: a different rule pack already exists there (pass --force to replace it)`); continue; }",
+    '  }',
+    '  copyFileSync(source, target);',
+    '  const copiedDigest = sha256(target);',
+    '  if (copiedDigest !== sourceDigest) { refused.push(`${target}: copy digest ${copiedDigest.slice(0, 12)}… does not match ${sourceDigest.slice(0, 12)}…`); continue; }',
+    '  seeded.push({ name: basename(pack.path), path: target, sha256: copiedDigest, action: \'created\' });',
+    '}',
+    '',
+    'if (refused.length > 0) {',
+    '  for (const line of refused) process.stderr.write(`seed-rules: ${line}\\n`);',
+    '  process.exit(1);',
+    '}',
+    'process.stdout.write(`${JSON.stringify({',
+    "  schemaVersion: '1.0',",
+    '  bundleRoot: BUNDLE_ROOT,',
+    '  dataDir: root,',
+    "  rulesDir: join(root, 'rules'),",
+    '  seeded,',
+    "}, null, 2)}\\n`);",
+    '',
+  ].join('\n');
+  const path = join(out, 'launch', 'seed-rules.mjs');
+  // `launch/` is created by the launcher, which is written after this file: the
+  // seeder has to stand on its own rather than depend on that ordering.
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, script);
+  // A record of what was staged, so the seeder can verify the bundle's own bytes
+  // without trusting the directory as it happens to be later.
+  writeJson(join(out, 'manifests', 'rule-packs.json'), {
+    schemaVersion: '1.0',
+    author: AUTHOR,
+    count: packs.length,
+    packs: packs.map((pack) => ({ path: pack.path, sha256: pack.sha256, packId: pack.packId })),
+    note: 'Written from the bytes the builder staged. launch/seed-rules.mjs re-hashes both sides before copying '
+      + 'them into a data directory, because the daemon refuses a rule pack that lives outside it.',
+  });
+  return path;
+}
+
+/**
  * Emit the reference attempt preparer.
  *
  * Booting the profile makes the Cordis loader write `.cordis/resolve.mjs` into
@@ -606,6 +730,44 @@ async function stageProfileAssets({ out, profile, consoleSource }) {
     };
   }
 
+  // Single-file assets. A tray executable is one file, so a profile that ships it
+  // names a file, not a directory: unpacking it into a directory would invent a
+  // layout nobody asked for. Staging it here — before the launcher and before
+  // `manifests/files.sha256` — is what puts those exact bytes under the manifest's
+  // coverage, which is the only thing that makes "the shell is in the payload"
+  // checkable after the fact.
+  //
+  // Fails closed on every input that would otherwise ship a bundle whose entry point
+  // is missing or empty: the installer's whole job is to refuse such a payload, and
+  // finding out at build time is cheaper than finding out at install time.
+  const DIRECTORY_ASSETS = new Set(['console', 'rules']);
+  const fileAssets = {};
+  for (const [kind, spec] of Object.entries(profile.assets)) {
+    if (DIRECTORY_ASSETS.has(kind)) continue;
+    if (spec.source === undefined) {
+      throw new Error(`assets.${kind} needs "source": a single-file asset cannot be staged from a preferred/shell source`);
+    }
+    if (!existsSync(spec.source) || !statSync(spec.source).isFile()) {
+      throw new Error(`assets.${kind}.source is not a file: ${relative(REPO_ROOT, spec.source)}`);
+    }
+    const declaredBytes = statSync(spec.source).size;
+    if (declaredBytes === 0) throw new Error(`assets.${kind}.source is empty: ${relative(REPO_ROOT, spec.source)}`);
+    const targetPath = join(out, ...spec.target.split('/'));
+    mkdirSync(dirname(targetPath), { recursive: true });
+    copyFileSync(spec.source, targetPath);
+    const stagedBytes = statSync(targetPath).size;
+    if (stagedBytes !== declaredBytes) {
+      throw new Error(`assets.${kind}: staged ${spec.target} is ${stagedBytes} bytes, the source is ${declaredBytes}`);
+    }
+    fileAssets[kind] = {
+      target: spec.target,
+      sourcePath: relative(REPO_ROOT, spec.source).split(sep).join('/'),
+      bytes: stagedBytes,
+      sha256: sha256File(targetPath),
+    };
+  }
+  staged.files = fileAssets;
+
   return staged;
 }
 
@@ -638,10 +800,21 @@ function stageEntryForwarders({ out, profile }) {
       '#!/usr/bin/env node',
       `// Entry forwarder for ${forwarder.package} (author ${AUTHOR}).`,
       '//',
-      '// The install tree is app/node_modules; this file only re-enters the packaged',
-      '// module so that <bundle>/apps/<name>/bin.js works as typed. It resolves no',
-      '// dependency itself: the real entry\'s location decides that.',
-      `import ${JSON.stringify(specifier)};`,
+      '// The install tree is app/node_modules; this file re-enters the packaged module',
+      '// so that <bundle>/apps/<name>/bin.js works as typed. It resolves no dependency',
+      '// itself: the real entry\'s location decides that.',
+      '//',
+      '// rc.4 fix: a bare `import` was a silent no-op for a package whose entry guards',
+      '// its main with `import.meta.url === pathToFileURL(process.argv[1])` - the daemon',
+      '// does. The desktop shell runs `node <bundle>/apps/daemon/bin.js --config ...`, so',
+      '// the guard saw the forwarder\'s path, skipped main(), and the daemon exited 0 at',
+      '// once; the shell then reported DAEMON_OFFLINE and /healthz answered 503. Point',
+      '// argv[1] at the real entry before importing it, and main() runs in this process',
+      '// (no second copy of the package, no extra node).',
+      "import { fileURLToPath } from 'node:url';",
+      `const realEntry = fileURLToPath(new URL(${JSON.stringify(specifier)}, import.meta.url));`,
+      'process.argv[1] = realEntry;',
+      `await import(${JSON.stringify(specifier)});`,
       '',
     ].join('\n'));
     rows.push({
@@ -665,6 +838,29 @@ function buildLauncher({ out, nodeVersion, profile, assets }) {
   mkdirSync(launchDir, { recursive: true });
   /** Shipped path: relative to the bundle root, forward slashes, never absolute. */
   const shipped = (target, label) => portableRelative(bundleRoot, target, label);
+
+  /**
+   * What this payload deliberately does not do.
+   *
+   * A profile may state it, and v15 does: the daemon-console default still says
+   * "no formal installer / updater", which stopped being true the moment rc.3
+   * shipped a double-click installer. A non-goal list that describes an older
+   * payload is worse than none — it reads as a claim about this one.
+   */
+  const defaultNonGoals = [
+    'code signing',
+    'formal installer / uninstaller',
+    'updater',
+    'four-OS packaging',
+    'model weights',
+    ...(profile.launchers.includes('daemon')
+      ? ['broker / sandbox-launcher integration', 'service registration (apps/service-host is not in this payload)']
+      : ['daemon / broker / sandbox integration']),
+  ];
+  const declaredNonGoals = profile.document?.nonGoals;
+  const nonGoals = Array.isArray(declaredNonGoals) && declaredNonGoals.length > 0
+    ? declaredNonGoals
+    : defaultNonGoals;
 
   const plan = {
     schemaVersion: '1.1',
@@ -700,10 +896,22 @@ function buildLauncher({ out, nodeVersion, profile, assets }) {
       daemon: {
         entry: shipped(join(bundleRoot, 'apps', 'daemon', 'bin.js'), 'daemon.entry'),
         packageEntry: shipped(join(bundleRoot, 'app', 'node_modules', '@aegisharness', 'daemon', 'bin.js'), 'daemon.packageEntry'),
-        argv: ['--data-dir', '<absolute data dir>', '--rules', shipped(join(bundleRoot, 'rules', 'defense-seed-pack.json'), 'daemon.rules'), '--mock'],
+        // `--rules` points *inside the data directory*, not at the bundle's own
+        // rules/: the daemon validates that path with resolveInside(dataDir, …) and
+        // refuses anything else, so the bundle's copy has to be seeded first. The
+        // launcher runs launch/seed-rules.mjs, which is what makes this argv true.
+        argv: [
+          '--data-dir', '<absolute data dir>',
+          '--rules', '<absolute data dir>/rules/defense-seed-pack.json',
+          '--mock',
+        ],
+        seeder: shipped(join(bundleRoot, 'launch', 'seed-rules.mjs'), 'daemon.seeder'),
+        builtInRulePack: shipped(join(bundleRoot, 'rules', 'defense-seed-pack.json'), 'daemon.builtInRulePack'),
         listen: '<loopback only, chosen by the configuration>',
         note: 'The entry is a forwarder into app/node_modules; the package itself is staged once. '
-          + '--rules has no implicit default: a daemon with no rules would report healthy while detecting nothing.',
+          + '--rules has no implicit default: a daemon with no rules would report healthy while detecting nothing. '
+          + 'Passing the bundle\'s rules/ path directly is rejected by config validation — run the seeder first, '
+          + 'which is exactly what launch/aegis-daemon.cmd does.',
       },
     } : {}),
     ...(profile.assets.console === undefined ? {} : {
@@ -716,6 +924,16 @@ function buildLauncher({ out, nodeVersion, profile, assets }) {
         argv: ['--daemon', '<http://127.0.0.1:<daemon port>>', '--port', '0'],
         note: 'The shell serves the static page on loopback and proxies /healthz and /api/v1/* to the daemon, '
           + 'injecting the token server-side. It never opens a browser and never polls by itself.',
+      },
+    }),
+    ...(assets.files?.desktop === undefined ? {} : {
+      desktop: {
+        executable: assets.files.desktop.target,
+        sha256: assets.files.desktop.sha256,
+        argv: ['--port', '<local UI port>'],
+        note: 'The tray shell. It resolves its install root from its own location, so the executable is at the '
+          + 'bundle root and finds apps/daemon/bin.js, runtime/node/node.exe and console/ beside it. Started with '
+          + 'no arguments it opens its window and parks in the tray; a second start exits 0 after waking the first.',
       },
     }),
     profile: {
@@ -769,16 +987,7 @@ function buildLauncher({ out, nodeVersion, profile, assets }) {
       brokerHostAllowlist: ['127.0.0.1', '::1'],
       note: 'Only the loopback broker endpoint is permitted. The bundle performs no runtime download.',
     },
-    nonGoals: [
-      'code signing',
-      'formal installer / uninstaller',
-      'updater',
-      'four-OS packaging',
-      'model weights',
-      ...(profile.launchers.includes('daemon')
-        ? ['broker / sandbox-launcher integration', 'service registration (apps/service-host is not in this payload)']
-        : ['daemon / broker / sandbox integration']),
-    ],
+    nonGoals,
   };
   writeJson(join(launchDir, 'launch-plan.json'), plan);
 
@@ -832,13 +1041,21 @@ function buildLauncher({ out, nodeVersion, profile, assets }) {
     const daemonStub = [
       ...common,
       'rem AegisHarness daemon launcher (author PT-dove). Paths derive from this file; no PATH lookup.',
-      'rem The daemon refuses to start without --data-dir and --rules; both are required on purpose.',
+      'rem The daemon confines its rule pack to the data directory, so this launcher seeds the',
+      'rem built-in pack into <data-dir>\\rules\\ first and then starts the daemon against it.',
       'set "DAEMON_ENTRY=%AEGIS_BUNDLE_ROOT%\\apps\\daemon\\bin.js"',
       'set "RULES_FILE=%AEGIS_BUNDLE_ROOT%\\rules\\defense-seed-pack.json"',
+      'set "SEEDER=%AEGIS_BUNDLE_ROOT%\\launch\\seed-rules.mjs"',
       'if not exist "%DAEMON_ENTRY%" ( echo aegis-daemon: entry missing 1>&2 & exit /b 91 )',
       'if not exist "%RULES_FILE%" ( echo aegis-daemon: rule pack missing 1>&2 & exit /b 93 )',
-      'if "%~1"=="" ( echo usage: aegis-daemon.cmd --data-dir ^<absolute dir^> [--mock] 1>&2 & exit /b 2 )',
-      '"%NODE_EXE%" "%DAEMON_ENTRY%" %*',
+      'if /i not "%~1"=="--data-dir" ( echo usage: aegis-daemon.cmd --data-dir ^<absolute dir^> [--mock] 1>&2 & exit /b 2 )',
+      'set "AEGIS_DATA_DIR=%~2"',
+      'if "%AEGIS_DATA_DIR%"=="" ( echo usage: aegis-daemon.cmd --data-dir ^<absolute dir^> [--mock] 1>&2 & exit /b 2 )',
+      '"%NODE_EXE%" "%SEEDER%" --data-dir "%AEGIS_DATA_DIR%"',
+      'if errorlevel 1 ( echo aegis-daemon: rule pack could not be seeded into the data directory 1>&2 & exit /b 95 )',
+      'set "AEGIS_MODE="',
+      'if /i "%~3"=="--mock" set "AEGIS_MODE=--mock"',
+      '"%NODE_EXE%" "%DAEMON_ENTRY%" --data-dir "%AEGIS_DATA_DIR%" --rules "%AEGIS_DATA_DIR%\\rules\\defense-seed-pack.json" %AEGIS_MODE%',
       'exit /b %ERRORLEVEL%',
       '',
     ].join('\r\n');
@@ -906,7 +1123,14 @@ ${profile.launchers.includes('daemon') ? `## 本载荷新增的两个部件（�
   }。
 - **内置规则包**：\`${assets.rules?.target ?? 'rules'}/\` 下 ${assets.rules?.packs.length ?? 0} 个包，构建期用仓库自带的
   detection 包逐个校验通过（packId / packVersion / 规则条数见 \`bundle.json.rules\`）。
-- **转发入口**：${forwarders.length === 0 ? '无' : forwarders.map((row) => `\`${row.path}\` → \`${row.target}\``).join('、')}。
+- **转发入口**：${forwarders.length === 0 ? '无' : forwarders.map((row) => `\`${row.path}\` → \`${row.target}\``).join('、')}。${
+  assets.files?.desktop === undefined ? '' : `
+- **桌面壳**：\`${assets.files.desktop.target}\`（${(assets.files.desktop.bytes / 1048576).toFixed(1)} MiB，
+  sha256 \`${assets.files.desktop.sha256}\`）。来源 \`${assets.files.desktop.sourcePath}\`。
+  它放在 bundle 根而不是 \`app/\`：桌面壳用**自身所在目录**当安装根，再去那里找
+  \`apps/daemon/bin.js\`、\`runtime/node/node.exe\` 与 \`console/\`；放进 \`app/\` 也能起，
+  但 daemon 会以 \`DAEMON_OFFLINE\` 报找不到入口。`
+}
 
 ` : ''}
 ## 可搬迁性
@@ -1359,6 +1583,10 @@ async function main() {
   // rule packs are plain copies, and both are re-hashed into `bundle.json`.
   const assets = await stageProfileAssets({ out, profile, consoleSource: options.consoleSource });
   const forwarders = stageEntryForwarders({ out, profile });
+  // The seeder is written before the launcher so `launch-plan.json` can only name a
+  // file that exists, and it implies `manifests/rule-packs.json`, which the bundle's
+  // own seeder verifies against instead of trusting the directory.
+  if (assets.rules !== undefined) writeRuleSeeder({ out, packs: assets.rules.packs });
   const launch = buildLauncher({ out, nodeVersion: runtime.version, profile, assets });
   const preparer = writeAttemptPreparer({ out });
 
@@ -1541,6 +1769,17 @@ async function main() {
         packs: assets.rules.packs,
       },
     }),
+    // Single-file assets carry their digest here for the same reason the console
+    // does: "the shell is in the payload" is not a statement `files.sha256` can
+    // refute, and the installer needs the declared target to insist on it.
+    ...(Object.keys(assets.files ?? {}).length === 0 ? {} : {
+      assets: Object.fromEntries(Object.entries(assets.files).map(([kind, row]) => [kind, {
+        target: row.target,
+        sourcePath: row.sourcePath,
+        bytes: row.bytes,
+        sha256: row.sha256,
+      }])),
+    }),
     ...(forwarders.length === 0 ? {} : {
       entryForwarders: forwarders,
     }),
@@ -1566,6 +1805,9 @@ async function main() {
       ...(forwarders.length === 0 ? {} : {
         daemonEntry: forwarders[0].path,
         daemonPackageEntry: forwarders[0].target,
+      }),
+      ...(assets.files?.desktop === undefined ? {} : {
+        desktopExe: assets.files.desktop.target,
       }),
     },
     nonGoals: launch.plan.nonGoals,
@@ -1620,6 +1862,11 @@ async function main() {
       packId: pack.packId,
       rules: pack.rules,
     })),
+    desktop: assets.files?.desktop === undefined ? undefined : {
+      executable: assets.files.desktop.target,
+      bytes: assets.files.desktop.bytes,
+      sha256: assets.files.desktop.sha256,
+    },
     entryForwarders: forwarders.map((row) => row.path),
   }, null, 2)}\n`);
 }

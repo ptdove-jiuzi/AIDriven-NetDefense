@@ -1,0 +1,84 @@
+#!/bin/sh
+# AIDriven NetDefense — post-removal script.
+#
+# Author: PT-dove
+#
+# Data policy (ADR-0009 §7 / release/data-retention.md):
+#   remove   -> program gone, data KEPT. Printing the path is the whole point of this
+#               branch: a silent `dpkg -r` that also dropped the event store would be a
+#               data-loss bug reported as "the package ate my history".
+#   purge    -> data is still KEPT unless the operator opted in explicitly with
+#               AIDN_PURGE_DATA=1. dpkg -P gets called from scripts, and a maintainer
+#               script must never prompt, so the destructive step cannot be implicit.
+#               The removal is an explicit list, not one `rm -rf` of the parent: a data
+#               directory that was re-pointed somewhere else by an operator must not be
+#               walked off the edge of.
+#   upgrade  -> nothing. dpkg owns the program files; the data tree is untouched.
+#
+# Every branch is idempotent: purging twice, or removing after a failed install, must
+# not fail.
+
+set -e
+
+PKG=aidriven-netdefense
+OPT=/opt/aidriven-netdefense
+ETC=/etc/aidriven-netdefense
+VAR=/var/lib/aidriven-netdefense
+
+log() {
+  logger -t "$PKG" -- "$*" 2>/dev/null || true
+}
+
+say() {
+  printf '%s: %s\n' "$PKG" "$*" >&2
+}
+
+purge_data() {
+  # Explicit targets, leaf first. Anything an operator added under /var/lib is left
+  # alone unless it is one of the known subtrees.
+  for path in \
+    "$VAR/store" \
+    "$VAR/secrets" \
+    "$VAR/analysis" \
+    "$VAR/rules" \
+    "$VAR/install"
+  do
+    rm -rf "$path"
+  done
+  rm -f "$VAR/daemon-state.json"
+  rmdir "$VAR" 2>/dev/null || true
+  log "purged data under $VAR"
+}
+
+clean_empty_opt() {
+  rmdir "$OPT/app" "$OPT/bin" "$OPT" 2>/dev/null || true
+}
+
+case "$1" in
+  remove)
+    clean_empty_opt
+    say "program removed; data kept in $VAR"
+    say "purge it explicitly with: sudo AIDN_PURGE_DATA=1 dpkg --purge $PKG"
+    log "removed, data kept"
+    ;;
+  purge)
+    clean_empty_opt
+    if [ "${AIDN_PURGE_DATA:-0}" = "1" ]; then
+      purge_data
+      rmdir "$ETC" 2>/dev/null || true
+      say "data purged"
+    else
+      say "data kept in $VAR (AIDN_PURGE_DATA is not set)"
+      say "to delete it: sudo AIDN_PURGE_DATA=1 dpkg --purge $PKG"
+      log "purge requested without AIDN_PURGE_DATA=1; data kept"
+    fi
+    ;;
+  upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+    log "postrm $1: no data action"
+    ;;
+  *)
+    say "postrm called with unsupported argument '$1'"
+    ;;
+esac
+
+exit 0

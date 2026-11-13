@@ -9,6 +9,9 @@
   "exports": {
     ".": "./index.js"
   },
+  "dependencies": {
+    "koffi": "3.1.1"
+  },
   "engines": {
     "node": ">=24.9.0"
   }

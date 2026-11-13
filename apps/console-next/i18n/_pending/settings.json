@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "owner": "PT-dove",
+    "task": "UI-POLISH / T2 (settings)",
+    "note": "Pending settings copy: daemon-unavailable states, credential strict-mode facts, 501 action reason, local UI switches. Every key below is also referenced as the 2nd argument of t() in apps/console-next/js/views/settings/*.js, so the UI stays readable before the merge. Merge with: node apps/console-next/i18n/tools/merge-pending.mjs (lead only).",
+    "createdAt": "2026-11-05"
+  },
+  "en": {
+    "settings.action.reason.not-implemented-0-0-1": "Not implemented in 0.0.1",
+    "settings.danger.collection-off": "Every collection channel is being switched off: there will be no new events and no new alerts. An empty console then means \u201cnothing is being collected\u201d, not \u201cnothing is happening\u201d.",
+    "settings.group.unavailable-short": "Unavailable: needs the daemon",
+    "settings.offline.body": "The local daemon is not reachable. Only interface preferences (theme, density, language) can be changed right now, and they stay local.",
+    "settings.offline.draft-kept": "Your unsaved edits are kept; nothing was written.",
+    "settings.offline.group-body": "Nothing in this group can be read or written until the daemon answers ({code}). No value was changed and no default was invented.",
+    "settings.offline.group-title": "Unavailable: the local daemon is not running",
+    "settings.offline.local-ok": "Applies locally without the daemon (stored in aidn.ui).",
+    "settings.offline.local-only-note": "The daemon is not running, so these values are applied locally and stored in aidn.ui only. They will not reach settings.json until the daemon is reachable \u2014 this page does not pretend otherwise.",
+    "settings.offline.title": "The local daemon is not running",
+    "settings.provider.fingerprint": "Fingerprint",
+    "settings.provider.strict-note": "The host exposes this key in strict mode: only the mask, the length bucket and the timestamp are available. The console can prove that a key of this length was stored at that time \u2014 it cannot prove which key it is.",
+    "settings.provider.test-code": "Error code",
+    "settings.provider.test-retry": "Test again",
+    "settings.provider.untested-hint": "Never tested. A successful test is the only proof this provider can be reached \u2014 an untested provider is not a working one.",
+    "settings.ui.applied": "Applied: {key} = {value}",
+    "settings.ui.daemon-only": "Needs the daemon",
+    "settings.ui.daemon-only-note": "Tray behaviour and autostart live in settings.json and are not wired in 0.0.1. They stay untouched while the daemon is down.",
+    "settings.ui.not-applied": "Applied locally: {applied} \u00b7 not applied: {skipped}",
+    "settings.ui.start-view-unwired": "Stored in aidn.ui, but the 0.0.1 shell ignores it: the console still opens on Overview."
+  },
+  "zh-CN": {
+    "settings.action.reason.not-implemented-0-0-1": "0.0.1 未实现",
+    "settings.danger.collection-off": "所有采集通道都将被关闭：不再有新事件、也不再有新告警。此时界面一片安静，只代表「没有在采集」，不代表「没有事情发生」。",
+    "settings.group.unavailable-short": "不可用：需要守护进程",
+    "settings.offline.body": "连不上本机守护进程。目前只有界面偏好（主题、密度、语言）还能改，并且只保存在本地。",
+    "settings.offline.draft-kept": "未保存的修改已保留，但什么都没写入。",
+    "settings.offline.group-body": "在守护进程应答之前，本组的内容既读不到也写不进（{code}）。没有改动任何值，也没有编造默认值。",
+    "settings.offline.group-title": "不可用：本机守护进程未运行",
+    "settings.offline.local-ok": "不需要守护进程，本地立即生效（写入 aidn.ui）。",
+    "settings.offline.local-only-note": "守护进程未运行，因此这些值只在本地生效并写入 aidn.ui。要等守护进程可用后才会写进 settings.json —— 本页不会假装已经保存。",
+    "settings.offline.title": "本机守护进程未运行",
+    "settings.provider.fingerprint": "指纹",
+    "settings.provider.strict-note": "主机以严格模式暴露此密钥：只提供掩码、长度区间与更新时间。控制台能证明「在那个时间存过一把这个长度的钥匙」，但无法证明是哪一把。",
+    "settings.provider.test-code": "错误码",
+    "settings.provider.test-retry": "重新测试",
+    "settings.provider.untested-hint": "从未测试。只有测试成功才能证明这个提供方可用 —— 没测过不等于可用。",
+    "settings.ui.applied": "已生效：{key} = {value}",
+    "settings.ui.daemon-only": "需要守护进程",
+    "settings.ui.daemon-only-note": "托盘行为与开机自启存放在 settings.json，且在 0.0.1 未接线。守护进程不可用期间它们保持原样。",
+    "settings.ui.not-applied": "已在本地生效：{applied} · 未生效：{skipped}",
+    "settings.ui.start-view-unwired": "已写入 aidn.ui，但 0.0.1 的外壳不读取它：控制台仍会打开「概览」。"
+  }
+}

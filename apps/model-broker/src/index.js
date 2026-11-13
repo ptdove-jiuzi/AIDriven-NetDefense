@@ -47,6 +47,16 @@ export {
 } from './endpoint.js';
 export { createHttpTransport, normalizeUsage, ProviderTransportError, TRANSPORT_FAILURES } from './transport.js';
 export { BUDGET_PORT_OPERATIONS, assertBudgetPort, readPreview } from './budget-port.js';
+export {
+  PROVIDER_BUDGET_OPERATIONS,
+  assertProviderBudgetPort,
+  createProviderBudgetLedger,
+} from './endpoint-budget.js';
+export {
+  ESCALATION_WINDOW_MS,
+  assertEscalationLedger,
+  createEscalationLedger,
+} from './escalation-ledger.js';
 export { createEventStoreBudgetPort } from './adapters/event-store-budget.js';
 export { RequestQueue } from './queue.js';
 export { createModelBroker } from './broker.js';

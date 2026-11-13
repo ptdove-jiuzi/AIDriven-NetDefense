@@ -57,7 +57,8 @@ function worst(levels) {
  *   store: {open: boolean, errors: number},
  *   detection: {faults: number, frozen: boolean},
  *   pipeline?: {pendingContributions: number, contributionsDropped?: number, spoolErrors?: number},
- *   sources: readonly {id: string, lifecycle: string, stale: boolean, consecutive_failures: number}[]
+ *   sources: readonly {id: string, lifecycle: string, stale: boolean, consecutive_failures: number,
+ *     dropped_events?: number}[]
  * }} input Signals.
  * @returns {{status: 'ok'|'degraded'|'failed', reasons: string[], ready: boolean}} Health.
  */
@@ -106,6 +107,16 @@ export function computeHealth(input) {
   }
 
   const sources = input.sources ?? [];
+  // A truncated batch is data the scheduler *knows it has not read yet* (the cursor is frozen so the
+  // tail is re-read). Reporting that as healthy is how RC4-N02 lost 19,500 of 20,000 records with
+  // `health=ok`: the only trace was a per-source `/status` field nobody gates on. It is a degradation
+  // while it lasts, and it clears itself on the first poll that no longer truncates, so the reason is
+  // honest in both directions instead of pinning the daemon degraded forever.
+  const droppedEvents = sources.reduce((sum, source) => sum + (Number(source.dropped_events) || 0), 0);
+  if (droppedEvents > 0) {
+    reasons.push(`sources:dropped-events:${droppedEvents}`);
+    levels.push('degraded');
+  }
   const degradedSources = sources.filter((source) => source.lifecycle === 'degraded');  const staleSources = sources.filter((source) => source.stale === true);
   if (degradedSources.length > 0) {
     reasons.push(`sources:degraded:${degradedSources.length}`);

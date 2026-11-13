@@ -1,0 +1,469 @@
+/* ==========================================================================
+   AIDriven NetDefense · WebUI v2 基础层
+   B1 / PT-dove · 依赖 tokens.css（必须在其后加载）
+   包含：reset、排版、焦点环、跳过链接、应用外壳（topbar/nav/main）、
+         [hidden] 强隐藏、滚动锁、少量布局工具类。
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  /* 行高走密度 token：comfortable 1.5 / compact 1.45（见 tokens.css） */
+  line-height: var(--density-line, var(--lh-normal));
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* 旧版 bug 复现防线：.drawer{display:flex} 会覆盖 [hidden]，
+   这里用 !important 保证任何组件类名都不能让 [hidden] 元素可见。 */
+[hidden] {
+  display: none !important;
+}
+
+/* ---------- 排版 ---------- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin: 0 0 var(--sp-2);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  color: var(--c-text);
+}
+h1 {
+  font-size: var(--fs-2xl);
+}
+h2 {
+  font-size: var(--fs-xl);
+}
+h3 {
+  font-size: var(--fs-lg);
+}
+h4,
+h5,
+h6 {
+  font-size: var(--fs-md);
+}
+p {
+  margin: 0 0 var(--sp-3);
+  color: var(--c-text-muted);
+}
+p:last-child,
+ul:last-child,
+ol:last-child {
+  margin-bottom: 0;
+}
+small {
+  font-size: var(--fs-sm);
+}
+strong {
+  font-weight: var(--fw-semibold);
+  color: var(--c-text);
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--c-border);
+  margin: var(--sp-4) 0;
+}
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+}
+code {
+  padding: 1px 4px;
+  border-radius: var(--r-xs);
+  background: var(--c-bg-elev);
+  color: var(--c-text-muted);
+}
+pre {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3);
+  overflow: auto;
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-md);
+  background: var(--c-bg-elev);
+  color: var(--c-text-muted);
+  line-height: var(--lh-normal);
+}
+a {
+  color: var(--c-accent);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+a:hover {
+  color: var(--c-accent-hover);
+  text-decoration: underline;
+}
+
+::selection {
+  background: var(--c-selected);
+  color: var(--c-text);
+}
+
+/* ---------- 焦点环：两种主题都 ≥3:1，且不会被 overflow 裁掉 ---------- */
+:focus-visible {
+  outline: var(--focus-ring-w) solid var(--c-focus);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: var(--r-sm);
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+/* 滚动容器/贴边元素内改用内嵌环，避免被 overflow:hidden/auto 裁切 */
+.ui-table__scroll :focus-visible,
+.topbar nav :focus-visible,
+.ui-toast :focus-visible {
+  outline-offset: -2px;
+}
+@media (forced-colors: active) {
+  :focus-visible {
+    outline: 2px solid Highlight;
+  }
+}
+
+/* 屏幕阅读器专用文本 */
+.u-visually-hidden,
+.ui-visually-hidden {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 图标 sprite（内联 <symbol>，不参与布局） ---------- */
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* ---------- 跳过链接 ---------- */
+.skip-link {
+  position: fixed;
+  top: var(--sp-2);
+  left: var(--sp-2);
+  z-index: calc(var(--z-toast) + 1);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--c-accent);
+  color: var(--c-accent-contrast);
+  font-weight: var(--fw-semibold);
+  transform: translateY(calc(-100% - var(--sp-4)));
+  transition: transform var(--dur-fast) var(--ease);
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  text-decoration: none;
+  color: var(--c-accent-contrast);
+}
+
+/* ---------- 应用外壳 ---------- */
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: var(--layout-topbar-h);
+  padding: 0 var(--layout-gutter);
+  background: var(--c-bg-elev);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+  color: var(--c-text);
+  text-decoration: none;
+}
+.brand:hover {
+  color: var(--c-text);
+  text-decoration: none;
+}
+.brand img {
+  display: block;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-sm);
+}
+.brand-name {
+  font-weight: var(--fw-semibold);
+  font-size: var(--fs-md);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+.brand-sub {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.brand-sub::before {
+  content: "·";
+  margin: 0 var(--sp-2);
+  color: var(--c-text-faint);
+}
+
+.topbar nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+.topbar nav a {
+  display: inline-flex;
+  align-items: center;
+  height: var(--ctl-h);
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+  color: var(--c-text-muted);
+  font-size: var(--fs-base);
+  white-space: nowrap;
+}
+.topbar nav a:hover {
+  background: var(--c-hover);
+  color: var(--c-text);
+  text-decoration: none;
+}
+.topbar nav a[aria-current="page"] {
+  background: var(--c-selected);
+  color: var(--c-text);
+  font-weight: var(--fw-medium);
+}
+
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+/* 低特异性兜底：B2 给这些按钮加 ui-btn 类后，组件样式（特异性更高）会覆盖这里。
+   目的只是让"骨架先于 app.js"渲染时不出现裸浏览器按钮。 */
+:where(.topbar-tools) button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-1);
+  min-width: var(--ctl-h);
+  height: var(--ctl-h);
+  padding: 0 var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--c-text-muted);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+:where(.topbar-tools) button:hover {
+  background: var(--c-hover);
+  color: var(--c-text);
+}
+:where(.topbar-tools) .ui-icon {
+  font-size: 16px;
+}
+
+main {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: var(--layout-max);
+  margin: 0 auto;
+  padding: var(--density-section-gap) var(--layout-gutter);
+}
+main:focus {
+  outline: none;
+}
+
+/* 连接状态胶囊（B2 只改 data-tone） */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--c-border);
+  border-radius: var(--r-pill);
+  background: var(--c-surface);
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+.pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-text-faint);
+}
+.pill[data-tone="ok"]::before {
+  background: var(--c-ok);
+}
+.pill[data-tone="warn"]::before {
+  background: var(--c-warn);
+}
+.pill[data-tone="danger"]::before {
+  background: var(--c-danger);
+}
+.pill[data-tone="idle"]::before {
+  background: var(--c-text-faint);
+}
+
+/* ---------- 滚动锁（drawer/modal 打开时） ---------- */
+html.ui-scroll-lock,
+html.ui-scroll-lock body {
+  overflow: hidden;
+}
+
+/* ---------- 布局工具类 ---------- */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--density-stack-gap);
+}
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.grid-auto {
+  display: grid;
+  gap: var(--density-card-gap);
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.grid-2 {
+  display: grid;
+  gap: var(--density-card-gap);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+.grow {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.muted {
+  color: var(--c-text-muted);
+}
+.faint {
+  color: var(--c-text-faint);
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.nowrap {
+  white-space: nowrap;
+}
+
+/* ---------- 动画归零 / 尊重偏好 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 高对比/强制色下保证边框可见 */
+@media (forced-colors: active) {
+  .topbar,
+  .ui-card,
+  .ui-table__scroll,
+  .ui-input,
+  .ui-select,
+  .ui-textarea {
+    border-color: CanvasText;
+  }
+}
+
+/* ---------- 窄视口（≤720px）：顶栏折行 ----------
+   问题（defects.md D13，P1）：390×844 下 .topbar 是"品牌 + 导航 + 工具栏"单行 flex，
+   品牌与工具栏的最小宽度之和已超过视口，导航被压成 0 宽，工具栏右移出屏（页面级横向溢出 187–212px，
+   导航「模型与用量」等被裁到屏幕外）。这里让顶栏折成三行，品牌 / 导航 / 工具栏**按 DOM 顺序**依次成行
+   （不使用 CSS `order` 重排：合同 §7.8 要求 Tab 顺序=视觉顺序，B11 a11y 用例会断言）。
+   —— 不改变任何元素的可达性，也不用 overflow-x:hidden 掩盖溢出。 */
+@media (max-width: 720px) {
+  .topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: var(--layout-topbar-h);
+    padding-block: var(--sp-2);
+    row-gap: var(--sp-1);
+  }
+  .brand {
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .brand-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .brand-sub {
+    display: none;
+  }
+  .topbar-tools {
+    flex: 1 0 auto;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+  .topbar nav {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+}
+
+/* ---------------------------------------------------------------- 隐藏态节能
+ * 窗口收起到托盘时 js/app.js 会给 <html> 加 data-aidn-hidden。此时暂停常驻动画
+ * （spinner / shimmer / indeterminate）：恢复可见自动继续，动画一条没删。
+ * 目的不是"省动画"，而是隐藏态不该再有合成器每帧重绘（PERF-CPU / N-034）。 */
+[data-aidn-hidden] *,
+[data-aidn-hidden] *::before,
+[data-aidn-hidden] *::after {
+  animation-play-state: paused !important;
+}

@@ -1,0 +1,29 @@
+{
+  "dataDir": "/var/lib/aidriven-netdefense",
+  "mode": "full",
+  "store": {
+    "path": "store/aegis.db"
+  },
+  "state": {
+    "path": "daemon-state.json"
+  },
+  "api": {
+    "host": "127.0.0.1",
+    "port": 0,
+    "tokenFile": "secrets/api-token"
+  },
+  "detection": {
+    "rulePackPath": "rules/defense-seed-pack.json"
+  },
+  "policy": {
+    "budgetClass": "standard",
+    "alertStatus": "new"
+  },
+  "shutdown": {
+    "graceMs": 5000,
+    "drainMs": 2000
+  },
+  "logging": {
+    "level": "info"
+  }
+}

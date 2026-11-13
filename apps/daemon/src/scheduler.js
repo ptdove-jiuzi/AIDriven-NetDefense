@@ -14,14 +14,49 @@
  *    leaves the cursor where it was, which is what lets the adapter replay.
  * 5. **Staleness uses the monotonic clock.** A wall clock step must not make a
  *    dead source look fresh.
- * 6. **Batches are bounded.** A source returning more than `maxBatchEvents` has the
- *    surplus dropped and *counted*, never buffered without limit.
+ * 6. **Batches are bounded, but never silently discarded.** A source returning more than
+ *    `maxBatchEvents` has the surplus *deferred*, not buffered: the cursor stays where it was so
+ *    the same batch is re-read, each round persists the next window, and the store's stable key
+ *    absorbs whatever overlaps. The outstanding count is visible in `/status` and `/health`
+ *    until the tail is drained (RC4-N02: a 20,000-record snapshot used to lose 19,500 of them).
+ * 7. **A failing source backs off exponentially; a success resets it.** A source that keeps
+ *    failing used to be retried at its normal cadence forever — `windows.network-table` failed
+ *    every 10 s for the whole measured window and never recovered (PERF-CPU N-034). Retrying a
+ *    dead channel at full rate costs a PowerShell cold start each time and produces nothing.
+ *    The delay is derived from **that source's own `intervalMs`** (not from the global tick) and
+ *    doubles per consecutive failure up to `maxFailureBackoffMs` (60 s by default).
+ *    This never loses data: every collector source is cursor/probe based, so the next successful
+ *    poll re-reads from the frozen cursor and the store's stable key absorbs the overlap.
+ * 8. **The periodic pass sleeps longer while the collection is quiet.** `tickMs` stays the base
+ *    cadence; on top of it the timer doubles its delay (up to `idleTick.maxFactor`) once no source
+ *    has produced new data for `idleTick.quietAfterMs`, and snaps back to the base cadence the
+ *    moment any source produces events (or `pollNow()` is called). This is a cadence amplifier
+ *    over the configured tick, never a change to a source's own `intervalMs`.
  */
 
 import { DaemonError, DAEMON_CODES, isDaemonError } from './errors.js';
 import { assertSources } from './adapters/collector.js';
 
 const SOURCE_LIFECYCLES = Object.freeze(['idle', 'polling', 'ok', 'degraded', 'stopped']);
+
+/**
+ * Upper bound for the per-source failure backoff (invariant 7). A permanently dead channel
+ * settles at one retry per minute instead of one per cadence.
+ */
+export const MAX_FAILURE_BACKOFF_MS = 60_000;
+
+/** Defaults for the quiet-period cadence amplifier (invariant 8). */
+export const IDLE_TICK_DEFAULTS = Object.freeze({
+  enabled: true,
+  /** Quiet period (no new data from any source) before the first widening. */
+  minQuietAfterMs: 10_000,
+  /** Quiet period expressed as a multiple of `tickMs`, whichever is larger. */
+  quietAfterTicks: 2,
+  /** Maximum multiplier applied to `tickMs` (1s → 2s → 4s at the default tick). */
+  maxFactor: 4,
+  /** Hard ceiling for the widened delay, independent of `tickMs`. */
+  maxMs: 60_000,
+});
 
 function sourceState(source, nowIso) {
   return {
@@ -44,6 +79,16 @@ function sourceState(source, nowIso) {
     last_error_code: null,
     last_error_at: null,
     dropped_events: 0,
+    // Invariant 7: the current retry delay after a failure streak, how many scheduling passes
+    // were skipped because of it, and the monotonic instant the source becomes eligible again.
+    // `retry_in_ms` is derived from `next_attempt_mono` in `status()` so it is honest on a
+    // monotonic clock (invariant 5) and never negative.
+    backoff_ms: 0,
+    backoff_skips: 0,
+    next_attempt_mono: null,
+    // Resume offset inside a batch whose tail has not been persisted yet. In-memory only: after a
+    // restart the frozen cursor replays the batch from the top and the stable key drops the overlap.
+    truncation: null,
   };
 }
 
@@ -61,6 +106,8 @@ function sourceState(source, nowIso) {
  *   maxSources?: number,
  *   cursors?: object,
  *   onCursor?: (sourceId: string, record: object) => void,
+ *   maxFailureBackoffMs?: number,
+ *   idleTick?: {enabled?: boolean, quietAfterMs?: number, maxFactor?: number, maxMs?: number},
  *   logger?: object
  * }} options Options.
  * @returns {object} Scheduler handle.
@@ -78,6 +125,24 @@ export function createScheduler(options) {
   const staleAfterMs = options.staleAfterMs;
   const logger = options.logger ?? null;
   const onCursor = typeof options.onCursor === 'function' ? options.onCursor : null;
+  const maxFailureBackoffMs = Number.isInteger(options.maxFailureBackoffMs) && options.maxFailureBackoffMs > 0
+    ? options.maxFailureBackoffMs
+    : MAX_FAILURE_BACKOFF_MS;
+
+  // Invariant 8: the quiet-period amplifier is expressed *relative to* the configured tick, so
+  // `tickMs` keeps its meaning (base cadence, and the fallback interval for a source that does not
+  // declare one). Nothing here overrides a source's own `intervalMs`.
+  const idleOptions = options.idleTick ?? {};
+  const idleEnabled = idleOptions.enabled ?? IDLE_TICK_DEFAULTS.enabled;
+  const idleMaxFactor = Number.isInteger(idleOptions.maxFactor) && idleOptions.maxFactor >= 1
+    ? idleOptions.maxFactor
+    : IDLE_TICK_DEFAULTS.maxFactor;
+  const idleMaxMs = Number.isInteger(idleOptions.maxMs) && idleOptions.maxMs > 0
+    ? idleOptions.maxMs
+    : IDLE_TICK_DEFAULTS.maxMs;
+  const idleQuietAfterMs = Number.isInteger(idleOptions.quietAfterMs) && idleOptions.quietAfterMs >= 0
+    ? idleOptions.quietAfterMs
+    : Math.max(IDLE_TICK_DEFAULTS.minQuietAfterMs, tickMs * IDLE_TICK_DEFAULTS.quietAfterTicks);
 
   const states = new Map();
   for (const source of sources) {
@@ -104,12 +169,88 @@ export function createScheduler(options) {
   let stopping = false;
   let startedAtMono = clock.monoMs();
 
-  function markDegraded(state, code) {
+  // --- periodic-pass bookkeeping (invariant 8) --------------------------------------------
+  // `lastActivityMono` is the last time *any* source produced new data. It is the only signal
+  // the amplifier reacts to: an API read does not reset it, because `/status` is computed on
+  // demand from live state and is therefore never stale — the cadence only controls how fast new
+  // data is *discovered*, and there is nothing to discover while nothing is being produced.
+  let lastActivityMono = clock.monoMs();
+  let idleLevel = 0;
+  let lastDelayMs = tickMs;
+  let ticks = 0;
+  let tickPolls = 0;
+  let idleTicks = 0;
+
+  /** Mark collection activity: the next pass returns to the base cadence immediately. */
+  function noteActivity() {
+    lastActivityMono = clock.monoMs();
+    if (idleLevel > 0) {
+      idleLevel = 0;
+      rearm(tickMs);
+    }
+  }
+
+  /** Delay for the next periodic pass: base `tickMs` widened while nothing is being produced. */
+  function nextDelayMs() {
+    if (!idleEnabled) {
+      idleLevel = 0;
+      return tickMs;
+    }
+    const quietForMs = clock.monoMs() - lastActivityMono;
+    if (quietForMs < idleQuietAfterMs) {
+      idleLevel = 0;
+    } else if (idleLevel < idleMaxFactor) {
+      idleLevel += 1;
+    }
+    lastDelayMs = Math.min(idleMaxMs, tickMs * Math.min(2 ** idleLevel, idleMaxFactor));
+    return lastDelayMs;
+  }
+
+  function rearm(delayMs) {
+    if (!started || stopping) {
+      return;
+    }
+    if (interval !== null) {
+      clearTimeout(interval);
+    }
+    interval = setTimeout(onTimer, delayMs);
+    interval.unref?.();
+    lastDelayMs = delayMs;
+  }
+
+  function onTimer() {
+    interval = null;
+    if (stopping) {
+      return;
+    }
+    const startedCount = handle.tick();
+    if (startedCount === 0) {
+      idleTicks += 1;
+    }
+    rearm(nextDelayMs());
+  }
+
+  function markDegraded(source, state, code) {
     state.lifecycle = 'degraded';
     state.failures += 1;
     state.consecutive_failures += 1;
     state.last_error_code = code;
     state.last_error_at = clock.nowIso();
+    // Invariant 7: exponential backoff derived from this source's own cadence, capped at
+    // `maxFailureBackoffMs`. Doubling starts at the *second* consecutive failure, so the first
+    // retry of a transient error still happens at the normal cadence.
+    const baseWaitMs = source.intervalMs ?? tickMs;
+    const grown = baseWaitMs * (2 ** Math.min(state.consecutive_failures - 1, 16));
+    state.backoff_ms = Math.min(maxFailureBackoffMs, Math.max(baseWaitMs, grown));
+    state.next_attempt_mono = clock.monoMs() + state.backoff_ms;
+  }
+
+  /** A committed poll is a success: the failure streak and its backoff are over. */
+  function markRecovered(state) {
+    state.consecutive_failures = 0;
+    state.backoff_ms = 0;
+    state.backoff_skips = 0;
+    state.next_attempt_mono = null;
   }
 
   async function runPoll(source, state, controller) {
@@ -151,15 +292,37 @@ export function createScheduler(options) {
             source_id: source.id,
           });
         }
-        let events = outcome.events;
-        if (events.length > maxBatchEvents) {
-          state.dropped_events += events.length - maxBatchEvents;
-          events = events.slice(0, maxBatchEvents);
-          logger?.warn?.('collector batch truncated to the configured maximum', {
-            source_id: source.id,
-            dropped: state.dropped_events,
-            max_batch_events: maxBatchEvents,
-          });
+        const batch = outcome.events;
+        const batchKey = String(batch[0]?.event_id ?? '');
+        // A truncated batch must not advance the cursor: its tail exists only inside the source, so
+        // committing `outcome.cursor` here would make that tail permanently unreadable. Instead the
+        // cursor stays put, the next poll re-reads the same batch, and `truncation.offset` records how
+        // much of it is already persisted so each round ingests the *next* window. The stable key
+        // `(stable_source_id, source_generation, dedupe_key)` absorbs the overlap if the source shifts.
+        let resumeOffset = 0;
+        const carried = state.truncation;
+        if (carried !== null && carried !== undefined) {
+          const headUnchanged = carried.first_key === batchKey && batchKey.length > 0;
+          if (headUnchanged && batch.length > carried.offset) {
+            resumeOffset = carried.offset;
+          } else {
+            // The source is no longer the snapshot we started draining (rotation, a replaced snapshot,
+            // or a shorter batch). Replay from the oldest available record; duplicates are absorbed.
+            state.truncation = null;
+            logger?.warn?.('collector snapshot changed while a truncated batch was still being drained', {
+              source_id: source.id,
+              resume_offset: carried.offset,
+              batch_events: batch.length,
+            });
+          }
+        }
+        let events = batch;
+        let truncated = false;
+        let pending = 0;
+        if (batch.length > maxBatchEvents) {
+          truncated = true;
+          events = batch.slice(resumeOffset, resumeOffset + maxBatchEvents);
+          pending = batch.length - (resumeOffset + events.length);
         }
         const summary = events.length === 0 ? { accepted: 0, alerts: 0 } : pipeline.ingestBatch(events, {
           source_id: source.id,
@@ -178,7 +341,33 @@ export function createScheduler(options) {
         state.accepted += Number(summary.accepted ?? 0);
         if (events.length > 0) {
           state.last_event_at = clock.nowIso();
+          // New data is exactly what the quiet-period amplifier must react to (invariant 8).
+          noteActivity();
         }
+        if (truncated && pending > 0) {
+          // Keep the persisted position where it is: no `outcome.cursor/generation/sequence`, no
+          // `onCursor` checkpoint. The tail is re-read from the source next round (bounded memory),
+          // and `dropped_events` is the honest count of what is still unread — not what is lost.
+          // Silence here is what made RC4-N02 a 97.5% data loss with `health=ok`.
+          state.truncation = { offset: resumeOffset + events.length, first_key: batchKey };
+          state.dropped_events = pending;
+          state.last_success_at = clock.nowIso();
+          markRecovered(state);
+          state.lifecycle = 'ok';
+          state.last_error_code = null;
+          logger?.error?.('collector batch exceeds maxBatchEvents; cursor frozen and remainder re-read next round', {
+            source_id: source.id,
+            dropped: pending,
+            pending_events: pending,
+            dropped_this_round: batch.length - events.length,
+            batch_events: batch.length,
+            ingested_this_round: events.length,
+            max_batch_events: maxBatchEvents,
+          });
+          return;
+        }
+        state.truncation = null;
+        state.dropped_events = 0;
         state.cursor = outcome.cursor ?? state.cursor;
         if (Number.isSafeInteger(outcome.generation)) {
           state.generation = outcome.generation;
@@ -187,7 +376,7 @@ export function createScheduler(options) {
           state.sequence = outcome.sequence;
         }
         state.last_success_at = clock.nowIso();
-        state.consecutive_failures = 0;
+        markRecovered(state);
         state.lifecycle = 'ok';
         state.last_error_code = null;
         if (onCursor !== null) {
@@ -204,12 +393,23 @@ export function createScheduler(options) {
           return;
         }
         const code = isDaemonError(error) ? error.code : DAEMON_CODES.SOURCE_FAILED;
-        markDegraded(state, code);
-        logger?.warn?.('collector source degraded', {
+        markDegraded(source, state, code);
+        // One warn per failure *streak*, not one per attempt: a dead channel used to emit two
+        // warning lines per cadence forever (`network-table` alone produced 32 lines in four
+        // minutes, evidence/perf/lead-smoke/daemon-warn.log). The retry delay is the actionable
+        // part, and it is stated on the first line and visible in `/status` anyway.
+        const fields = {
           source_id: source.id,
           code,
           consecutive_failures: state.consecutive_failures,
-        });
+          retry_in_ms: state.backoff_ms,
+          max_retry_ms: maxFailureBackoffMs,
+        };
+        if (state.consecutive_failures === 1) {
+          logger?.warn?.('collector source degraded', fields);
+        } else {
+          logger?.debug?.('collector source still degraded', fields);
+        }
       } finally {
         if (timer !== null) {
           clearTimeout(timer);
@@ -243,10 +443,6 @@ export function createScheduler(options) {
     return true;
   }
 
-  function isDue(state, source) {
-    const intervalMs = source.intervalMs ?? tickMs;
-    return clock.monoMs() - state.last_poll_mono >= intervalMs;
-  }
 
   const handle = {
     /** Run one scheduling pass synchronously (returns how many polls started). */
@@ -254,16 +450,30 @@ export function createScheduler(options) {
       if (stopping) {
         return 0;
       }
+      ticks += 1;
       let startedCount = 0;
+      const monoNow = clock.monoMs();
       for (const source of sources) {
         const state = states.get(source.id);
-        if (inFlight.has(source.id) || !isDue(state, source)) {
+        if (inFlight.has(source.id)) {
+          continue;
+        }
+        const elapsed = monoNow - state.last_poll_mono;
+        // Invariant 7: a failing source waits out its backoff before it is retried. The skip is
+        // counted per source so `/status` can prove the saving instead of the log being the only
+        // trace (previously the retry looked exactly like a normal poll).
+        if (state.backoff_ms > 0 && elapsed < state.backoff_ms) {
+          state.backoff_skips += 1;
+          continue;
+        }
+        if (elapsed < (source.intervalMs ?? tickMs)) {
           continue;
         }
         if (startPoll(source, state)) {
           startedCount += 1;
         }
       }
+      tickPolls += startedCount;
       return startedCount;
     },
 
@@ -275,13 +485,41 @@ export function createScheduler(options) {
       started = true;
       stopping = false;
       startedAtMono = clock.monoMs();
-      interval = setInterval(() => {
-        handle.tick();
-      }, tickMs);
+      lastActivityMono = clock.monoMs();
+      idleLevel = 0;
+      // Invariant 8: a self-arming timer instead of `setInterval(tickMs)`. The delay comes from
+      // `nextDelayMs()` so a quiet collection widens it and `noteActivity()` snaps it back.
+      interval = setTimeout(onTimer, tickMs);
       interval.unref?.();
+      lastDelayMs = tickMs;
       // First pass runs immediately: waiting a full tick delays startup telemetry.
       handle.tick();
     },
+
+    /**
+     * Report the current periodic cadence without advancing it (for tests and `/status`).
+     *
+     * @returns {{enabled: boolean, tick_ms: number, delay_ms: number, idle_level: number,
+     *   quiet_after_ms: number, max_factor: number, quiet_for_ms: number}} Cadence view.
+     */
+    cadence() {
+      return {
+        enabled: idleEnabled,
+        tick_ms: tickMs,
+        delay_ms: lastDelayMs,
+        idle_level: idleLevel,
+        quiet_after_ms: idleQuietAfterMs,
+        max_factor: idleMaxFactor,
+        quiet_for_ms: clock.monoMs() - lastActivityMono,
+      };
+    },
+
+    /**
+     * Record collection activity (new data observed or an operator-triggered poll).
+     *
+     * @returns {void}
+     */
+    noteActivity,
 
     /**
      * Stop polling and drain in-flight polls.
@@ -297,7 +535,8 @@ export function createScheduler(options) {
       const timeoutMs = opts.timeoutMs ?? 2000;
       stopping = true;
       if (interval !== null) {
-        clearInterval(interval);
+        // The periodic pass is a self-arming `setTimeout` now (invariant 8), not a `setInterval`.
+        clearTimeout(interval);
         interval = null;
       }
       const pendingEntries = [...inFlight.values()];
@@ -343,6 +582,9 @@ export function createScheduler(options) {
       if (inFlight.has(sourceId)) {
         throw new DaemonError(DAEMON_CODES.SOURCE_BUSY, 'source is already polling', { source_id: sourceId });
       }
+      // An operator-triggered poll is activity: it also bypasses a failure backoff (this is the
+      // manual "try it now" path) and returns the periodic cadence to the base tick.
+      noteActivity();
       startPoll(source, state);
       const entry = inFlight.get(sourceId);
       if (entry !== undefined) {
@@ -365,6 +607,9 @@ export function createScheduler(options) {
           stale: state.stale,
           silence_ms: silence,
           polling: inFlight.has(source.id),
+          // Invariant 7, made observable: how long until this source is retried. `0` means it is
+          // eligible now (no failure streak).
+          retry_in_ms: state.backoff_ms > 0 ? Math.max(0, state.next_attempt_mono - monoNow) : 0,
         });
       }
       return list;
@@ -403,6 +648,22 @@ export function createScheduler(options) {
         stale: list.filter((entry) => entry.stale).length,
         degraded: list.filter((entry) => entry.lifecycle === 'degraded').length,
         ok: list.filter((entry) => entry.lifecycle === 'ok').length,
+        // RC4-N02: a truncated batch is unread data, so the aggregate has to be visible next to the
+        // per-source counter instead of only in a log line. `dropped_events` is the sum still waiting
+        // to be re-read; `degraded_by_drop` counts the sources behind it.
+        dropped_events: list.reduce((sum, entry) => sum + entry.dropped_events, 0),
+        degraded_by_drop: list.filter((entry) => entry.dropped_events > 0).length,
+        // PERF-CPU N-034: the two savings have to be countable, otherwise "the CPU went down" is
+        // an opinion. `backoff_skips` is the number of retries the failure backoff suppressed;
+        // `ticks`/`tick_polls`/`idle_ticks` describe the periodic pass (a tick that started no
+        // poll is the only kind the quiet-period amplifier can remove).
+        backoff_skips: list.reduce((sum, entry) => sum + entry.backoff_skips, 0),
+        backoff_sources: list.filter((entry) => entry.backoff_ms > 0).length,
+        ticks,
+        tick_polls: tickPolls,
+        idle_ticks: idleTicks,
+        idle_level: idleLevel,
+        tick_delay_ms: lastDelayMs,
         uptime_mono_ms: clock.monoMs() - startedAtMono,
       };
     },

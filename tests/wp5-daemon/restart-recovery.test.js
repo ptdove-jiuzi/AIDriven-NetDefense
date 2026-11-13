@@ -111,14 +111,26 @@ describe('restart recovery', () => {
     const events = [makeEvent({ source_seq: 1 })];
     const cursorsFirst = [];
     const first = await boot(dir, replayingSource(events, cursorsFirst));
-    await waitFor(() => cursorsFirst.length >= 1, { label: 'first poll' });
-    assert.equal(cursorsFirst[0], null, 'the first run starts with no cursor');
-    await first.stop('restart');
+    try {
+      // Wait for the *ingest* to finish, not merely for the poll to be called. Stopping
+      // while the poll is still in flight legitimately drops the cursor (scheduler: a
+      // poll that settles after `stop()` must not advance it), which made this a test
+      // race rather than a recovery defect — and the failure path below leaked the
+      // second daemon's listener, so `node --test` never exited.
+      await waitFor(() => statsOf(first).events === 1, { label: 'first run ingested the event' });
+      assert.equal(cursorsFirst[0], null, 'the first run starts with no cursor');
+    } finally {
+      await first.stop('restart');
+    }
 
     const cursorsSecond = [];
     const second = await boot(dir, replayingSource(events, cursorsSecond));
-    assert.deepEqual(cursorsSecond[0], { offset: 1 }, 'the second run must receive the persisted cursor');
-    await second.stop('done');
+    try {
+      await waitFor(() => cursorsSecond.length >= 1, { label: 'second run polled' });
+      assert.deepEqual(cursorsSecond[0], { offset: 1 }, 'the second run must receive the persisted cursor');
+    } finally {
+      await second.stop('done');
+    }
   });
 
   it('recovers from a corrupt checkpoint and keeps the stored telemetry', async () => {

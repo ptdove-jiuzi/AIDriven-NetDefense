@@ -70,6 +70,32 @@ function assertTimeout(value, label) {
 }
 
 /**
+ * Spawn one long-lived interpreter for the persistent-session transport (see
+ * `powershell.js`). Same allowlist and same `shell: false` rule as the one-shot path: this
+ * is still the only module in the package that creates a process, and the executable is
+ * still chosen from the frozen allowlist rather than from configuration.
+ *
+ * The caller owns the child: it writes request lines to `child.stdin`, reads the sentinel
+ * protocol from `child.stdout` and must kill it on shutdown. Because the child is started
+ * with `stdio: ['pipe', ...]`, a parent that dies without closing the child explicitly still
+ * delivers EOF to `[Console]::In`, which is what makes the interpreter exit by itself when
+ * the collector is terminated (see `powershell.js`, "orphan" contract).
+ *
+ * @param {{executable: string, args: string[], allowlist?: readonly string[], env?: object|null}} options
+ * @returns {import('node:child_process').ChildProcess} Live child process.
+ */
+export function spawnSessionChild({ executable, args, allowlist = DEFAULT_ALLOWLIST, env = null } = {}) {
+  assertAllowlisted(executable, allowlist);
+  assertArgs(args);
+  return spawn(executable, args, {
+    windowsHide: true,
+    shell: false,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    ...(env === null || env === undefined ? {} : { env: { ...process.env, ...env } }),
+  });
+}
+
+/**
  * spawn-based execFile replacement. Same callback shape as node:child_process.execFile,
  * plus `options.input` (written to stdin) and a richer fourth callback argument carrying
  * timeout/truncation detail that the promise API of execFile would otherwise hide.
@@ -378,6 +404,17 @@ export function createCommandRunner({
         };
       }
     },
+
+    /**
+     * Can this runner host a long-lived interpreter?
+     *
+     * `true` only for the built-in spawn-based implementation. An injected `execFile` is a
+     * test double: its whole purpose is to observe each individual call, and routing its
+     * traffic through a persistent child would both hide those calls and execute a real
+     * process from a test. So the session transport refuses to engage there and the client
+     * keeps the one-shot path.
+     */
+    persistentSession: execFile === spawnExecFile,
   });
 }
 

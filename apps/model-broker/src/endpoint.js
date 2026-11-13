@@ -64,6 +64,30 @@ const REQUEST_PATH_SUFFIX = Object.freeze({
 
 const PROVIDER_ID = /^[a-z0-9-]{2,32}$/u;
 
+/**
+ * 注册配置允许出现的字段（ADR §2.1 的总表）。
+ *
+ * 白名单而不是"忽略多余的键"：审查 P1-1 的原始缺陷就是这个文件**静默丢弃**了
+ * `dailyInputTokens` / `dailyOutputTokens`——管理员写了上限，代码不报错也不执行，
+ * 属于成本控制上的 fail-open。拼错一个键与"没写"必须是两种结局：**前者报错**。
+ */
+const REGISTRATION_KEYS = new Set([
+  'id',
+  'kind',
+  'baseUrl',
+  'url',
+  'credentialRef',
+  'allowLoopback',
+  'dailyInputTokens',
+  'dailyOutputTokens',
+  'models',
+  'model',
+  'pathSuffix',
+]);
+
+/** 日预算的数值上限：只是为了挡住 `1e308` 这种把剩余额度算成 Infinity 的输入。 */
+const MAX_DAILY_TOKENS = 1_000_000_000;
+
 export function isLoopbackHost(hostname) {
   const value = String(hostname ?? '').toLowerCase();
   if (LOOPBACK_HOSTS.has(value)) return true;
@@ -346,6 +370,8 @@ function createRegistry(capacity) {
         allowLoopback: record.brand.allowLoopback,
         credentialRef: record.brand.credentialRef,
         models: record.brand.models,
+        dailyInputTokens: record.brand.dailyInputTokens,
+        dailyOutputTokens: record.brand.dailyOutputTokens,
       })));
     },
   };
@@ -364,7 +390,60 @@ function validateProviderId(id) {
   return id;
 }
 
+/**
+ * 注册配置的字段白名单。未知字段一律拒绝——"接受但不生效"比"拒绝"危险得多：
+ * 管理员会以为上限已经设好了。
+ *
+ * @param {object} config 原始注册配置。
+ * @returns {void} 未知字段时抛 `ERR_BROKER_ENDPOINT`。
+ */
+function assertKnownRegistrationFields(config) {
+  for (const key of Object.keys(config)) {
+    if (!REGISTRATION_KEYS.has(key)) {
+      throw endpointError('unknown provider configuration field', {
+        reason: 'unknown_field',
+        field: key,
+      });
+    }
+  }
+}
+
+/**
+ * 归一每端点日预算（ADR §2.1）。
+ *
+ * 三种结局，都是显式的：
+ * - 缺省 / `null` → `null`：不设端点级上限，由全局日预算约束；
+ * - 0 或正整数 → 原样冻结，运行期由 `endpoint-budget.js` 的端口判定（0 = 今天一个 token 都不许花）；
+ * - 其余（负数、小数、字符串、布尔、超大值）→ 报错。
+ *
+ * 刻意**不**为回环 provider 开后门：`0` 在哪里都是"零额度"，`30000` 在哪里都是"30000"。
+ * ADR §2.6 说本地调用不计费，那是"账单上不计费"，不是"上限可以被忽略"——把 0 悄悄解释成
+ * "不计量"就是又一次"接受但不生效"。注意：`deploy/config/model-routing.example.json` 给
+ * `ollama-local` 写了 `dailyInputTokens: 0`，按本语义等于"本地模型零额度"，属该文件需要修的
+ * 配置缺陷（本任务无权改 `deploy/**`，已登记在 `status/MODEL-ROUTING-FIX.md`）。
+ *
+ * @param {object} config 注册配置。
+ * @returns {{dailyInputTokens: number|null, dailyOutputTokens: number|null}} 归一后的预算。
+ */
+function normalizeDailyBudget(config) {
+  const read = (value, field) => {
+    if (value === undefined || value === null) return null;
+    if (!Number.isInteger(value) || value < 0 || value > MAX_DAILY_TOKENS) {
+      throw endpointError('provider daily token budget must be a non-negative integer', {
+        field,
+        value: typeof value === 'number' && Number.isFinite(value) ? value : typeof value,
+      });
+    }
+    return value;
+  };
+  return {
+    dailyInputTokens: read(config.dailyInputTokens, 'dailyInputTokens'),
+    dailyOutputTokens: read(config.dailyOutputTokens, 'dailyOutputTokens'),
+  };
+}
+
 function buildRecord(registry, id, config) {
+  assertKnownRegistrationFields(config);
   const kind = normalizeKind(config.kind);
   const allowLoopback = config.allowLoopback === true;
   if (kind === 'deepseek' && allowLoopback) {
@@ -377,6 +456,8 @@ function buildRecord(registry, id, config) {
     pathSuffix: config.pathSuffix,
   });
   const models = normalizeModels(config.models, config.model);
+  // 预算在保存期就归一好：运行期只读 brand，不存在"请求期改上限"的入口。
+  const budget = normalizeDailyBudget({ ...config, id });
   const model = typeof config.model === 'string' && config.model !== ''
     ? config.model
     : (models.length === 1 ? models[0] : null);
@@ -401,6 +482,12 @@ function buildRecord(registry, id, config) {
     credentialRef,
     models,
     model,
+    // ADR §2.1：每端点日预算。`null` = 不设端点级上限（由全局日预算约束）。
+    // 数字即上限，运行期由 endpoint-budget 端口判定。**回环 provider 不自动变成 null**：
+    // ADR §2.6 的「回环调用不计费」说的是账单，不是上限可以被忽略；`0` 在任何 provider 上
+    // 都是"零额度"（见 normalizeDailyBudget 的说明与下方 ollama-local 的配置缺陷）。
+    dailyInputTokens: budget.dailyInputTokens,
+    dailyOutputTokens: budget.dailyOutputTokens,
   });
 
   RESOLVED_ENDPOINTS.add(brand);
@@ -410,8 +497,9 @@ function buildRecord(registry, id, config) {
     brand,
     frozen,
     revoked: false,
-    // 幂等判定只看"已冻结结果 + 适配器口径"，不看原始字符串：
-    // `https://h/v1` 与 `https://h/v1/` 冻出来是同一个端点，重复注册不该报错。
+    // 幂等判定只看"已冻结结果 + 适配器口径 + 已归一预算"，不看原始字符串：
+    // `https://h/v1` 与 `https://h/v1/` 冻出来是同一个端点，重复注册不该报错；
+    // 但预算改了必须算"换了记录"，否则又是一次"改了没生效"。
     signature: [
       frozen.scheme,
       frozen.host,
@@ -421,6 +509,8 @@ function buildRecord(registry, id, config) {
       allowLoopback ? '1' : '0',
       credentialRef ?? '',
       models.join(','),
+      budget.dailyInputTokens === null ? '' : String(budget.dailyInputTokens),
+      budget.dailyOutputTokens === null ? '' : String(budget.dailyOutputTokens),
     ].join('|'),
   };
   BRAND_ORIGIN.set(brand, { registry, record });

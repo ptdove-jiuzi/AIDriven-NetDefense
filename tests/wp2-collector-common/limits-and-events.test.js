@@ -175,7 +175,12 @@ test('the event factory emits exactly the TelemetryEvent fields in snake_case', 
   assert.equal(event.type, 'logon');
   assert.equal(event.severity, 'high');
   assert.deepEqual(event.payload, { user: 'synthetic' });
-  assert.equal(event.integrity, null);
+  // A2-SHAPE §1/§3: `integrity` is a required envelope member, computed once by the
+  // factory as {algorithm:'sha256', digest: canonicalDigest(payload)}. It used to be
+  // `null`, which the TelemetryEvent contract and the store (integrity_digest NOT NULL)
+  // both reject — every real event was refused with ERR_NULL_NOT_ALLOWED (CL-4).
+  assert.equal(event.integrity.algorithm, 'sha256');
+  assert.match(event.integrity.digest, /^[0-9a-f]{64}$/u);
   // The stable key is the dedupe identity, not an envelope field: the closed
   // TelemetryEvent contract rejects unknown fields.
   assert.equal('stable_key' in event, false);
@@ -188,7 +193,9 @@ test('the event factory emits exactly the TelemetryEvent fields in snake_case', 
     sequence: 0,
     type: 'process_start',
   });
-  assert.equal(sequenceEvent.native_record_id, null);
+  // `native_record_id` is optional but not nullable in the contract (schema.js:142), so a
+  // record without a native id omits the key instead of emitting null.
+  assert.equal('native_record_id' in sequenceEvent, false);
   assert.equal(sequenceEvent.severity, 'info');
   assert.deepEqual(sequenceEvent.payload, {});
 });

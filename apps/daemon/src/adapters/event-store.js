@@ -623,6 +623,44 @@ export function createEventStoreAdapter(options) {
         throw wrap(error, 'write');
       }
     },
+    /**
+     * Write several ingest requests inside **one** T1 transaction (PERF-CPU N-034).
+     *
+     * The daemon used to call `ingest()` once per event: with `synchronous=FULL` that is one
+     * `fsync` per event — 2009 transactions in the 330 s measured window, and the first 385-event
+     * snapshot held the event loop for ~45 s. This entry point forwards to the store's
+     * `ingestTelemetryBatch()`, which keeps one transaction (`T1-batch`), validates outside it,
+     * and isolates a single bad event with an inner savepoint.
+     *
+     * Contract carried over unchanged: `results[i]` corresponds to `inputs[i]`, a per-item failure
+     * rolls back only that item, and a throw means the whole transaction rolled back (nothing
+     * written), which is what lets the scheduler replay the batch from its frozen cursor.
+     *
+     * @param {readonly object[]} inputs Ingest requests, same shape as `ingest()`.
+     * @returns {{received: number, accepted: number, duplicates: number, failed: number,
+     *   results: readonly {ok: boolean, value?: object, error?: Error}[]}|null} Batch result,
+     *   or `null` when this store build has no batch entry point.
+     * @throws {DaemonError} When the store is closed or the whole batch rolled back.
+     */
+    ingestBatch(inputs) {
+      if (binding === null) {
+        throw new DaemonError(DAEMON_CODES.STORE_UNAVAILABLE, 'event store is not open');
+      }
+      const list = Array.isArray(inputs) ? inputs : [];
+      if (list.length === 0) {
+        return { received: 0, accepted: 0, duplicates: 0, failed: 0, results: [] };
+      }
+      if (typeof binding.api.ingestTelemetryBatch !== 'function') {
+        return null;
+      }
+      try {
+        const result = binding.api.ingestTelemetryBatch(binding.handle, { events: list });
+        statsCache = null;
+        return result;
+      } catch (error) {
+        throw wrap(error, 'write');
+      }
+    },
     ingest(input) {
       if (binding === null) {
         throw new DaemonError(DAEMON_CODES.STORE_UNAVAILABLE, 'event store is not open');

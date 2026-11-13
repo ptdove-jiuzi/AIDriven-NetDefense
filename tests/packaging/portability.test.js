@@ -48,6 +48,7 @@ import test, { after } from 'node:test';
 import { pathToFileURL } from 'node:url';
 
 import { REPO_ROOT, defaultBundleRoot, fromBundle, readPlan } from './bundle-locator.mjs';
+import { reapAll, trackedSpawn } from './child-reaper.mjs';
 import { sha256File } from '../../deploy/embedded-runtime/lib/stage.mjs';
 
 const ORIGINAL_ROOT = defaultBundleRoot();
@@ -103,7 +104,17 @@ function ensureRelocated() {
     parent = mkdtempSync(join(tmpdir(), 'm8-portability-'));
     const first = join(parent, 'copy-first');
     const root = join(parent, `relocated-${randomUUID().slice(0, 8)}`);
+    // This copy is the slowest step in the whole packaging suite (430 MiB / 47 107
+    // files), and when the process dies mid-copy the runner has nothing to report
+    // but "the file failed" — which is exactly how R6-006② was observed once:
+    // 526 609 ms, no assertion detail, and a complete relocated tree left behind
+    // because the after-hook never ran. These two lines cost nothing and make the
+    // next occurrence attributable from the captured output alone: how long the
+    // copy took, and how much room it had to do it in.
+    process.stderr.write(`portability: copying ${ORIGINAL_ROOT} -> ${first} (${freeMiB} MiB free under temp)\n`);
+    const copyStarted = Date.now();
     cpSync(ORIGINAL_ROOT, first, { recursive: true, dereference: false, preserveTimestamps: false, force: true });
+    process.stderr.write(`portability: copied in ${Date.now() - copyStarted} ms\n`);
     renameSync(first, root);
     relocated = { parent, root };
     return relocated;
@@ -119,6 +130,14 @@ after(() => {
   if (relocated?.parent !== undefined && existsSync(relocated.parent)) {
     rmSync(relocated.parent, { recursive: true, force: true });
   }
+});
+
+/**
+ * `kill()` without waiting is not cleanup: the pipes stay attached and the file never
+ * exits, which reads as "the runner hung" rather than "a test leaked a process".
+ */
+after(async () => {
+  await reapAll();
 });
 
 /** Every row of the shipped hash manifest, checked against the bytes at `root`. */
@@ -167,7 +186,7 @@ function pendingCount(stderr) {
  * defect make both suites report the same wrong thing.
  */
 async function bootFrom({ command, args, cwd, env, runtimeManifest, timeoutMs = 120000 }) {
-  const child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  const child = trackedSpawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
   const frames = [];
   const pending = new Map();
   let stdoutBuffer = '';

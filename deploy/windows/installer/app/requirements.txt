@@ -1,0 +1,17 @@
+# Build-time dependencies of the Windows installer.
+#
+# Pinned exactly, for the same reason the Node side uses `npm ci`: a release build
+# must not resolve "whatever is newest today" into a binary that is published under
+# a fixed version number.  `--only-binary :all:` in the workflow makes a missing
+# wheel a fast, obvious failure instead of a source build that may or may not
+# compile on the runner.
+#
+# pyinstaller   one-file packaging; the version matches what the local acceptance
+#               runs used, so a local reproduction and a CI build differ only in the
+#               CPython patch level.
+# py7zr         reads the embedded payload.7z at install time, so the target machine
+#               needs no 7-Zip installation.
+#
+# Author: PT-dove
+pyinstaller==6.22.3
+py7zr==1.1.4

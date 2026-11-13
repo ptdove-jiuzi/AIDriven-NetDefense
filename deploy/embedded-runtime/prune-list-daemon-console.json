@@ -5,9 +5,9 @@
   "reviewNote": "Generated evidence. A separate read-only agent reviews this decision and records the outcome in docs/implementation/status/M8-FORMAL-PACKAGING.md; the builder re-runs the same gate, so this file is a decision record, not an authority.",
   "inputs": {
     "lockfileSha256": "69e5190a12bf054da5e4e57e4d50ddbc45c23d3769f09103ecf43adc3d66f4f1",
-    "profileSha256": "a5a56348e86a2feb182d7533287538d541c75e88995844fd10a745807e80766b",
+    "profileSha256": "ccc8b4395e9522245888cb3704f1cf7972cc41db6a769fc8e95bd6083073e816",
     "bundleProfileName": "daemon-console",
-    "bundleProfileSha256": "1c81e83867e241c93a012961b014bbe289c27044c90c2ee42d742c7fa0f4ddb7",
+    "bundleProfileSha256": "a6a49cce252d2018e08f8c32b14e9b78189c632cffa0f55ac02f3e35ae0f75cb",
     "closureRoots": [
       "@deepseek-ai/dsh",
       "@aegisharness/harness-worker",
@@ -20,12 +20,13 @@
   "gate": {
     "closurePackages": 658,
     "reachablePackages": 105,
-    "reachedFiles": 917,
-    "corpusFiles": 916,
+    "reachedFiles": 928,
+    "corpusFiles": 927,
     "corpusSkipped": 1,
     "dynamicSpecifierSites": [
       "node_modules/@deepseek-ai/dsh-session-persistence-jsonl/lib/index.js",
       "node_modules/@deepseek-ai/dsh-app-boot/lib/index.js",
+      "node_modules/@aegisharness/daemon/src/adapters/collector-sources.js",
       "node_modules/@deepseek-ai/node-addon-system/lib/flock.js",
       "node_modules/@deepseek-ai/cordis-plugin-loader/lib/index.js",
       "node_modules/node-addon-native-custom-loader/lib/index.js"
@@ -67,12 +68,12 @@
     ]
   },
   "summary": {
-    "prunable": 406,
-    "prunableCopies": 414,
-    "keptByGate": 76,
+    "prunable": 405,
+    "prunableCopies": 413,
+    "keptByGate": 77,
     "heldBack": 1,
-    "prunableBytes": 421517672,
-    "prunableMiB": 402
+    "prunableBytes": 403040199,
+    "prunableMiB": 384.4
   },
   "heldBack": [
     {
@@ -112,17 +113,6 @@
       "copies": 1,
       "declaredBy": [
         "sharp (optionalDependencies)"
-      ],
-      "declaredByCount": 1
-    },
-    {
-      "name": "openai",
-      "version": "7.19.0",
-      "license": "Apache-2.0",
-      "sizeBytes": 18477473,
-      "copies": 1,
-      "declaredBy": [
-        "@earendil-works/pi-ai (dependencies)"
       ],
       "declaredByCount": 1
     },

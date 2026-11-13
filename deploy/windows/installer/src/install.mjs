@@ -81,10 +81,19 @@ export class DiagnosticFailure extends InstallFailure {
 }
 
 /** Which swap steps this transaction actually completed (from the journal, not the disk). */
-export function journalSwapProgress(journal) {
+export function journalSwapProgress(journal, phase = journal?.phase) {
   const steps = Array.isArray(journal?.data?.steps) ? journal.data.steps : [];
-  const done = (phase) => steps.some((step) => step.phase === phase && step.ok === true);
-  return { swapA: done(PHASES.SWAP_A), swapB: done(PHASES.SWAP_B) };
+  const done = (stepPhase) => steps.some((step) => step.phase === stepPhase && step.ok === true);
+  // `phase` wins over `steps` when they disagree. A journal parked at `STAGED` says the swap
+  // was never attempted *in this transaction*, so a `SWAP_B` entry left over from an earlier
+  // one must not be read as "I moved the tree" — that is how a recovery would delete the
+  // install the STAGED branch exists to protect.
+  const order = Object.values(PHASES);
+  const atLeast = (threshold) => order.indexOf(phase) >= order.indexOf(threshold);
+  return {
+    swapA: atLeast(PHASES.SWAP_A) && done(PHASES.SWAP_A),
+    swapB: atLeast(PHASES.SWAP_B) && done(PHASES.SWAP_B),
+  };
 }
 
 /**
@@ -100,16 +109,45 @@ export function journalSwapProgress(journal) {
  * the staged tree onto `app\`. The digest is used as the second lock: if the tree on disk is
  * the one the receipt describes as installed, it is the active version and is not ours.
  */
-export function appRootOwnership({ layout, journal }) {
-  const swap = journalSwapProgress(journal);
+export function appRootOwnership({ layout, journal, phase = journal?.phase }) {
+  const swap = journalSwapProgress(journal, phase);
   if (!pathExists(layout.appRoot)) {
     return { owned: false, exists: false, digest: null, reason: 'app\\ 不存在' };
   }
   const digest = manifestDigestOf(layout.appRoot);
   const to = journal?.data?.toManifestDigest ?? null;
-  if (swap.swapB) {
-    return { owned: true, exists: true, digest, reason: 'SWAP_B 已落盘：app\\ 是本事务的 staging 树' };
+  const from = journal?.data?.fromManifestDigest ?? null;
+  // Once a rollback has *started* restoring `app.prev`, whatever sits at `app\` is the old
+  // tree — this transaction put it there on purpose. The flag is written before the rename,
+  // and it is the only reliable discriminator when `from` and `to` are equal, which is the
+  // normal case for `/repair` (same version ⇒ byte-identical manifest).
+  if (journal?.data?.rollback?.restoreStarted === true) {
+    return { owned: false, exists: true, digest, reason: '本事务已开始把 app.prev 还原为 app\\（回滚中断），现有树不是新树' };
   }
+  // Nothing was at `app\` when this transaction began, so whatever is there now was written by
+  // us — even if its digest does not match the payload (a staging tree whose manifest was
+  // rewritten on the way is still ours, and leaving it behind would leave an unverifiable
+  // "installation" at the product path). This outranks the digest gate on purpose.
+  if (journal?.data?.preexisting?.app === false) {
+    return { owned: true, exists: true, digest, reason: '事务开始时 app\\ 不存在：现有内容属本事务' };
+  }
+  if (swap.swapB) {
+    // `SWAP_B: ok` says this transaction *once* moved a staged tree onto `app\`. It does not
+    // say the tree there now is still that one: a rollback that already renamed `app.prev`
+    // back leaves the old, working install at `app\` while the step history still ends in
+    // `SWAP_B`. Deleting on the step alone is the P0 mistake one phase later — recovery then
+    // reports "as if never installed" over a tree that was working. The digest decides:
+    if (digest !== null && digest === to) {
+      return { owned: true, exists: true, digest, reason: 'SWAP_B 已落盘且 app\\ 摘要等于本事务待装清单' };
+    }
+    if (digest !== null && digest === from) {
+      return { owned: false, exists: true, digest, reason: 'app\\ 已是旧版清单：回滚已还原，不是本事务的新树' };
+    }
+    return { owned: false, exists: true, digest, reason: 'SWAP_B 已进入，但 app\\ 摘要无法证明它属于本事务' };
+  }
+  // A crash between the `rename` and its `settle` leaves `SWAP_B: ok:null`, so the step cannot
+  // prove ownership; the journal's `preexisting.app` already answered that case above, and a
+  // journal from before that field existed is treated the conservative way (not ours).
   if (!swap.swapA) {
     return { owned: false, exists: true, digest, reason: '本事务尚未改动 app\\（SWAP_A 未成功）' };
   }
@@ -237,7 +275,9 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
     return { code: EXIT.PRECHECK, message: `journal 损坏，进入只读诊断（不自动恢复）：${existing.reasons.join('；')}` };
   }
   if (existing.state === 'ok' && !TERMINAL_PHASES.has(existing.journal.phase)) {
-    const recovered = await recoverTransaction({ layout, journal: existing.journal, logger, ops });
+    const recovered = await recoverTransaction({
+      layout, journal: existing.journal, logger, ops, rollback: rollbackInstall,
+    });
     if (recovered.outcome === 'converged') {
       return { code: EXIT.ROLLED_BACK, message: `${recovered.message}；本次安装未开始，请重新执行 /install` };
     }
@@ -352,6 +392,26 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
     dbSchemaAfter: null,
   });
 
+  // What was already on disk when this transaction started. This is the difference between
+  // "roll back what I did" and "delete what the user had" — the P0 failure mode, applied to
+  // every side effect and not only to `app\`:
+  //
+  //   app      — a repair starts with a working tree; only a swap makes it ours;
+  //   bin      — a repair overwrites an existing `bin\aegis-svc.exe`; deleting it on rollback
+  //              would leave the restored app\ without a service host;
+  //   shortcut — a repair rewrites the same Start-menu entry the old install owns.
+  //
+  // A fresh install has none of them, so `false` means "anything here now is mine".
+  journal.patch({
+    preexisting: {
+      app: pathExists(layout.appRoot),
+      appPrev: pathExists(layout.appPrevRoot),
+      bin: pathExists(layout.serviceHostExe),
+      shortcut: pathExists(layout.startMenuShortcut),
+      engine: pathExists(join(layout.installDir, 'engine')),
+    },
+  }).persist();
+
   // Which side effects this transaction has already performed. Persisted in the journal
   // *before* the action, so both the in-process rollback and a later recovery know what may
   // be undone. Without it, rollback could only guess — and guessing "delete the registry key"
@@ -359,6 +419,7 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
   const progress = {
     dirsCreated: false,
     binCopied: false,
+    engineCopied: false,
     dataCreated: false,
     eventLogReadersAdded: false,
     serviceInstalled: false,
@@ -439,13 +500,18 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
     const hostSource = join(payload, 'bin', 'aegis-svc.exe');
     if (pathExists(hostSource)) {
       ensureDir(layout.binRoot);
-      copyFileSync(hostSource, layout.serviceHostExe);
+      // Marked before the copy: a copy that fails halfway still leaves a file rollback must
+      // be allowed to judge, and `preexisting.bin` decides whether it may delete it.
       mark('binCopied');
+      copyFileSync(hostSource, layout.serviceHostExe);
     }
     if (options.engineSource !== undefined && options.engineSource !== null) {
       if (!isDirectory(options.engineSource)) {
         throw new InstallFailure(EXIT.PRECHECK, `--engine-source 不是目录：${options.engineSource}`);
       }
+      // Write-ahead, like every other side effect: a copy that fails halfway still leaves
+      // files under `install\engine\` that rollback must be allowed to judge.
+      mark('engineCopied');
       await copyTreeHashed(options.engineSource, join(layout.installDir, 'engine'));
     } else {
       logger.warn('未提供 --engine-source：ARP 卸载入口指向的引擎副本不存在（打包阶段必须补上）');
@@ -486,14 +552,16 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
     // -------------------------------------------------------------- ACL + service
     for (const entry of aclPlan(layout)) ops.acl(entry);
     try {
+      // Every mark below is written *before* the action it names (§6.1 write-ahead): if the
+      // action half-succeeds and throws, rollback must know to look, not be told "never ran".
+      mark('serviceInstalled');
       ops.serviceInstall({ version: options.toVersion });
       // D14 (H4): the service account must be a member of `Event Log Readers` before the
       // service tries to read the Security log. This used to be a `--event-log-readers` flag
       // that the host binary never parsed — recorded, asserted, never implemented.
-      ops.eventLogReadersAdd({ account: `NT SERVICE\\${SERVICE_NAME}` });
       mark('eventLogReadersAdded');
+      ops.eventLogReadersAdd({ account: `NT SERVICE\\${SERVICE_NAME}` });
       ops.serviceStart();
-      mark('serviceInstalled');
     } catch (error) {
       if (error instanceof OpsError) {
         throw new InstallFailure(EXIT.HEALTH, `服务注册/启动失败：${error.message}`);
@@ -506,11 +574,12 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
     }
 
     // -------------------------------------------------------------- registry + shortcut
+    mark('registryWritten');
     writeArpEntries(ops, layout, options.toVersion);
     ops.registrySet(REG_PRODUCT_KEY, 'InstallLocation', 'REG_SZ', layout.programRoot);
     ops.registrySet(REG_EVENT_SOURCE_KEY, 'EventMessageFile', 'REG_EXPAND_SZ', '%SystemRoot%\\System32\\EventCreate.exe');
     ops.registrySet(REG_EVENT_SOURCE_KEY, 'TypesSupported', 'REG_DWORD', 7);
-    mark('registryWritten');
+    mark('shortcutCreated');
     ops.shortcutCreate({
       lnk: layout.startMenuShortcut,
       target: layout.cliStub,
@@ -518,7 +587,6 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
       workingDirectory: layout.programRoot,
       description: `${SERVICE_DISPLAY_NAME} 客户端`,
     });
-    mark('shortcutCreated');
 
     // -------------------------------------------------------------- receipts
     const now = new Date().toISOString();
@@ -629,13 +697,18 @@ export async function runInstall({ layout, options, logger, ops, hooks = {} }) {
  */
 export async function rollbackInstall({ layout, journal, logger, ops }) {
   try {
-    const swap = journalSwapProgress(journal);
+    // Everything below is decided from the phase the crash left behind, so capture it before
+    // this function changes it: once the phase reads `ROLLING_BACK`, every stale `SWAP_*`
+    // step in the history looks "already reached" and the ownership check would wave the
+    // delete through.
+    const crashPhase = journal.phase;
+    const swap = journalSwapProgress(journal, crashPhase);
     const progress = journal.data.progress ?? {};
     const actions = [];
     journal.enter(PHASES.ROLLING_BACK, '安装失败，回滚');
 
     // 1. Only the tree this transaction put there may be removed.
-    const ownership = appRootOwnership({ layout, journal });
+    const ownership = appRootOwnership({ layout, journal, phase: crashPhase });
     if (pathExists(layout.appRoot)) {
       if (ownership.owned) {
         removeTree(layout.appRoot, [layout.programRoot, layout.dataRoot]);
@@ -646,12 +719,35 @@ export async function rollbackInstall({ layout, journal, logger, ops }) {
     }
 
     // 2. Restore the old tree, but only if this transaction is the one that moved it.
+    //
+    //    The journal alone is not enough: a power cut between the `rename` and its `settle`
+    //    leaves `SWAP_A` marked `ok:null`, so "did I move it?" has to be answered from the
+    //    disk too — `app\` gone + `app.prev\` present + this transaction did not find an
+    //    `app.prev` at start means the rename is ours. This is the same "disk facts + journal
+    //    intent" rule §6.1 states, and without it a crashed `SWAP_A` would leave the machine
+    //    with neither tree at `app\`.
+    const mayRestore = swap.swapA === true
+      || (journal.data.preexisting?.appPrev !== true
+        && !pathExists(layout.appRoot)
+        && pathExists(layout.appPrevRoot));
     if (pathExists(layout.appPrevRoot)) {
-      if (swap.swapA === true) {
+      if (mayRestore) {
         if (pathExists(layout.appRoot)) {
           journal.settle(false, 'app 与 app.prev 同时存在，无法还原');
           return { ok: false, reason: 'app 与 app.prev 同时存在，还原会覆盖一份未经验证的树；需人工判定' };
         }
+        // Write-ahead, like every other phase: the fact that a restore is under way must be on
+        // disk *before* the rename it describes. Without it, a crash in the window between the
+        // rename and `enter(ROLLED_BACK)` looks identical to "the new tree is still there" —
+        // `from === to` for every same-version repair — and the next `/install` would delete
+        // the install the rollback had just restored (P0, one restart later).
+        journal.patch({
+          rollback: {
+            ...(journal.data.rollback ?? {}),
+            restoreStarted: true,
+            restoreAt: new Date().toISOString(),
+          },
+        }).persist();
         renameSync(layout.appPrevRoot, layout.appRoot);
         actions.push('app.prev 还原为 app');
       } else {
@@ -665,16 +761,34 @@ export async function rollbackInstall({ layout, journal, logger, ops }) {
       actions.push('清空 staging');
     }
 
-    // 4. Service: deleting an absent service is success (H5), so this needs no progress flag.
-    try {
-      ops.serviceDelete();
-      actions.push('注销服务');
-    } catch (error) {
-      logger.warn('回滚阶段注销服务失败（可能尚未创建）', error.message);
+    // A rollback has two very different jobs, and confusing them is what made the old code
+    // delete things the user still needed:
+    //
+    //   fresh install (op=install) — everything on disk was created by this transaction, so
+    //                                all of it goes;
+    //   repair (op=repair)         — the service, its group membership, the shortcut and
+    //                                `bin\aegis-svc.exe` belong to the install that is being
+    //                                restored. They must be left alone, or the "restored"
+    //                                installation is a tree with no service host, no shortcut
+    //                                and no registration.
+    const freshInstall = journal.data.op === 'install';
+    const preexisting = journal.data.preexisting ?? {};
+
+    // 4. Service. Deleting an absent service is success (H5); deleting a *live* one that the
+    //    old install depends on is data loss with a success message.
+    if (progress.serviceInstalled === true && freshInstall) {
+      try {
+        ops.serviceDelete();
+        actions.push('注销服务');
+      } catch (error) {
+        logger.warn('回滚阶段注销服务失败（可能尚未创建）', error.message);
+      }
+    } else if (progress.serviceInstalled === true) {
+      actions.push('保留既有服务（属旧安装）');
     }
 
-    // 5. Group membership, only if this transaction added it (D14 / H4).
-    if (progress.eventLogReadersAdded === true) {
+    // 5. Group membership, only if this transaction created it (D14 / H4).
+    if (progress.eventLogReadersAdded === true && freshInstall) {
       try {
         ops.eventLogReadersRemove({ account: `NT SERVICE\\${SERVICE_NAME}` });
         actions.push('移除事件日志读者组成员');
@@ -683,13 +797,19 @@ export async function rollbackInstall({ layout, journal, logger, ops }) {
       }
     }
 
-    // 6. Start-menu shortcut.
-    if (progress.shortcutCreated === true) {
+    // 6. Start-menu shortcut — only one this transaction created.
+    if (progress.shortcutCreated === true && preexisting.shortcut !== true) {
+      // The revocation is *recorded* even when the `.lnk` is not there: in a disarm run the
+      // `shortcut.create` is only a plan line, so a "delete only if the file exists" guard
+      // made this branch unreachable and unassertable. `shortcutDelete` is idempotent
+      // (`-Force` + `SilentlyContinue`), so calling it is safe either way.
+      ops.shortcutDelete({ lnk: layout.startMenuShortcut });
       if (pathExists(layout.startMenuShortcut)) {
-        ops.shortcutDelete({ lnk: layout.startMenuShortcut });
         removeTree(layout.startMenuShortcut, [layout.startMenuDir, layout.startMenuRoot]);
       }
       actions.push('删除开始菜单快捷方式');
+    } else if (progress.shortcutCreated === true) {
+      actions.push('保留既有开始菜单快捷方式（属旧安装）');
     }
 
     // 7. Registry. A fresh install removes what it wrote; a repair restores the registration
@@ -704,10 +824,27 @@ export async function rollbackInstall({ layout, journal, logger, ops }) {
       }
     }
 
-    // 8. Service host copy (`bin\aegis-svc.exe`), outside `app\` and outside any manifest.
-    if (progress.binCopied === true && pathExists(layout.serviceHostExe)) {
+    // 8. Service host copy (`bin\aegis-svc.exe`), outside `app\` and outside any manifest —
+    //    and outside the swap, so the journal has to remember whether it was already there.
+    //    A repair overwrites it; deleting the overwrite would leave the restored `app\` with
+    //    no service host, which is exactly the P0 shape one directory over.
+    if (progress.binCopied === true && preexisting.bin !== true && pathExists(layout.serviceHostExe)) {
       removeTree(layout.serviceHostExe, [layout.binRoot, layout.programRoot]);
       actions.push('删除 bin\\aegis-svc.exe');
+    } else if (progress.binCopied === true && preexisting.bin === true) {
+      actions.push('保留既有 bin\\aegis-svc.exe（旧安装已有）');
+    }
+
+    // 8b. Engine copy under `install\engine\` — the path the ARP uninstall entry points at.
+    //     A fresh install created it; a repair overwrote the copy the old install needs, so it
+    //     stays. Leaving it behind on a fresh install meant a "rollback" that still shipped a
+    //     39-file engine under `%ProgramData%` with no `app\` to run it.
+    const engineDir = join(layout.installDir, 'engine');
+    if (progress.engineCopied === true && preexisting.engine !== true && pathExists(engineDir)) {
+      removeTree(engineDir, [layout.installDir]);
+      actions.push('删除本次复制的 install\\engine');
+    } else if (progress.engineCopied === true && preexisting.engine === true) {
+      actions.push('保留既有 install\\engine（旧安装已有）');
     }
 
     // 9. Data area: only a fresh install created it, and only then may it be removed (N7).
@@ -725,7 +862,9 @@ export async function rollbackInstall({ layout, journal, logger, ops }) {
       return { ok: false, reason: consistency.reason, actions, consistency };
     }
 
-    journal.patch({ rollback: consistency })
+    // Merged, not replaced: `restoreStarted` is part of the audit trail of *how* the tree at
+    // `app\` got there, and the final claim must not erase it.
+    journal.patch({ rollback: { ...(journal.data.rollback ?? {}), ...consistency } })
       .enter(PHASES.ROLLED_BACK, `已回滚：${actions.join('；')}`)
       .settle(true);
     logger.warn('回滚完成', { actions, claim: consistency.claim });
@@ -757,6 +896,16 @@ export function reconcileAfterRollback({ layout, logger }) {
     receiptRemoved: false,
   };
 
+  if (!appExists && facts.appPrevExists) {
+    // A restore that did not happen is not "rolled back": `install.json` may still describe
+    // `app.prev`, so deleting it here would destroy the only record of what that tree is.
+    return {
+      ok: false,
+      facts,
+      reason: `app 缺失但 app.prev 仍在（${layout.appPrevRoot}）：还原未完成，需人工判定`,
+    };
+  }
+
   if (!appExists && facts.receiptExists) {
     // A receipt for an install that is not on disk is exactly the "each record says something
     // different" state the P0 report described: journal=ROLLED_BACK, install.json=installed,
@@ -764,6 +913,13 @@ export function reconcileAfterRollback({ layout, logger }) {
     removeTree(layout.installReceiptPath, [layout.installDir, layout.dataRoot]);
     facts.receiptRemoved = true;
     logger.warn('回滚后 app\\ 不存在，已删除指向空处的 install.json');
+  }
+
+  // The uninstall registration describes the same install; leaving it behind made the next
+  // `/uninstall` act on a product that is not there.
+  if (!appExists && pathExists(layout.uninstallRegistryPath)) {
+    removeTree(layout.uninstallRegistryPath, [layout.installDir, layout.dataRoot]);
+    facts.uninstallRegistrationRemoved = true;
   }
 
   if (appExists && facts.receiptExists) {
@@ -777,8 +933,12 @@ export function reconcileAfterRollback({ layout, logger }) {
     }
   }
 
+  // The claim is what the caller prints and what the journal records, so it may only say what
+  // was actually checked: "still installed" is not true for a tree no receipt describes.
   const claim = appExists
-    ? `旧版 app\\ 仍在且清单与 install.json 一致（${String(appDigest).slice(0, 16)}）`
+    ? (facts.receiptExists
+      ? `旧版 app\\ 仍在且清单与 install.json 一致（${String(appDigest).slice(0, 16)}）`
+      : `app\\ 仍在（${String(appDigest).slice(0, 16)}），但没有 install.json，版本需人工确认`)
     : '本机已回到未安装状态';
   return { ok: true, facts, claim };
 }

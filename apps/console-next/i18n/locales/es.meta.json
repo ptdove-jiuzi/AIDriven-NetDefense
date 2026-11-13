@@ -1,0 +1,13 @@
+{
+  "_machine": true,
+  "_source": "en",
+  "_updated": "2026-11-05T08:31:19Z",
+  "_note": "partial machine translation: 183/1127 keys translated (16.2%); the remaining 944 keys are English placeholders pending translation",
+  "_coverage": {
+    "translated": 183,
+    "total": 1127,
+    "percent": 16.2,
+    "scriptHits": 93,
+    "basis": "translated = value differs from en (English placeholder otherwise)"
+  }
+}

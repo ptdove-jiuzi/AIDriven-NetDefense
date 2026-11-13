@@ -1,8 +1,17 @@
-AegisHarness
+AIDriven NetDefense / 网域智防
 Copyright 2026 PT-dove
 
-Licensed under the Apache License, Version 2.0. See LICENSE.
+Licensed under the Apache License, Version 2.0 (Apache-2.0). See LICENSE for the
+full text.
 
-Upstream and third-party attributions are recorded in THIRD_PARTY_NOTICES.
-The DeepSeek Harness name is used only to identify the upstream project;
-no endorsement or trademark rights are implied.
+AegisHarness is the internal technical codename and the historical npm scope
+(@aegisharness/*) of this product. It is not a separate product, and it carries
+no separate license.
+
+This product includes third-party software. Third-party attributions, license
+texts, and the obligations they impose are recorded in THIRD_PARTY_NOTICES.
+
+DeepSeek Harness (@deepseek-ai/dsh 0.2.2-alpha.2) is a real dependency of this
+product and is distributed under the MIT License, copyright (c) 2026 DeepSeek.
+Its name is used only to identify the upstream project; no endorsement or
+trademark rights are claimed.

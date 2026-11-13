@@ -51,6 +51,20 @@ export {
 } from './adapters/collector.js';
 
 export {
+  COLLECTOR_KIND_BY_TYPE,
+  COLLECTOR_SPEC_KEYS,
+  EMPTY_REASONS,
+  buildSourcesFromSpec,
+  createBootId,
+  createCollectorDaemonSource,
+  createCollectorSources,
+  daemonKindFor,
+  emptyReasonFor,
+  loadCollectorSpec,
+  parseCollectorSpec,
+} from './adapters/collector-sources.js';
+
+export {
   createEventStoreAdapter,
   createMemoryEventStoreAdapter,
 } from './adapters/event-store.js';

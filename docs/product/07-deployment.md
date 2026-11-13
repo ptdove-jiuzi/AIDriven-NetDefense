@@ -3,6 +3,15 @@
 > **版本状态：0.0.1 未发布，不可作为正式版本分发。**
 >
 > **本文不是安装指南。** 0.0.1 没有安装器、没有安装包、没有服务单元、没有升级通道。
+>
+> **2026-11-05 订正**（原文上一段成文于 2026-11-03）：Windows **已有**安装链与候选包——
+> `deploy/windows/installer/`（`VERSION`=`0.0.1-rc.5`）已产出
+> `dist/release/0.0.1-rc.5/AIDrivenNetDefense-Setup-0.0.1-rc.5.exe`（67 860 347 B，
+> sha256 `ca0297d0…`，**未签名**）与便携包；安装/卸载/升级（覆盖安装）都有代码路径，
+> 非提权装→卸已实测（`docs/implementation/evidence/rc5/accept/FINAL/RESULT.json`）。
+> **仍然没有**的是：签名、服务单元（`deploy/systemd/` 仍为空）、四 OS 包、
+> 以及**提权安装的验收结论**（`blocked(uac-cancelled)`）。
+> 面向用户的安装步骤见 `docs/install/`，不是本文。
 > 下文只描述「在一台开发机上把源码树跑起来」需要什么，以及会在哪里卡住。
 > 不存在可写的下载地址、发布页或校验和清单；任何声称有的材料都不是本项目产物。
 
@@ -145,11 +154,11 @@ node apps/cli/bin.js alerts --limit 20 --config ./cli.json
 
 | 限制 | 现象 | 说明 |
 |---|---|---|
-| `full` 模式无采集源 | 启动失败：「full mode requires at least one collector source」 | 自带入口不注入采集器；需要宿主程序 |
+| `full` 模式无采集源 | 启动失败：「full mode requires at least one collector source」 | **2026-11-05 订正**：自带入口现已支持 `--collectors <path>`（`apps/daemon/bin.js:51` → `src/adapters/collector-sources.js`），不再必须有宿主程序；**不传时仍 fail-closed**，这是设计 |
 | 只能用 `mock` 做端到端冒烟 | API 有响应但告警永远为空、重启即丢 | 内存存储 |
 | 默认端口 0 | 每次启动端口不同，CLI 连不上 | 必须显式配 `api.port` |
-| 无 UI | 只能 CLI / HTTP | `apps/console/` 为空 |
-| 无服务化 | 关掉终端进程就没了 | `deploy/systemd/`、`deploy/windows/` 为空 |
+| 无 UI | 只能 CLI / HTTP | **2026-11-05 订正**：`apps/console/` 15 个文件、`apps/console-next/` 6 页，已随 rc.5 载荷 `console/`（63 文件）分发；但桌面壳默认 **mock + 0 采集源**，`/healthz` 返回 `degraded` 是诚实值 |
+| 无服务化 | 关掉终端进程就没了 | **2026-11-05 订正**：`deploy/windows/` **不再为空**，安装版有开始菜单项、卸载项与可选开机自启（`/AUTOSTART`，实测写在 `HKCU\...\Run\AIDrivenNetDefense`）；`deploy/systemd/` 仍为空，Linux 无服务化 |
 | 无日志轮转 | stderr 输出，交给外部收集 | 没有内置文件日志管理 |
 | 单写者 | 设计上只允许 daemon 一根可写连接；两个进程指向同一 `dataDir` 的实际行为**未验证**，不要这样做 | 设计约束，不是可配置项 |
 

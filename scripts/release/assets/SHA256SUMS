@@ -1,18 +1,17 @@
 # AIDriven NetDefense portable package — key file checksums
 # scope: the files this package adds + the payload files a consumer checks first.
-# the full payload is covered by manifests/files.sha256 (46 921 rows); this list is not a replacement for it.
+# the whole payload is covered by manifests/files.sha256; this list is not a replacement.
 # format: <sha256><two spaces><path relative to the package root>
 
-28435aaa61825d84b96b918a550ec9dbe8e0d6d16fc8f294eba5cfa6cf37632f  README-快速开始.txt
-32ecb3c14c95ed28e91c34cd9cfe15dc09c51ee27b81ff38b92871f762eccb4e  bundle.json
+d1b84fdf4a4bc37985e31badba85e52b1f92751377cca4cd1171cac5f79bfd84  README-快速开始.txt
+685f21804f931279c546def6127e7d18570620133e9bc9f4001e2d5d8ecd7939  bundle.json
 e247a1d749a6aef8bf93f83ba4e46da239d18a24785397795e844ded74a72d2f  launch/aegis-harness-worker.cmd
-d98437092c5eac410dd022f838c4bf28c7d4cddabf027028caa3f617707d09b6  launch/launch-plan.json
-eec85deac0b336fb0ac3592cc8a2bc2c3899f7b3a0b6cbad462be6f0f6ac0e13  launch/prepare-attempt.mjs
-d106e01b2b78cb8486fe4cffd03829ba3c74f68a263161bda53196da09afa31d  launcher/aidnd-launch.mjs
+32b33bad6a6fbb8eb01940af55358e0086cc4b8cd39efbfadc3637d3a76e6156  launch/launch-plan.json
+760f1e5391a7feda20e8afce9fbd167d2af4db5e7a35c1ca90c75532fee4e50e  launcher/aidnd-launch.mjs
 475064f642d56878bc6c20fe037c1d048bda6247e88354153a65cdaf56df172a  launcher/aidnd-stop.mjs
 b11be640a128a63b13b6e0a2e5cab5987f9586d6d716a55c7a7c5db0b91c5ebc  launcher/lib/attempt.mjs
-4f260949ca8585e73363488c39b3c55c1a15d5fed52f530ad87e149053b713bc  launcher/lib/version.mjs
-19eaac5ac4c41033db54859c84c88f92df828ba7a2be4a8e6415321ff3b63d40  manifests/files.sha256
+db2f772f529577b40a1a9dd0c42397baec1c38ea6ccd407c828c2438b4ba3e19  launcher/lib/version.mjs
+6ec4051c166119196fe9696e599ba8a84ea384b72335b69364284b9136324d0c  manifests/files.sha256
 5c976096e04e5c2c1f091938926234cc9fbebfe9787ddd149351b3b0ecc707b5  runtime/node/node.exe
 9c54255a8dbc08a9479fed9c3f3ea399e9d08a2d178764db1e90dff16fa6d931  runtime/node/runtime.json
 914d4dd1d86ea760eb602f03c6344cccdeee443b2794ff39f348b1393b5b02e8  start.cmd

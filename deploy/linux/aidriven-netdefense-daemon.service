@@ -1,0 +1,67 @@
+[Unit]
+# AIDriven NetDefense — daemon unit.
+# Author: PT-dove
+#
+# Baseline: docs/implementation/adr/ADR-0009-release-distribution.md §5.4.
+# Two deliberate deviations from that draft, both recorded here because a reviewer
+# must be able to see them without diffing the ADR:
+#
+#   1. Type=simple, not notify. The daemon does not call sd_notify, so `notify` would
+#      leave every start in "activating" until TimeoutStartSec expired. ADR §5.4 allows
+#      this fallback explicitly but requires the choice to be pinned — this is it.
+#   2. No ExecStartPost readiness probe. The loopback /status endpoint requires the
+#      bearer token from /var/lib/.../secrets/api-token; wiring that into a shell
+#      ExecStartPost would put the token on a command line, visible in `ps`. Readiness
+#      is therefore reported by Restart=on-failure + the API itself, and the missing
+#      probe is listed as unverified in status/RELEASE-MATRIX.md.
+#
+# MemoryDenyWriteExecute is intentionally ABSENT: V8 needs W+X pages for JIT and the
+# service dies on start if it is enabled. Do not "harden" this by adding it.
+
+Description=AIDriven NetDefense security monitoring daemon (网域智防)
+Documentation=file:/opt/aidriven-netdefense/app/README-BUNDLE.md
+After=network.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=aegis
+Group=aegis
+ExecStart=/opt/aidriven-netdefense/app/runtime/node/bin/node /opt/aidriven-netdefense/app/apps/daemon/bin.js --config /etc/aidriven-netdefense/aegis.conf.json
+Restart=on-failure
+RestartSec=10s
+TimeoutStopSec=90
+KillMode=mixed
+
+# Hardening. Each line is either required by ADR §5.4 or needed to keep the unit
+# startable under ProtectSystem=strict (ReadWritePaths).
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectProc=invisible
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+SystemCallFilter=@system-service
+SystemCallArchitectures=native
+ReadWritePaths=/var/lib/aidriven-netdefense
+UMask=0027
+
+MemoryMax=2G
+TasksMax=512
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aidriven-netdefense-daemon
+
+[Install]
+WantedBy=multi-user.target

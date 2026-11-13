@@ -23,7 +23,11 @@ if "%PAYLOAD%"=="" set "PAYLOAD=%REPO%\vendor\payloads\win32-x64-v14"
 set "OUTROOT=%~2"
 if "%OUTROOT%"=="" set "OUTROOT=%REPO%\dist\installer"
 
-set "VER=0.0.1-rc.1"
+rem SEED-05: single version source — deploy\windows\installer\VERSION. The literal is
+rem only the reviewed fallback if the file is missing.
+set "VER="
+for /f "usebackq delims=" %%v in ("%~dp0VERSION") do if not defined VER set "VER=%%v"
+if not defined VER set "VER=0.0.1-rc.6"
 set "NAME=%VER%"
 set "OUT=%OUTROOT%\%NAME%"
 set "SEVENZ=%ProgramFiles%\7-Zip\7z.exe"
@@ -68,6 +72,8 @@ echo [3/5] copying installer files
 copy /y "%~dp0Setup.cmd" "%OUT%\Setup.cmd" >nul
 copy /y "%~dp0Setup.ps1" "%OUT%\Setup.ps1" >nul
 copy /y "%~dp0SelfCheck.mjs" "%OUT%\SelfCheck.mjs" >nul
+rem The in-tree copy of Setup.ps1 reads its version from this file (SEED-05).
+if exist "%~dp0VERSION" copy /y "%~dp0VERSION" "%OUT%\VERSION" >nul
 if exist "%~dp0INSTALL.txt" copy /y "%~dp0INSTALL.txt" "%OUT%\INSTALL.txt" >nul
 
 echo [4/5] writing SHA256SUMS.txt

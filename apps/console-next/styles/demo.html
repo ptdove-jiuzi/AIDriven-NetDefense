@@ -1,0 +1,1169 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>AIDriven NetDefense · B1 设计系统 demo</title>
+<link rel="icon" href="../assets/mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  /* 仅 demo 自身布局；不含任何组件外观（组件样式全部在 components.css） */
+  .demo-top {
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    flex-wrap: wrap;
+    padding: var(--sp-2) var(--layout-gutter);
+    background: var(--c-bg-elev);
+    border-bottom: 1px solid var(--c-border);
+  }
+  .demo-top .brand-sub::before { content: "·"; margin: 0 var(--sp-2); color: var(--c-text-faint); }
+  .demo-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+  .demo-jump {
+    display: flex;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--layout-gutter);
+    border-bottom: 1px solid var(--c-border);
+    background: var(--c-bg);
+    overflow-x: auto;
+    font-size: var(--fs-sm);
+  }
+  .demo-jump a { color: var(--c-text-muted); white-space: nowrap; }
+  .demo-jump a:hover { color: var(--c-accent); }
+  .demo-main {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: var(--sp-5) var(--layout-gutter) var(--sp-8);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+  }
+  .demo-sec {
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-lg);
+    background: var(--c-surface);
+    padding: var(--sp-4);
+    min-width: 0;
+  }
+  .demo-sec > h2 {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-1);
+    font-size: var(--fs-xl);
+  }
+  .demo-sec > h2 small { font-size: var(--fs-sm); font-weight: var(--fw-normal); color: var(--c-text-faint); }
+  .demo-hint { margin: 0 0 var(--sp-3); font-size: var(--fs-sm); color: var(--c-text-muted); }
+  .demo-sub { margin: var(--sp-4) 0 var(--sp-2); font-size: var(--fs-base); font-weight: var(--fw-semibold); }
+  .demo-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+  .demo-grid { display: grid; gap: var(--sp-3); grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .demo-swatches { display: grid; gap: var(--sp-2); grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); }
+  .swatch { display: flex; flex-direction: column; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--c-text-muted); }
+  .swatch__chip { height: 34px; border-radius: var(--r-md); border: 1px solid var(--c-border); background: var(--swatch, transparent); }
+  .swatch code { background: none; padding: 0; color: var(--c-text-faint); }
+  .scale-row { display: flex; align-items: center; gap: var(--sp-3); font-size: var(--fs-sm); color: var(--c-text-muted); }
+  .scale-bar { height: 12px; border-radius: var(--r-xs); background: var(--c-accent); width: var(--scale-w, 0); }
+  .ratio-table { width: 100%; border-collapse: collapse; font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+  .ratio-table th, .ratio-table td { padding: 5px 8px; border-bottom: 1px solid var(--c-border); text-align: left; vertical-align: middle; }
+  .ratio-table th { color: var(--c-text-muted); font-weight: var(--fw-medium); background: var(--c-bg-elev); position: sticky; top: 0; }
+  .ratio-table tr[data-fail="true"] td { background: var(--c-sev-critical-bg); }
+  .ratio-table td.num { text-align: right; font-family: var(--font-mono); }
+  .ratio-summary { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-3); }
+  .demo-pre {
+    margin: var(--sp-3) 0 0;
+    padding: var(--sp-2) var(--sp-3);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    background: var(--c-bg);
+    color: var(--c-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-normal);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .check-list { margin: 0; padding-left: var(--sp-5); font-size: var(--fs-sm); }
+  .check-list li { margin-bottom: var(--sp-1); }
+  .check-list code { font-size: var(--fs-xs); }
+  .icon-grid { display: grid; gap: var(--sp-2); grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); }
+  .icon-cell {
+    display: flex; align-items: center; gap: var(--sp-2);
+    padding: var(--sp-2);
+    border: 1px solid var(--c-border);
+    border-radius: var(--r-md);
+    font-size: var(--fs-sm); color: var(--c-text);
+  }
+  .icon-cell .ui-icon { font-size: 20px; color: var(--c-text-muted); }
+  .demo-note { font-size: var(--fs-sm); color: var(--c-text-faint); }
+  .table-demo-head { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-3); }
+  [hidden] { display: none !important; }
+  /* ?static=1：确定性截图开关（对应合同 §7.9 static=1），关掉所有动画/过渡 */
+  html.demo-static *,
+  html.demo-static *::before,
+  html.demo-static *::after {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+  }
+</style>
+</head>
+<body data-theme="dark" data-density="comfortable">
+<svg class="sprite" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.6 20 6v6.1c0 4.6-3.2 8.1-8 9.3-4.8-1.2-8-4.7-8-9.3V6l8-3.4Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8.4 12.1l2.5 2.5 4.7-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5 21 19H3l9-15.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 9.5v4.2M12 16.4v.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 16v-5M12.5 16V7M17 16v-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-agent" viewBox="0 0 24 24"><rect x="4" y="7.5" width="16" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 4v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="12" cy="3.4" r="1.1" fill="currentColor"/><path d="M9.2 12.4v1.4M14.8 12.4v1.4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M9.6 16.2h4.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-models" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10 3.6v3.2M14 3.6v3.2M10 17.2v3.2M14 17.2v3.2M3.6 10h3.2M3.6 14h3.2M17.2 10h3.2M17.2 14h3.2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 12h4M12 12h8M4 17h12M20 17h0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="7" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="10" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="18" cy="17" r="2" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.6-5.9" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M20 4.5V8h-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M14.5 6 8.5 12l6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9.5 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M15.6 15.6 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 10.6v6M12 7.6v.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.6l4.4 4.4L19 6.6" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-warning" viewBox="0 0 24 24"><path d="M12 3.5 21 19H3l9-15.5Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M12 9.5v4.2M12 16.4v.1" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-error" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M9.2 9.2l5.6 5.6M14.8 9.2l-5.6 5.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 6h16l-6 7v6l-4-2v-4L4 6Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M8 10.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 19h14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24"><path d="M14 4h6v6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M20 4 11 13" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M15 6.5V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v9a1 1 0 0 0 1 1h1.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.8 12S6.5 5.8 12 5.8 21.2 12 21.2 12 17.5 18.2 12 18.2 2.8 12 2.8 12Z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><circle cx="12" cy="12" r="2.8" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M4 4l16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9.9 6.3A9.9 9.9 0 0 1 12 6.1c5.5 0 9.2 6.2 9.2 6.2a17 17 0 0 1-3 3.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.4 8.2A17 17 0 0 0 2.8 12.3S6.5 18.5 12 18.5c1.2 0 2.3-.3 3.3-.8" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M10 10a2.8 2.8 0 0 0 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.2A8.2 8.2 0 0 1 9.8 4a8.4 8.4 0 1 0 10.2 10.2Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.8 12h16.4M12 3.6c2.2 2.3 3.3 5.2 3.3 8.4S14.2 18.1 12 20.4c-2.2-2.3-3.3-5.2-3.3-8.4S9.8 5.9 12 3.6Z" fill="none" stroke="currentColor" stroke-width="1.4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 7.6V12l3.2 2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-key" viewBox="0 0 24 24"><circle cx="8.2" cy="15.8" r="3.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M10.7 13.3 19 5M16.4 7.6l2.2 2.2M14.4 9.6l2.2 2.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M9.5 7V5.2c0-.7.5-1.2 1.2-1.2h2.6c.7 0 1.2.5 1.2 1.2V7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M6.5 7l.8 11.3c.1 1 .9 1.7 1.9 1.7h5.6c1 0 1.8-.7 1.9-1.7L17.5 7" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M10.3 10.6v5.6M13.7 10.6v5.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></symbol>
+  <symbol id="i-sort" viewBox="0 0 24 24"><path d="M12 4v16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 8l4-4 4 4M8 16l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M12 20V5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6.5 10.5 12 5l5.5 5.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 4v15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/><path d="M6.5 13.5 12 19l5.5-5.5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-spinner" viewBox="0 0 24 24"><path d="M12 3.6a8.4 8.4 0 1 0 8.4 8.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+  <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="6.4" rx="7.4" ry="2.9" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.6 6.4v11.2c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9V6.4" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.6 12c0 1.6 3.3 2.9 7.4 2.9s7.4-1.3 7.4-2.9" fill="none" stroke="currentColor" stroke-width="1.5"/></symbol>
+  <symbol id="i-host" viewBox="0 0 24 24"><rect x="3.6" y="4.6" width="16.8" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3.6" y="13.4" width="16.8" height="6" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M7 7.6v.1M7 16.4v.1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M4.8 20c.6-3.6 3.5-6 7.2-6s6.6 2.4 7.2 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></symbol>
+</svg>
+
+<header class="demo-top">
+  <a class="brand" href="demo.html">
+    <img src="../assets/mark.svg" alt="" width="24" height="24">
+    <span class="brand-name">AIDriven NetDefense</span><span class="brand-sub">B1 设计系统 · demo</span>
+  </a>
+  <div class="demo-controls">
+    <span id="theme-slot"></span>
+    <span id="density-slot"></span>
+    <a class="demo-note" href="?panel=contrast">对比度表</a>
+    <a class="demo-note" href="?panel=table">虚拟滚动</a>
+    <a class="demo-note" href="?panel=layers">弹层</a>
+    <a class="demo-note" href="?panel=selftest&amp;autorun=1">自检</a>
+  </div>
+</header>
+
+<nav class="demo-jump" aria-label="demo 分区">
+  <a href="#tokens">Token</a>
+  <a href="#contrast">AA 对比度</a>
+  <a href="#buttons">按钮</a>
+  <a href="#badges">标签</a>
+  <a href="#cards">卡片</a>
+  <a href="#table">表格</a>
+  <a href="#forms">表单</a>
+  <a href="#tabs">Tabs</a>
+  <a href="#states">状态</a>
+  <a href="#icons">图标</a>
+  <a href="#layers">弹层</a>
+  <a href="#selftest">自检</a>
+</nav>
+
+<main class="demo-main" id="demo-main">
+
+  <section class="demo-sec" id="tokens" data-panel="tokens">
+    <h2>设计 token <small>tokens.css · 暗色 / 亮色两套</small></h2>
+    <p class="demo-hint">颜色 token 实测值来自 <code>getComputedStyle</code>；切换右上角主题后本区块与对比度表同步刷新。</p>
+    <div id="tokens-swatches" class="demo-swatches"></div>
+    <h3 class="demo-sub">间距 / 字号 / 圆角</h3>
+    <div id="tokens-scale"></div>
+  </section>
+
+  <section class="demo-sec" id="contrast" data-panel="contrast">
+    <h2>AA 对比度实测 <small>WCAG 2.x：文本 4.5:1 · 大字/图标 3:1 · 焦点环 3:1</small></h2>
+    <p class="demo-hint">
+      下表不是手填数字：页面加载后由脚本读取当前两套主题的真实 token 值并计算 WCAG 相对亮度比值；
+      失败行整行标红。复测：<button id="contrast-recheck" type="button" class="ui-btn" data-variant="secondary" data-size="sm">重新实测</button>
+    </p>
+    <div class="ratio-summary" id="contrast-summary"></div>
+    <div id="contrast-table"></div>
+    <pre class="demo-pre" id="contrast-raw">测量中…</pre>
+  </section>
+
+  <section class="demo-sec" id="buttons" data-panel="buttons">
+    <h2>按钮 <small>button.js · 4 variant × 3 size + busy/disabled</small></h2>
+    <h3 class="demo-sub">variant</h3>
+    <div class="demo-row" id="buttons-variants"></div>
+    <h3 class="demo-sub">size / 图标</h3>
+    <div class="demo-row" id="buttons-sizes"></div>
+    <h3 class="demo-sub">状态</h3>
+    <div class="demo-row" id="buttons-states"></div>
+  </section>
+
+  <section class="demo-sec" id="badges" data-panel="badges">
+    <h2>标签 <small>badge.js · severityBadge / statusBadge</small></h2>
+    <div class="demo-row" id="badges-tones"></div>
+    <div class="demo-row" id="badges-sev" style="margin-top: var(--sp-3)"></div>
+    <div class="demo-row" id="badges-status" style="margin-top: var(--sp-3)"></div>
+  </section>
+
+  <section class="demo-sec" id="cards" data-panel="cards">
+    <h2>卡片与指标 <small>card.js</small></h2>
+    <div class="demo-grid" id="cards-host"></div>
+    <h3 class="demo-sub">stat</h3>
+    <div class="demo-grid" id="stats-host"></div>
+  </section>
+
+  <section class="demo-sec" id="table" data-panel="table">
+    <h2>表格 / 虚拟滚动 <small>table.js · threshold=200 · 固定行高 + overscan</small></h2>
+    <p class="demo-hint">
+      服务端仍用 keyset cursor 分页（每页 ≤100），前端"加载更多"扩展工作集后再本地排序/筛选；
+      5000 行时只渲染可视窗 ± overscan，保留 <code>&lt;table&gt;</code> 语义与固定行高。
+    </p>
+    <div class="table-demo-head">
+      <button id="gen-5000" type="button" class="ui-btn" data-variant="primary">生成 5000 行并测量 DOM</button>
+      <button id="gen-150" type="button" class="ui-btn">生成 150 行（全渲染对照）</button>
+      <button id="gen-empty" type="button" class="ui-btn">空结果</button>
+      <button id="gen-loading" type="button" class="ui-btn">加载中</button>
+    </div>
+    <pre class="demo-pre" id="table-measure">尚未测量</pre>
+    <div id="table-host" style="margin-top: var(--sp-3)"></div>
+    <h3 class="demo-sub">小表（全渲染）</h3>
+    <div id="table-small"></div>
+  </section>
+
+  <section class="demo-sec" id="forms" data-panel="forms">
+    <h2>表单 <small>field.js · input / textarea / checkbox / secretInput</small></h2>
+    <div class="demo-grid" id="forms-host"></div>
+    <h3 class="demo-sub">toggle / select / segmented</h3>
+    <div class="demo-row" id="forms-inline"></div>
+  </section>
+
+  <section class="demo-sec" id="tabs" data-panel="tabs">
+    <h2>Tabs <small>tabs.js · roving tabindex（←/→/Home/End）</small></h2>
+    <div id="tabs-host"></div>
+    <p class="demo-hint" style="margin-top: var(--sp-2)" id="tabs-output">当前：—</p>
+  </section>
+
+  <section class="demo-sec" id="states" data-panel="states">
+    <h2>状态 <small>skeleton.js · empty.js · progress.js</small></h2>
+    <div class="demo-grid">
+      <div>
+        <h3 class="demo-sub">skeleton</h3>
+        <div id="skeleton-host"></div>
+      </div>
+      <div>
+        <h3 class="demo-sub">empty</h3>
+        <div id="empty-host"></div>
+      </div>
+      <div>
+        <h3 class="demo-sub">progress</h3>
+        <div class="stack" id="progress-host"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="demo-sec" id="icons" data-panel="icons">
+    <h2>图标集 <small>dom.js icon() · 内联 sprite &lt;symbol id="i-*"&gt;</small></h2>
+    <p class="demo-hint">全部图标由本页 sprite 定义；index.html 内联同一份，页面用 <code>&lt;use href="#i-*"&gt;</code> 引用。</p>
+    <div class="icon-grid" id="icons-host"></div>
+  </section>
+
+  <section class="demo-sec" id="layers" data-panel="layers">
+    <h2>弹层 <small>drawer.js / modal.js / toast.js · 三关关闭 + focus trap</small></h2>
+    <p class="demo-hint">
+      三关 = 标题栏 X / 点击遮罩 / Esc；focus trap 让 Tab 在面板内循环；关闭后焦点回到触发按钮（会 toast 播报）。
+      打开后可用键盘验证：Tab 循环、Esc 关闭、焦点回到本按钮。
+    </p>
+    <div class="demo-row" id="layers-host"></div>
+    <h3 class="demo-sub">toast</h3>
+    <div class="demo-row" id="toasts-host"></div>
+  </section>
+
+  <section class="demo-sec" id="selftest" data-panel="selftest">
+    <h2>自检 <small>可用 <code>?panel=selftest&amp;autorun=1</code> 复跑（结果同时写入 DOM 供 --dump-dom 断言）</small></h2>
+    <div id="selftest-summary"></div>
+    <ol class="check-list" id="selftest-list"></ol>
+    <pre class="demo-pre" id="selftest-json">未运行</pre>
+  </section>
+
+</main>
+
+<div id="drawer-root"></div><div id="modal-root"></div><div id="toast-root" aria-live="polite"></div>
+
+<script type="module">
+/*
+ * B1 设计系统 demo · 自检 + 验收证据
+ * 所有 DOM 均由 el()/组件构造，本文件零 innerHTML（可被 B11 grep 断言）。
+ */
+import { el, icon, cls } from '../js/components/ui/dom.js';
+import { button } from '../js/components/ui/button.js';
+import { card, stat } from '../js/components/ui/card.js';
+import { table } from '../js/components/ui/table.js';
+import { drawer } from '../js/components/ui/drawer.js';
+import { modal } from '../js/components/ui/modal.js';
+import { toast, toastHost } from '../js/components/ui/toast.js';
+import { field, input, textarea, checkbox, secretInput } from '../js/components/ui/field.js';
+import { tabs } from '../js/components/ui/tabs.js';
+import { badge, severityBadge, statusBadge } from '../js/components/ui/badge.js';
+import { skeleton } from '../js/components/ui/skeleton.js';
+import { empty } from '../js/components/ui/empty.js';
+import { toggle } from '../js/components/ui/toggle.js';
+import { select } from '../js/components/ui/select.js';
+import { segmented } from '../js/components/ui/segmented.js';
+import { progress } from '../js/components/ui/progress.js';
+
+const params = new URLSearchParams(location.search);
+const host = (id) => document.getElementById(id);
+const toasts = toastHost('toast-root');
+const report = { contrast: null, table: null, selftest: null };
+
+/* ---------------- 主题 / 密度 ---------------- */
+const themeSeg = segmented({
+  options: [{ value: 'dark', label: '暗色' }, { value: 'light', label: '亮色' }],
+  value: document.body.dataset.theme,
+  ariaLabel: '主题',
+  onChange: (value) => {
+    document.body.dataset.theme = value;
+    renderTokens();
+    renderContrast();
+  },
+});
+host('theme-slot').appendChild(themeSeg);
+
+const densitySeg = segmented({
+  options: [{ value: 'comfortable', label: '舒适' }, { value: 'compact', label: '紧凑' }],
+  value: document.body.dataset.density,
+  ariaLabel: '密度',
+  onChange: (value) => {
+    document.body.dataset.density = value;
+  },
+});
+host('density-slot').appendChild(densitySeg);
+
+/* ---------------- Token ---------------- */
+const COLOR_TOKENS = [
+  ['--c-bg', '背景'], ['--c-bg-elev', '抬升背景'], ['--c-surface', '卡片'],
+  ['--c-border', '边框'], ['--c-border-strong', '强边框'], ['--c-input-border', '控件边框'],
+  ['--c-text', '主文本'], ['--c-text-muted', '次文本'], ['--c-text-faint', '弱文本'],
+  ['--c-accent', '强调'], ['--c-accent-hover', '强调-悬停'], ['--c-accent-contrast', '强调上文字'],
+  ['--c-danger', '危险'], ['--c-warn', '警告'], ['--c-ok', '成功'], ['--c-info', '信息'],
+  ['--c-focus', '焦点环'],
+  ['--c-sev-critical', '严重-最高'], ['--c-sev-high', '严重-高'], ['--c-sev-medium', '严重-中'],
+  ['--c-sev-low', '严重-低'], ['--c-sev-info', '严重-信息'],
+];
+
+function tokenValue(name) {
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
+}
+
+function renderTokens() {
+  const target = host('tokens-swatches');
+  target.replaceChildren();
+  for (const [name, label] of COLOR_TOKENS) {
+    const value = tokenValue(name);
+    target.appendChild(
+      el('div', { class: 'swatch' }, [
+        el('div', { class: 'swatch__chip', style: { '--swatch': 'var(' + name + ')' } }),
+        el('div', {}, [el('strong', { text: label })]),
+        el('code', { text: name }),
+        el('code', { text: value || '—' }),
+      ]),
+    );
+  }
+
+  const scale = host('tokens-scale');
+  scale.replaceChildren();
+  for (let i = 1; i <= 8; i += 1) {
+    const name = '--sp-' + i;
+    const px = parseInt(tokenValue(name), 10) || 0;
+    scale.appendChild(
+      el('div', { class: 'scale-row' }, [
+        el('code', { text: name, style: { '--scale-w': '' } }),
+        el('span', { class: 'scale-bar', style: { '--scale-w': px + 'px' } }),
+        el('span', { text: px + 'px' }),
+      ]),
+    );
+  }
+  const fsRow = el('div', { class: 'scale-row' }, [el('code', { text: '字号：' })]);
+  for (const token of ['--fs-xs', '--fs-sm', '--fs-base', '--fs-md', '--fs-lg', '--fs-xl', '--fs-2xl']) {
+    fsRow.appendChild(el('code', { text: token.replace('--fs-', '') + '=' + tokenValue(token) }));
+  }
+  scale.appendChild(fsRow);
+  const rRow = el('div', { class: 'scale-row' }, [el('code', { text: '圆角：' })]);
+  for (const token of ['--r-xs', '--r-sm', '--r-md', '--r-lg', '--r-pill']) {
+    rRow.appendChild(el('code', { text: token.replace('--r-', '') + '=' + tokenValue(token) }));
+  }
+  scale.appendChild(rRow);
+  const mRow = el('div', { class: 'scale-row' }, [el('code', { text: '动效：' })]);
+  for (const token of ['--dur-fast', '--dur-base', '--dur-slow']) {
+    mRow.appendChild(el('code', { text: token.replace('--dur-', '') + '=' + tokenValue(token) }));
+  }
+  mRow.appendChild(el('code', { text: 'reduce=' + (matchMedia('(prefers-reduced-motion: reduce)').matches ? '是' : '否') }));
+  scale.appendChild(mRow);
+}
+
+/* ---------------- AA 对比度实测 ---------------- */
+const MEASURE_TOKENS = [
+  '--c-bg', '--c-bg-elev', '--c-surface', '--c-text', '--c-text-muted', '--c-text-faint',
+  '--c-accent', '--c-accent-hover', '--c-accent-contrast', '--c-danger', '--c-warn', '--c-ok',
+  '--c-info', '--c-focus', '--c-input-border',
+];
+
+function parseColor(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return null;
+  if (raw.startsWith('#')) {
+    const hex = raw.slice(1);
+    if (hex.length === 3) {
+      return { r: parseInt(hex[0] + hex[0], 16), g: parseInt(hex[1] + hex[1], 16), b: parseInt(hex[2] + hex[2], 16), a: 1 };
+    }
+    if (hex.length === 6) {
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+        a: 1,
+      };
+    }
+    return null;
+  }
+  const match = raw.match(/^rgba?\(([^)]+)\)$/i);
+  if (!match) return null;
+  const parts = match[1].split(/[\s,/]+/).filter(Boolean).map(Number);
+  if (parts.length < 3 || parts.some((n) => !Number.isFinite(n))) return null;
+  return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] === undefined ? 1 : parts[3] };
+}
+
+function composite(fg, bg) {
+  if (!fg || fg.a >= 1) return fg;
+  return {
+    r: fg.r * fg.a + bg.r * (1 - fg.a),
+    g: fg.g * fg.a + bg.g * (1 - fg.a),
+    b: fg.b * fg.a + bg.b * (1 - fg.a),
+    a: 1,
+  };
+}
+
+function luminance(color) {
+  const channel = (c) => {
+    const v = c / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  return 0.2126 * channel(color.r) + 0.7152 * channel(color.g) + 0.0722 * channel(color.b);
+}
+
+function contrastRatio(fgRaw, bgRaw) {
+  const bg = parseColor(bgRaw);
+  const fg = composite(parseColor(fgRaw), bg);
+  if (!fg || !bg) return null;
+  const a = luminance(fg);
+  const b = luminance(bg);
+  const hi = Math.max(a, b);
+  const lo = Math.min(a, b);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+function readThemeTokens(theme) {
+  const before = document.body.dataset.theme;
+  document.body.dataset.theme = theme;
+  const values = {};
+  for (const name of MEASURE_TOKENS) values[name] = tokenValue(name);
+  for (const sev of ['critical', 'high', 'medium', 'low', 'info']) {
+    values['--c-sev-' + sev] = tokenValue('--c-sev-' + sev);
+    values['--c-sev-' + sev + '-bg'] = tokenValue('--c-sev-' + sev + '-bg');
+  }
+  values['--c-surface'] = tokenValue('--c-surface');
+  document.body.dataset.theme = before;
+  return values;
+}
+
+const CONTRAST_GROUPS = [
+  {
+    label: '正文文本 / 三种底色', min: 4.5,
+    pairs: [
+      ['--c-text', ['--c-bg', '--c-bg-elev', '--c-surface'], '主文本'],
+      ['--c-text-muted', ['--c-bg', '--c-bg-elev', '--c-surface'], '次文本'],
+      ['--c-text-faint', ['--c-bg', '--c-bg-elev', '--c-surface'], '弱文本'],
+    ],
+  },
+  {
+    label: '强调与语义色 / 卡片', min: 4.5,
+    pairs: [
+      ['--c-accent', ['--c-surface'], '强调'],
+      ['--c-accent-hover', ['--c-surface'], '强调-悬停'],
+      ['--c-danger', ['--c-surface'], '危险'],
+      ['--c-warn', ['--c-surface'], '警告'],
+      ['--c-ok', ['--c-surface'], '成功'],
+      ['--c-info', ['--c-surface'], '信息'],
+    ],
+  },
+  {
+    label: '按钮文字', min: 4.5,
+    pairs: [['--c-accent-contrast', ['--c-accent'], '强调上文字']],
+  },
+  {
+    label: '大字 / 图标（门槛 3:1）', min: 3,
+    pairs: [['--c-text-faint', ['--c-surface'], '弱文本（大字）']],
+  },
+  {
+    label: '焦点环 / 相邻色（门槛 3:1）', min: 3,
+    pairs: [['--c-focus', ['--c-bg', '--c-bg-elev', '--c-surface'], '焦点环']],
+  },
+  {
+    label: '严重度标签 / 12%(暗) · 10%(亮) 底', min: 4.5, severity: true,
+    pairs: [],
+  },
+];
+
+function measureContrast() {
+  const results = [];
+  for (const theme of ['dark', 'light']) {
+    const tokens = readThemeTokens(theme);
+    for (const group of CONTRAST_GROUPS) {
+      if (group.severity) {
+        for (const sev of ['critical', 'high', 'medium', 'low', 'info']) {
+          const fgName = '--c-sev-' + sev;
+          const bgName = fgName + '-bg';
+          const bgRaw = composite(parseColor(tokens[bgName]), parseColor(tokens['--c-surface']));
+          const ratio = contrastRatio(tokens[fgName], 'rgb(' + bgRaw.r + ' ' + bgRaw.g + ' ' + bgRaw.b + ')');
+          results.push({
+            theme, group: group.label, label: 'sev-' + sev, fgName, bgName,
+            ratio, min: group.min, pass: ratio != null && ratio >= group.min,
+          });
+        }
+        continue;
+      }
+      for (const [fgName, bgNames, label] of group.pairs) {
+        for (const bgName of bgNames) {
+          const ratio = contrastRatio(tokens[fgName], tokens[bgName]);
+          results.push({
+            theme, group: group.label, label, fgName, bgName,
+            ratio, min: group.min, pass: ratio != null && ratio >= group.min,
+          });
+        }
+      }
+    }
+  }
+  const total = results.length;
+  const passed = results.filter((r) => r.pass).length;
+  report.contrast = { total, pass: passed, fail: total - passed, results };
+  return report.contrast;
+}
+
+function renderContrast() {
+  const data = measureContrast();
+  const summary = host('contrast-summary');
+  summary.replaceChildren(
+    badge({ tone: data.fail === 0 ? 'ok' : 'danger', text: data.fail === 0 ? '全部通过' : '存在失败项' }),
+    el('strong', { text: '通过 ' + data.pass + ' / ' + data.total + ' 项' }),
+    el('span', { class: 'demo-note', text: '暗色 + 亮色两套 token 现场计算（WCAG 2.x 相对亮度）' }),
+  );
+
+  const thead = el('thead', null, [
+    el('tr', null, ['主题', '分组', '对象', '前景 token', '背景 token', '实测比值', '门槛', '结果'].map((label) =>
+      el('th', { scope: 'col', text: label })),
+    ),
+  ]);
+  const tbody = el('tbody', null, data.results.map((row) =>
+    el('tr', { data: { fail: row.pass ? null : 'true' } }, [
+      el('td', { text: row.theme }),
+      el('td', { text: row.group }),
+      el('td', { text: row.label }),
+      el('td', {}, [el('code', { text: row.fgName })]),
+      el('td', {}, [el('code', { text: row.bgName })]),
+      el('td', { class: 'num', text: row.ratio == null ? '—' : row.ratio.toFixed(2) + ':1' }),
+      el('td', { class: 'num', text: row.min + ':1' }),
+      el('td', {}, [badge({ tone: row.pass ? 'ok' : 'danger', text: row.pass ? 'PASS' : 'FAIL' })]),
+    ]),
+  ));
+  host('contrast-table').replaceChildren(el('table', { class: 'ratio-table' }, [thead, tbody]));
+
+  const lines = data.results.map(
+    (row) => row.theme + ' ' + row.fgName + ' on ' + row.bgName + ' = ' + row.ratio.toFixed(2) + ':1 (min ' + row.min + ') ' + (row.pass ? 'PASS' : 'FAIL'),
+  );
+  host('contrast-raw').textContent =
+    'AA-CONTRAST total=' + data.total + ' pass=' + data.pass + ' fail=' + data.fail + '\n' + lines.join('\n');
+  window.__B1_DEMO__ = report;
+}
+
+/* ---------------- 按钮 ---------------- */
+function renderButtons() {
+  const variants = host('buttons-variants');
+  for (const variant of ['primary', 'secondary', 'ghost', 'danger']) {
+    variants.appendChild(button({ label: variant, variant }));
+  }
+  variants.appendChild(button({ label: '带图标', variant: 'primary', icon: 'plus' }));
+
+  const sizes = host('buttons-sizes');
+  for (const size of ['sm', 'md', 'lg']) {
+    sizes.appendChild(button({ label: 'size=' + size, size, icon: 'search' }));
+  }
+  sizes.appendChild(button({ icon: 'refresh', ariaLabel: '刷新' }));
+  sizes.appendChild(button({ icon: 'close', ariaLabel: '关闭', variant: 'ghost' }));
+
+  const states = host('buttons-states');
+  states.appendChild(button({ label: '忙碌中', busy: true }));
+  states.appendChild(button({ label: '禁用', disabled: true }));
+  states.appendChild(button({ label: '危险操作', variant: 'danger', icon: 'trash', onClick: () => toasts.show({ kind: 'warn', text: '危险操作按钮（demo）' }) }));
+  states.appendChild(button({ label: '点击弹 toast', variant: 'secondary', onClick: () => toasts.show({ kind: 'ok', text: '按钮 onClick 正常' }) }));
+}
+
+/* ---------------- 标签 ---------------- */
+function renderBadges() {
+  const tones = host('badges-tones');
+  for (const tone of ['neutral', 'accent', 'ok', 'warn', 'danger', 'info']) {
+    tones.appendChild(badge({ tone, text: 'tone=' + tone }));
+  }
+  const sev = host('badges-sev');
+  for (const value of ['critical', 'high', 'medium', 'low', 'info']) {
+    sev.appendChild(severityBadge(value, 'severity.' + value));
+  }
+  const status = host('badges-status');
+  for (const value of ['new', 'acknowledged', 'resolved', 'suppressed']) {
+    status.appendChild(statusBadge(value, 'status.' + value));
+  }
+}
+
+/* ---------------- 卡片 ---------------- */
+function renderCards() {
+  const cardsHost = host('cards-host');
+  cardsHost.appendChild(card({
+    title: '卡片标题',
+    note: 'note 说明文字（次文本色）',
+    actions: [button({ label: '操作', size: 'sm' })],
+    body: el('p', { text: '卡片 body 区域。标题/说明/操作在全渲染与紧密度变化下都不换行溢出。' }),
+  }));
+  cardsHost.appendChild(card({
+    title: '纯内容卡片',
+    plain: true,
+    body: el('pre', { text: 'plain=true 去掉分隔线\nbody 支持任意 DOM 节点' }),
+  }));
+
+  const statsHost = host('stats-host');
+  statsHost.appendChild(stat({ label: '告警总数', value: '1,284', sub: '最近 24h' }));
+  statsHost.appendChild(stat({ label: '严重', value: '17', sub: 'critical', tone: 'danger' }));
+  statsHost.appendChild(stat({ label: '成功', value: '99.2%', sub: '采集成功率', tone: 'ok' }));
+  statsHost.appendChild(stat({ label: '用量', value: '—', sub: '尚无用量记录', tone: 'info' }));
+}
+
+/* ---------------- 表格 ---------------- */
+const BIG_COLUMNS = [
+  { key: 'alert_id', label: '告警 ID', width: '140px', sortable: true, mono: true },
+  { key: 'rule', label: '规则', width: '120px', sortable: true, mono: true },
+  { key: 'severity', label: '严重度', width: '110px', sortable: true, render: (row) => severityBadge(row.severity, row.severity) },
+  { key: 'status', label: '状态', width: '120px', render: (row) => statusBadge(row.status, row.status) },
+  { key: 'count', label: '次数', width: '80px', align: 'right', sortable: true },
+  { key: 'last_seen', label: '最近时间', width: '180px', sortable: true, mono: true },
+  { key: 'host', label: '主机', width: '120px', render: () => '未提供' },
+];
+
+function makeRows(count) {
+  const severities = ['critical', 'high', 'medium', 'low', 'info'];
+  const statuses = ['new', 'acknowledged', 'resolved', 'suppressed'];
+  const rows = [];
+  for (let i = 0; i < count; i += 1) {
+    rows.push({
+      id: 'row-' + i,
+      alert_id: 'a_' + String(100000 + i),
+      rule: 'rule-' + ((i % 17) + 1),
+      severity: severities[i % severities.length],
+      status: statuses[i % statuses.length],
+      count: (i * 7) % 97,
+      last_seen: new Date(Date.UTC(2026, 10, 4, 12, 0, 0) - i * 1000).toISOString(),
+      host: '',
+    });
+  }
+  return rows;
+}
+
+let bigRows = [];
+let sortState = { key: 'last_seen', dir: 'desc' };
+
+function sortedRows() {
+  const rows = bigRows.slice();
+  if (!sortState || !sortState.key) return rows;
+  const key = sortState.key;
+  const factor = sortState.dir === 'desc' ? -1 : 1;
+  rows.sort((a, b) => {
+    const av = a[key];
+    const bv = b[key];
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * factor;
+    return String(av).localeCompare(String(bv)) * factor;
+  });
+  return rows;
+}
+
+function measureTableDom() {
+  const tableEl = host('table-host').querySelector('.ui-table');
+  if (!tableEl) return null;
+  const dataRows = tableEl.querySelectorAll('tbody tr[data-row="true"]').length;
+  const padRows = tableEl.querySelectorAll('tbody tr.ui-table__pad').length;
+  const bodyRows = tableEl.querySelectorAll('tbody tr').length;
+  const elements = tableEl.querySelectorAll('*').length;
+  const result = { dataRows, padRows, bodyRows, elements, limit: 300, pass: bodyRows < 300 };
+  report.table = result;
+  window.__B1_DEMO__ = report;
+  host('table-measure').textContent =
+    'ROWS ' + dataRows + ' 行数据 · 垫片 ' + padRows + ' · tbody tr 合计 ' + bodyRows +
+    ' · 表格内元素总数 ' + elements + '\n' +
+    '阈值 threshold=200，' + dataRows + '+ 行数据集：tbody tr 合计 < 300 → ' + (result.pass ? 'PASS' : 'FAIL') +
+    '\n可复现：点击「生成 5000 行并测量 DOM」或直接访问 ?panel=table&autorun=1';
+  return result;
+}
+
+function renderBigTable() {
+  const rows = sortedRows();
+  const node = table({
+    columns: BIG_COLUMNS,
+    rows,
+    rowKey: (row) => row.id,
+    sort: sortState,
+    onSort: ({ key, dir }) => {
+      sortState = { key, dir };
+      renderBigTable();
+    },
+    onRowClick: (row) => toasts.show({ kind: 'info', text: '行点击：' + row.alert_id, ttl: 2500 }),
+    empty: { title: '暂无告警', body: '当前筛选条件下没有数据。' },
+  });
+  host('table-host').replaceChildren(node);
+  // 立即测一次（DOM 行数不依赖布局），布局完成后再测一次拿真实元素总数
+  measureTableDom();
+  requestAnimationFrame(() => setTimeout(measureTableDom, 0));
+}
+
+function renderSmallTable() {
+  const rows = makeRows(6);
+  host('table-small').appendChild(
+    table({
+      columns: BIG_COLUMNS.slice(0, 5),
+      rows,
+      rowKey: (row) => row.id,
+      sort: { key: 'count', dir: 'desc' },
+      onSort: () => toasts.show({ kind: 'info', text: '小表排序回调（demo 不重排）', ttl: 2000 }),
+    }),
+  );
+}
+
+function fillBig(count) {
+  bigRows = makeRows(count);
+  renderBigTable();
+}
+
+/* ---------------- 表单 ---------------- */
+function renderForms() {
+  const forms = host('forms-host');
+  forms.appendChild(field({
+    label: '规则 ID',
+    hint: '示例：rule-7（仅前端演示）',
+    control: input({ placeholder: 'rule-…', mono: true }),
+  }));
+  forms.appendChild(field({
+    label: '必填说明',
+    required: true,
+    control: input({ placeholder: 'required 会标注 *' }),
+  }));
+  forms.appendChild(field({
+    label: '校验失败示例',
+    error: '该字段不合法（demo）',
+    control: input({ value: 'bad-value' }),
+  }));
+  forms.appendChild(field({
+    label: '多行备注',
+    hint: 'textarea 支持 resize: vertical',
+    control: textarea({ rows: 3, placeholder: '说明…' }),
+  }));
+  forms.appendChild(field({
+    label: 'Provider API Key',
+    hint: '明文只存在 input.value；不落 localStorage/日志（合同 §4）',
+    control: secretInput({ placeholder: 'sk-…', showLabel: '显示密钥', hideLabel: '隐藏密钥' }),
+  }));
+  forms.appendChild(
+    field({
+      label: '启用采集',
+      hint: 'checkbox 原生语义',
+      control: checkbox({ label: '我已知晓该操作会触发一次采集', checked: true }),
+    }),
+  );
+
+  const inline = host('forms-inline');
+  inline.appendChild(toggle({ label: '自动刷新', checked: true, onChange: (next) => toasts.show({ kind: 'ok', text: 'toggle → ' + next, ttl: 1800 }) }));
+  inline.appendChild(select({
+    options: [
+      { value: 'tiered', label: 'tiered（分层）' },
+      { value: 'uniform', label: 'uniform（统一模型）' },
+    ],
+    value: 'tiered',
+    placeholder: '选择路由模式',
+    onChange: (value) => toasts.show({ kind: 'info', text: 'select → ' + value, ttl: 1800 }),
+  }));
+}
+
+/* ---------------- Tabs ---------------- */
+function renderTabs() {
+  host('tabs-host').appendChild(tabs({
+    items: [
+      { id: 'collection', label: '采集', badge: '3' },
+      { id: 'detection', label: '检测' },
+      { id: 'response', label: '响应', disabled: true },
+    ],
+    active: 'collection',
+    onChange: (id) => {
+      host('tabs-output').textContent = '当前：' + id;
+    },
+  }));
+}
+
+/* ---------------- 状态 ---------------- */
+function renderStates() {
+  host('skeleton-host').appendChild(skeleton({ lines: 4, height: 14 }));
+  host('empty-host').appendChild(empty({
+    title: '暂无数据',
+    body: '空态必须给出下一步，而不是一片空白。',
+    actionLabel: '重新加载',
+    onAction: () => toasts.show({ kind: 'ok', text: 'empty action 回调' }),
+  }));
+  host('progress-host').appendChild(progress({ value: 42, max: 100, label: '加载进度' }));
+  host('progress-host').appendChild(progress({ value: 90, max: 100, label: '接近完成', tone: 'warn' }));
+  host('progress-host').appendChild(progress({ label: '不确定态（value=null）' }));
+}
+
+/* ---------------- 图标 ---------------- */
+function renderIcons() {
+  const target = host('icons-host');
+  const names = [];
+  for (const symbol of document.querySelectorAll('svg.sprite symbol')) {
+    const id = symbol.getAttribute('id') || '';
+    if (!id.startsWith('i-')) continue;
+    const name = id.slice(2);
+    names.push(name);
+    target.appendChild(el('div', { class: 'icon-cell' }, [icon(name), el('code', { text: name })]));
+  }
+  target.appendChild(el('p', { class: 'demo-note', text: '共 ' + names.length + ' 个图标' }));
+  report.icons = names;
+}
+
+/* ---------------- 弹层 ---------------- */
+let lastDrawerClose = '';
+function openDrawer(trigger) {
+  lastDrawerClose = '';
+  const node = drawer({
+    title: '告警详情抽屉',
+    closeLabel: '关闭抽屉',
+    body: el('div', { class: 'stack' }, [
+      el('p', { text: '抽屉内容区。Esc / X / 遮罩 三种方式都能关闭；Tab 在面板内循环。' }),
+      el('div', { class: 'demo-row' }, [
+        field({ label: '备注', control: input({ placeholder: '…' }) }),
+      ]),
+      el('p', { class: 'demo-note', text: '关闭后焦点应回到打开它的按钮。' }),
+    ]),
+    onClose: (reason) => {
+      lastDrawerClose = reason;
+      const back = document.activeElement === trigger;
+      toasts.show({
+        kind: back ? 'ok' : 'warn',
+        text: '抽屉关闭（' + reason + '）· 焦点回到触发按钮：' + (back ? '是' : '否'),
+        ttl: 3200,
+      });
+    },
+  });
+  return node;
+}
+
+let lastModalClose = '';
+function openModal(trigger, destructive) {
+  lastModalClose = '';
+  return modal({
+    title: destructive ? '确认删除该 Provider？' : '示例弹窗',
+    destructive,
+    closeLabel: '关闭弹窗',
+    body: el('div', { class: 'stack' }, [
+      el('p', {
+        text: destructive
+          ? '该操作会移除已保存的密钥。0.0.1 不执行任何响应动作，本弹窗仅演示交互。'
+          : '弹窗内容区。Esc / X / 遮罩关闭；Tab 在面板内循环；关闭后焦点回到触发按钮。',
+      }),
+      el('div', { class: 'demo-row' }, [
+        field({ label: '会话 ID', control: input({ value: 's_0123456789abcdef0123456789abcdef', mono: true }) }),
+      ]),
+    ]),
+    actions: destructive
+      ? [
+          { label: '取消', variant: 'secondary' },
+          { label: '删除（不执行）', variant: 'danger', onClick: () => toasts.show({ kind: 'info', text: 'EXECUTION_DISABLED：只登记不执行', ttl: 2600 }) },
+        ]
+      : [
+          { label: '取消', variant: 'secondary' },
+          { label: '保存', variant: 'primary', onClick: () => toasts.show({ kind: 'ok', text: '保存回调（demo）', ttl: 2200 }) },
+        ],
+    onClose: (reason) => {
+      lastModalClose = reason;
+      const back = document.activeElement === trigger;
+      toasts.show({
+        kind: back ? 'ok' : 'warn',
+        text: '弹窗关闭（' + reason + '）· 焦点回到触发按钮：' + (back ? '是' : '否'),
+        ttl: 3200,
+      });
+    },
+  });
+}
+
+function renderLayers() {
+  const layers = host('layers-host');
+  const drawerBtn = button({ label: '打开抽屉', icon: 'chevron-right', onClick: () => openDrawer(drawerBtn) });
+  layers.appendChild(drawerBtn);
+  const modalBtn = button({ label: '打开弹窗', icon: 'external', onClick: () => openModal(modalBtn, false) });
+  layers.appendChild(modalBtn);
+  const dangerBtn = button({ label: '打开危险弹窗', variant: 'danger', icon: 'trash', onClick: () => openModal(dangerBtn, true) });
+  layers.appendChild(dangerBtn);
+
+  const toastsHost = host('toasts-host');
+  for (const kind of ['info', 'ok', 'warn', 'danger']) {
+    toastsHost.appendChild(button({
+      label: 'toast ' + kind,
+      variant: 'secondary',
+      onClick: () => toasts.show({ kind, text: '这是一条 ' + kind + ' toast（demo）' }),
+    }));
+  }
+  toastsHost.appendChild(button({
+    label: 'toast + action',
+    variant: 'secondary',
+    onClick: () => toasts.show({
+      kind: 'warn',
+      text: '保存失败，可重试',
+      actionLabel: '重试',
+      onAction: () => toasts.show({ kind: 'ok', text: '已重试（demo）', ttl: 2000 }),
+      ttl: 8000,
+    }),
+  }));
+}
+
+/* ---------------- 自检 ---------------- */
+function selftest() {
+  const results = [];
+  const check = (name, fn) => {
+    let detail = '';
+    let pass = false;
+    try {
+      detail = fn();
+      pass = detail !== false && !(typeof detail === 'string' && detail.startsWith('FAIL'));
+    } catch (error) {
+      detail = '抛错：' + (error && error.message ? error.message : String(error));
+      pass = false;
+    }
+    results.push({ name, pass, detail: String(detail) });
+  };
+
+  check('虚拟滚动 5000 行：tbody tr 合计 < 300', () => {
+    fillBig(5000);
+    const info = measureTableDom();
+    return info ? 'tbody tr=' + info.bodyRows + '（数据行 ' + info.dataRows + '，垫片 ' + info.padRows + '）' : 'FAIL 未生成表格';
+  });
+  check('threshold=200：150 行全渲染', () => {
+    bigRows = makeRows(150);
+    const node = table({ columns: BIG_COLUMNS, rows: bigRows, rowKey: (row) => row.id });
+    host('table-host').replaceChildren(node);
+    const dataRows = host('table-host').querySelectorAll('tbody tr[data-row="true"]').length;
+    return dataRows === 150 ? '150 行全部渲染' : 'FAIL 只渲染了 ' + dataRows + ' 行';
+  });
+  check('[hidden] 真隐藏（旧版 drawer bug 不复现）', () => {
+    const probe = el('div', { hidden: true, text: 'hidden' });
+    document.body.appendChild(probe);
+    const display = getComputedStyle(probe).display;
+    probe.remove();
+    return display === 'none' ? 'computed display=none' : 'FAIL display=' + display;
+  });
+  check('drawer：Esc 关闭 + 焦点回到触发按钮', () => {
+    const trigger = button({ label: 'trigger' });
+    document.body.appendChild(trigger);
+    trigger.focus();
+    const node = drawer({ title: 'selftest', body: el('p', { text: 'x' }) });
+    const closedBefore = node.isOpen === true;
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    const back = document.activeElement === trigger;
+    const gone = node.isOpen === false && node.parentNode === null;
+    trigger.remove();
+    return closedBefore && back && gone ? 'Esc 关闭，焦点已回到触发按钮' : 'FAIL back=' + back + ' gone=' + gone;
+  });
+  check('drawer：遮罩关闭', () => {
+    const node = drawer({ title: 'selftest', body: el('p', { text: 'x' }) });
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return node.isOpen === false ? '点击遮罩关闭' : 'FAIL 仍打开';
+  });
+  check('drawer：X 按钮关闭', () => {
+    const node = drawer({ title: 'selftest', body: el('p', { text: 'x' }) });
+    const closeButton = node.querySelector('.ui-drawer__close');
+    closeButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return node.isOpen === false ? 'X 关闭' : 'FAIL 仍打开';
+  });
+  check('modal：Esc / 遮罩 / X 三关 + focus trap', () => {
+    const trigger = button({ label: 'trigger' });
+    document.body.appendChild(trigger);
+    trigger.focus();
+    const node = openModal(trigger, true);
+    const panel = node.querySelector('.ui-modal__panel');
+    const buttons = panel.querySelectorAll('button');
+    const last = buttons[buttons.length - 1];
+    last.focus();
+    last.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }));
+    const trapped = document.activeElement === buttons[0];
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    const back = document.activeElement === trigger;
+    trigger.remove();
+    return trapped && back && node.isOpen === false ? 'Tab 循环 + Esc 关闭 + 焦点回归' : 'FAIL trapped=' + trapped + ' back=' + back;
+  });
+  check('modal：遮罩关闭', () => {
+    const node = openModal(null, false);
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    return node.isOpen === false ? '点击遮罩关闭' : 'FAIL 仍打开';
+  });
+  check('toggle：role=switch + aria-checked 切换', () => {
+    let seen = null;
+    const node = toggle({ label: 't', checked: false, onChange: (next) => { seen = next; } });
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    const ok = node.getAttribute('role') === 'switch' && node.getAttribute('aria-checked') === 'true' && seen === true;
+    return ok ? 'aria-checked=false → true，onChange(true)' : 'FAIL ' + node.getAttribute('aria-checked') + '/' + seen;
+  });
+  check('tabs：roving tabindex', () => {
+    const hostEl = el('div');
+    const node = tabs({ items: [{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }], active: 'a', onChange: () => {} });
+    hostEl.appendChild(node);
+    const tabButtons = node.querySelectorAll('button');
+    const ok = tabButtons[0].tabIndex === 0 && tabButtons[1].tabIndex === -1 && tabButtons[0].getAttribute('aria-selected') === 'true';
+    return ok ? 'active tab tabindex=0，其余 -1' : 'FAIL tabindex=' + tabButtons[0].tabIndex + '/' + tabButtons[1].tabIndex;
+  });
+  check('segmented：role=radiogroup + 方向键切换', () => {
+    let seen = '';
+    const node = segmented({
+      options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }],
+      value: 'a',
+      onChange: (value) => { seen = value; },
+    });
+    document.body.appendChild(node);
+    node.querySelectorAll('button')[0].focus();
+    node.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }));
+    const ok = node.getAttribute('role') === 'radiogroup' && seen === 'b';
+    node.remove();
+    return ok ? 'ArrowRight → b' : 'FAIL seen=' + seen;
+  });
+  check('progress：aria-valuenow + CSS 变量', () => {
+    const node = progress({ value: 42, max: 100, label: 'p' });
+    document.body.appendChild(node);
+    const bar = node.querySelector('.ui-progress__bar');
+    const width = getComputedStyle(bar).width;
+    const ok = node.getAttribute('aria-valuenow') === '42' && node.getAttribute('aria-valuemax') === '100' && /^\d+(\.\d+)?px$/.test(width);
+    node.remove();
+    return ok ? 'aria-valuenow=42，bar 宽 ' + width : 'FAIL ' + width;
+  });
+  check('对比度：暗/亮两套全部达到门槛', () => {
+    const data = measureContrast();
+    return data.fail === 0 ? data.pass + '/' + data.total + ' 项通过' : 'FAIL ' + data.fail + '/' + data.total + ' 项未达标';
+  });
+  check('图标：每个图标名都有对应 symbol', () => {
+    const defined = new Set(
+      Array.from(document.querySelectorAll('svg.sprite symbol')).map((s) => (s.getAttribute('id') || '').replace(/^i-/, '')),
+    );
+    const missing = (report.icons || []).filter((name) => !defined.has(name));
+    return missing.length === 0 ? (report.icons || []).length + ' 个图标全部有 symbol' : 'FAIL 缺 ' + missing.join(',');
+  });
+
+  const passed = results.filter((row) => row.pass).length;
+  report.selftest = { total: results.length, pass: passed, fail: results.length - passed, results };
+  window.__B1_DEMO__ = report;
+
+  const summary = host('selftest-summary');
+  summary.replaceChildren(
+    badge({ tone: passed === results.length ? 'ok' : 'danger', text: passed === results.length ? '全部通过' : '存在失败' }),
+    el('strong', { text: '通过 ' + passed + ' / ' + results.length + ' 项' }),
+  );
+  const list = host('selftest-list');
+  list.replaceChildren();
+  for (const row of results) {
+    list.appendChild(
+      el('li', {}, [
+        badge({ tone: row.pass ? 'ok' : 'danger', text: row.pass ? 'PASS' : 'FAIL' }),
+        el('span', { text: ' ' + row.name + ' — ' }),
+        el('code', { text: row.detail }),
+      ]),
+    );
+  }
+  host('selftest-json').textContent = 'SELFTEST ' + JSON.stringify(report.selftest);
+}
+
+/* ---------------- 启动 ---------------- */
+const panel = params.get('panel') || '';
+if (panel) {
+  for (const section of document.querySelectorAll('main > section')) {
+    section.hidden = section.dataset.panel !== panel;
+  }
+}
+const themeParam = params.get('theme');
+if (themeParam === 'dark' || themeParam === 'light') document.body.dataset.theme = themeParam;
+const densityParam = params.get('density');
+if (densityParam === 'comfortable' || densityParam === 'compact') document.body.dataset.density = densityParam;
+// 确定性截图：关动画（合同 §7.9 的 static=1 语义；本 demo 侧实现）
+if (params.get('static') === '1') document.documentElement.classList.add('demo-static');
+
+renderTokens();
+renderContrast();
+renderButtons();
+renderBadges();
+renderCards();
+renderForms();
+renderTabs();
+renderStates();
+renderIcons();
+renderLayers();
+renderSmallTable();
+
+host('contrast-recheck').addEventListener('click', renderContrast);
+host('gen-5000').addEventListener('click', () => fillBig(5000));
+host('gen-150').addEventListener('click', () => fillBig(150));
+host('gen-empty').addEventListener('click', () => {
+  host('table-host').replaceChildren(
+    table({ columns: BIG_COLUMNS, rows: [], empty: { title: '暂无告警', body: '空态由 empty 组件渲染。' } }),
+  );
+});
+host('gen-loading').addEventListener('click', () => {
+  host('table-host').replaceChildren(table({ columns: BIG_COLUMNS, rows: [], loading: true }));
+});
+
+const autorun = params.get('autorun') === '1';
+// 只自动执行"当前面板"的动作，避免 selftest 的多次重建抢占首帧（headless 截图需要稳定首帧）
+if (panel === 'table') {
+  setTimeout(() => fillBig(5000), 30);
+} else if (panel === 'selftest') {
+  setTimeout(selftest, 30);
+} else if (autorun) {
+  setTimeout(() => fillBig(5000), 30);
+}
+
+const openTarget = params.get('open');
+if (openTarget === 'drawer') setTimeout(() => openDrawer(null), 60);
+if (openTarget === 'modal') setTimeout(() => openModal(null, false), 60);
+if (openTarget === 'danger') setTimeout(() => openModal(null, true), 60);
+</script>
+</body>
+</html>

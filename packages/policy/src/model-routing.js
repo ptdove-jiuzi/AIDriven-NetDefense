@@ -10,8 +10,12 @@
  * 契约（B 会话按此对接，签名不得改）：
  *
  *   selectRoute(input)
- *     -> { ok: true, mode, tier, modelId, providerId, escalate, reason }
+ *     -> { ok: true, mode, tier, modelId, providerId, escalate, reason, fingerprint, escalatedFrom? }
  *      | { ok: false, code, detail }
+ *
+ * 返回的 `fingerprint` / `escalatedFrom` 就是 ADR-0010 §2.7 要求记进"每次请求记录"的字段：
+ * 判据是它们的唯一权威来源，调用方（daemon → broker 日志）只负责搬运，不负责推导。
+ * uniform 模式不产生 `escalatedFrom`（§2.4.1 第 6 条）。
  *
  * 三条不变量：
  *
@@ -24,7 +28,7 @@
  *
  * 判据顺序固定，`code` 取第一个失败项（顺序 = ADR-0010 §2.5 的排列）：
  * 形态校验 → 模式分派 → [uniform] 解析模型 → [tiered] escalation.enabled → severity 门槛
- * → 结构化结论 → 冷却 → 小时上限 → tier 解析。
+ * → 结构化结论 + evidenceRef → 冷却 → 小时上限 → tier 解析。
  */
 
 /** `routing.mode` 的两个合法取值（ADR-0010 §2.4.1）。 */
@@ -91,6 +95,10 @@ export const HOUR_MS = 60 * 60 * 1000;
 
 const DEFAULT_TIER = 'watch';
 const DETAIL_FINGERPRINT_MAX = 128;
+/** `evidenceRef` 的长度上限：它是"指向证据的短指针"，不是证据本身。 */
+const EVIDENCE_REF_MAX = 512;
+/** 控制字符会破坏单行日志与审计记录，一律拒绝。 */
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/u;
 
 function isPlainObject(value) {
   return value !== null
@@ -101,6 +109,19 @@ function isPlainObject(value) {
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.length > 0;
+}
+
+/**
+ * `evidenceRef` 的**形态**：非空上限 512、不含控制字符。
+ *
+ * 空串与纯空白**不算形态错误**——它们的意思是"没有证据"，由 5.3 归到
+ * `E_NO_STRUCTURED_CONCLUSION`（`evidence_ref_missing`）。这里判成类型错会把
+ * "配置/调用方没给证据"和"给了个非法值"混成一个码，运维读不出来。
+ */
+function isEvidenceRef(value) {
+  if (typeof value !== 'string') return false;
+  if (value.length > EVIDENCE_REF_MAX) return false;
+  return !CONTROL_CHARS.test(value);
 }
 
 function isFiniteNumber(value) {
@@ -132,14 +153,20 @@ function deny(code, detail) {
 /**
  * 成功结果。
  *
+ * `fingerprint` 与 `escalatedFrom` 是**给日志与用量页用的**（ADR-0010 §2.7）：
+ * 判据是这两个字段的唯一权威来源，调用方不该自己再推一遍。
+ * uniform 模式**不产生** `escalatedFrom`（§2.4.1 第 6 条）——它是 `extra` 里没有这个键，
+ * 不是 `null`：用量页按单一 tier 聚合，一张图里混两套口径就是错的。
+ *
  * @param {string} mode `tiered` | `uniform`。
  * @param {string} tier 实际落地的 tier。
  * @param {{ id: string, providerId: string }} model 选中的模型。
  * @param {boolean} escalate 本次是否是升级（uniform 恒 false）。
  * @param {string} reason 稳定的原因串。
- * @returns {{ ok: true, mode: string, tier: string, modelId: string, providerId: string, escalate: boolean, reason: string }} 冻结的成功结果。
+ * @param {{ fingerprint: string, escalatedFrom?: string|null }} extra 记录字段。
+ * @returns {object} 冻结的成功结果。
  */
-function allow(mode, tier, model, escalate, reason) {
+function allow(mode, tier, model, escalate, reason, extra) {
   return Object.freeze({
     ok: true,
     mode,
@@ -148,6 +175,7 @@ function allow(mode, tier, model, escalate, reason) {
     providerId: model.providerId,
     escalate,
     reason,
+    ...extra,
   });
 }
 
@@ -272,6 +300,14 @@ function validateTieredInputs(signal, escalation, recent) {
       reason: 'hasStructuredConclusion must be a boolean',
     });
   }
+  // 形态只查"给了的话是不是一个 ref"；"该不该有"由 5.3 判定（缺 ref 属于升级条件不满足，
+  // 不是输入写错，两者的错误码必须能区分）。
+  if (signal.evidenceRef !== undefined && signal.evidenceRef !== null && !isEvidenceRef(signal.evidenceRef)) {
+    return deny(ROUTE_CODES.MODE_INVALID, {
+      field: 'signal.evidenceRef',
+      reason: 'evidenceRef must be 1..512 characters without control characters',
+    });
+  }
   if (!isPlainObject(escalation)) {
     return deny(ROUTE_CODES.MODE_INVALID, { field: 'escalation', reason: 'escalation must be a plain object' });
   }
@@ -332,11 +368,13 @@ function firstModelAtTier(models, tier) {
  *   uniformModelId: string | null,
  *   defaultTier?: 'watch' | 'triage' | 'respond',
  *   models: { id: string, providerId: string, tier: 'watch'|'triage'|'respond', maxInputTokens?: number, maxOutputTokens?: number }[],
- *   signal: { severity: 'low'|'medium'|'high'|'critical', hasStructuredConclusion: boolean, fingerprint: string, at: number },
+ *   signal: { severity: 'low'|'medium'|'high'|'critical', hasStructuredConclusion: boolean,
+ *     evidenceRef?: string, fingerprint: string, at: number },
  *   escalation: { enabled: boolean, minSeverity: string, cooldownSeconds: number, maxPerHour: number },
  *   recent: { fingerprint: string, at: number }[]
  * }} input 判定输入。不会被修改。
- * @returns {{ ok: true, mode: string, tier: string, modelId: string, providerId: string, escalate: boolean, reason: string }
+ * @returns {{ ok: true, mode: string, tier: string, modelId: string, providerId: string, escalate: boolean,
+ *   reason: string, fingerprint: string, escalatedFrom?: string|null }
  *   | { ok: false, code: string, detail: object }} 冻结结果。永不抛异常。
  */
 export function selectRoute(input) {
@@ -433,7 +471,10 @@ function route(input) {
     }
     // 4.3 忽略 severity 与冷却：任意告警都走同一个模型，escalate 恒为 false，
     //     且不产生 escalatedFrom（§2.4.1 第 6 条）—— 因此这里连 recent 都不读。
-    return allow(mode, selected.tier, selected, false, ROUTE_REASONS.UNIFORM);
+    return allow(mode, selected.tier, selected, false, ROUTE_REASONS.UNIFORM, {
+      // 不产生 escalatedFrom（§2.4.1 第 6 条）：键不出现，而不是出现一个 null。
+      fingerprint: input.signal.fingerprint,
+    });
   }
 
   /* ---- 5. tiered 分支 ------------------------------------------------ */
@@ -460,7 +501,11 @@ function route(input) {
         reason: 'no model declared for the default tier',
       });
     }
-    return allow(mode, defaultTier, model, false, reason);
+    return allow(mode, defaultTier, model, false, reason, {
+      fingerprint: signal.fingerprint,
+      // 明确写 null：日志里"没有升级"与"不知道有没有升级"是两件事。
+      escalatedFrom: null,
+    });
   };
 
   // 5.1 显式关闭升级：停在 defaultTier，不看 severity/冷却/上限。
@@ -477,12 +522,22 @@ function route(input) {
     });
   }
 
-  // 5.3 §2.5 第 2 条：watch 必须已产出结构化结论。缺它就不升级 —— 把原始日志整包
-  //     塞给大模型既贵又把敏感数据整包送出，是 ADR 明令禁止的升级方式。
+  // 5.3 §2.5 第 2 条：watch 必须已产出结构化结论**并附带 evidenceRef**。缺它就不升级 ——
+  //     把原始日志整包塞给大模型既贵又把敏感数据整包送出，是 ADR 明令禁止的升级方式。
+  //     两个条件同属一条判据，因此共用 E_NO_STRUCTURED_CONCLUSION，靠 detail.reason 区分：
+  //     `not_structured`（连结论都没有）与 `evidence_ref_missing`（有结论但拿不出证据）。
   if (signal.hasStructuredConclusion !== true) {
     return deny(ROUTE_CODES.NO_STRUCTURED_CONCLUSION, {
       fingerprint: signal.fingerprint.slice(0, DETAIL_FINGERPRINT_MAX),
       severity: signal.severity,
+      reason: 'not_structured',
+    });
+  }
+  if (signal.evidenceRef === undefined || signal.evidenceRef === null || signal.evidenceRef.trim() === '') {
+    return deny(ROUTE_CODES.NO_STRUCTURED_CONCLUSION, {
+      fingerprint: signal.fingerprint.slice(0, DETAIL_FINGERPRINT_MAX),
+      severity: signal.severity,
+      reason: 'evidence_ref_missing',
     });
   }
 
@@ -535,7 +590,10 @@ function route(input) {
       reason: 'no model declared for the escalation tier',
     });
   }
-  return allow(mode, escalationTier, model, true, ROUTE_REASONS.ESCALATED);
+  return allow(mode, escalationTier, model, true, ROUTE_REASONS.ESCALATED, {
+    fingerprint: signal.fingerprint,
+    escalatedFrom: defaultTier,
+  });
 }
 
 /**
@@ -551,10 +609,14 @@ function route(input) {
  * 4. **`E_MODEL_NOT_FOUND` 当前无触发路径**。契约把"uniform 模型不存在"固定归到
  *    `E_NO_UNIFORM_MODEL`，tiered 分支按 tier 而非 id 选模型，因此这个码保留未用。
  *    不为了让码表"看起来都在用"而发明一条判据。
+ * 5. **`evidenceRef` 只校验形态与存在性，不打开它**。ADR §2.5 第 2 条要求升级请求附带
+ *    evidence bundle，judge 层只需确认"引用存在且可写进单行日志"；真正的证据读取、摘要化、
+ *    "payload 不含原始事件全文"由组装升级请求的那一层保证（本模块不碰内容）。
  */
 export const MODEL_ROUTING_NOTES = Object.freeze([
   'token ceilings are validated for shape only; per-tier 4k/8k/12k belongs to the admission layer',
   'provider daily budget is not evaluated here (needs a budget snapshot owned by apps/model-broker)',
   'result reuse by fingerprint + rulesVersion is a cache concern, not a routing decision',
   'E_MODEL_NOT_FOUND is reserved and currently unreachable by contract',
+  'evidenceRef is validated for shape and presence only; escalation payload assembly owns the bundle',
 ]);

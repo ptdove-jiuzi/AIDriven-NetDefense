@@ -14,6 +14,8 @@
 
 from __future__ import annotations
 
+import base64
+import hashlib
 import http.client
 import json
 import logging
@@ -36,6 +38,24 @@ ALLOWED_EXTENSIONS = {
 }
 
 MAX_BODY = 64 * 1024
+
+#: 浏览器侧写闸门：与 `apps/console-next/serve.mjs` 的 `x-console-v2` 同形。
+#: 跨源表单加不上自定义头，所以「有这道头」是宿主层唯一能自证的跨源写屏障。
+CONSOLE_HEADER = "x-console-v2"
+CONSOLE_HEADER_VALUE = "1"
+CSRF_HEADER = "x-aegis-csrf"
+#: SSE 路由（chat / explain）要豁免普通超时并**流式**转发。
+STREAMING_PREFIXES = ("/api/v1/agent/chat", "/api/v1/alerts/")
+
+
+def csrf_token_for(token: str) -> str:
+    """与 daemon 同式派生：base64url(sha256("aegis-csrf:" + token))，无 padding。
+
+    对应 `apps/daemon/src/api/auth.js` `createAuthGuard()` 与
+    `apps/console-next/serve.mjs:192-193` 的 `csrfFor()`。
+    """
+    digest = hashlib.sha256(f"aegis-csrf:{token}".encode("utf-8")).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 SECURITY_HEADERS = {
     "cache-control": "no-store",
@@ -88,6 +108,40 @@ class Handler(BaseHTTPRequestHandler):
         body = (json.dumps(payload, ensure_ascii=False) + "\n").encode("utf-8")
         self._send(status, body, "application/json; charset=utf-8")
 
+    def _send_stream(self, status: int, headers: dict, upstream) -> None:
+        """把上游响应**边读边写**（SSE）；整包 `read()` 会让流在壳里变成一次性大响应。
+
+        上游是 chunked 时 `read(n)` 会一直攒到 n 字节或 EOF，所以这里优先用 `read1()`：
+        它「最多读一次」，有多少给多少，事件才能按到达顺序立刻转发。
+        """
+        self.send_response(status)
+        self.send_header("content-type", headers.get("content-type", "text/event-stream; charset=utf-8"))
+        self.send_header("cache-control", "no-store")
+        self.send_header("x-content-type-options", "nosniff")
+        self.send_header("transfer-encoding", "chunked")
+        for name, value in SECURITY_HEADERS.items():
+            if name in ("content-type", "cache-control", "x-content-type-options"):
+                continue
+            self.send_header(name, value)
+        self.end_headers()
+        if self.command == "HEAD":
+            return
+        reader = getattr(upstream, "read1", None) or upstream.read
+        try:
+            while True:
+                chunk = reader(4096)
+                if not chunk:
+                    break
+                self.wfile.write(f"{len(chunk):X}\r\n".encode("ascii") + chunk + b"\r\n")
+                self.wfile.flush()
+            self.wfile.write(b"0\r\n\r\n")
+            self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError, OSError):
+            # 浏览器关掉标签页是常态：流断了不是壳的错误，不用把 traceback 打给用户。
+            log.debug("SSE 客户端提前断开，已停止转发")
+        finally:
+            upstream.close()
+
     def _error(self, status: int, code: str, message: str) -> None:
         self._json(status, {"error": {"code": code, "message": message}})
 
@@ -113,6 +167,10 @@ class Handler(BaseHTTPRequestHandler):
         if not self._peer_ok():
             return self._error(403, "PEER_REJECTED", "only loopback peers are served")
         path = urlparse(self.path).path
+        # console-next 的写动作全部落在 /api/v1/*（chat/审批/凭据/settings）。
+        # 修复前这里直接 405，于是「托盘加载 v2 界面」只是假加载（D4）。
+        if path.startswith("/api/"):
+            return self._proxy_write(path)
         if not path.startswith("/shell/api/"):
             return self._error(405, "METHOD_NOT_ALLOWED", "只读端点不接受 POST")
 
@@ -145,6 +203,17 @@ class Handler(BaseHTTPRequestHandler):
             log.exception("壳接口异常：%s", path)
             return self._error(500, "SHELL_INTERNAL", str(error))
 
+    def do_PUT(self) -> None:  # noqa: N802
+        if not self._peer_ok():
+            return self._error(403, "PEER_REJECTED", "only loopback peers are served")
+        path = urlparse(self.path).path
+        if not path.startswith("/api/"):
+            return self._error(405, "METHOD_NOT_ALLOWED", "只读端点不接受 PUT")
+        return self._proxy_write(path)
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        return self.do_PUT()
+
     # --------------------------------------------------------------- helpers
     def _proxy(self, path: str, with_query: bool = False) -> None:
         target = self.path if with_query and "?" in self.path else path
@@ -153,6 +222,38 @@ class Handler(BaseHTTPRequestHandler):
             return self._error(503, "DAEMON_OFFLINE", "daemon 未运行或未响应")
         content_type = headers.get("content-type", "application/json; charset=utf-8")
         self._send(status, body, content_type)
+
+    def _proxy_write(self, path: str) -> None:
+        """代发 console-next 的写请求（POST/PUT/DELETE）。
+
+        安全要点：壳一旦代发写请求，`x-console-v2` 这道跨源写闸门就必须由**宿主**
+        自己校验（console-next 的 serve.mjs 也放在宿主层）。否则任意网页都能
+        `POST http://127.0.0.1:<ui_port>/api/v1/settings`，壳会把 Bearer 与 CSRF
+        一起注入 —— 等于用壳绕开了 daemon 的 CSRF 防护。
+        """
+        if self.headers.get(CONSOLE_HEADER) != CONSOLE_HEADER_VALUE:
+            return self._error(403, "CONSOLE_HEADER_REQUIRED", "写请求必须带 x-console-v2: 1")
+        origin = self.headers.get("origin")
+        if origin and origin not in self.app.allowed_origins():
+            return self._error(403, "ORIGIN_REJECTED", "Origin 不是本机壳端点")
+        try:
+            length = int(self.headers.get("content-length") or 0)
+        except ValueError:
+            return self._error(400, "BAD_REQUEST", "content-length 非法")
+        if length > MAX_BODY:
+            return self._error(413, "BODY_TOO_LARGE", "请求体过大")
+        body = self.rfile.read(length) if length else b""
+        relay = self.app.proxy_write(self.command, self.path, body, self.headers.get("content-type"))
+        if relay is None:
+            return self._error(503, "DAEMON_OFFLINE", "daemon 未运行或未响应")
+        status, response, connection = relay
+        content_type = response.getheader("content-type", "application/json") or "application/json"
+        try:
+            if content_type.startswith("text/event-stream"):
+                return self._send_stream(status, {"content-type": content_type}, response)
+            return self._send(status, response.read(), content_type)
+        finally:
+            connection.close()
 
     def _static(self, path: str) -> None:
         relative = unquote(path).lstrip("/")
@@ -174,6 +275,19 @@ class Handler(BaseHTTPRequestHandler):
             content_type = f"{content_type}; charset=utf-8"
         body = candidate.read_bytes()
         self._send(200, body, content_type)
+
+
+class _LoopbackServer(ThreadingHTTPServer):
+    """只监听回环的界面服务。
+
+    `allow_reuse_address` 必须关掉：Windows 上 SO_REUSEADDR 允许**两个进程绑同一个端口**，
+    于是「换端口」时旧监听还没关，新实例绑定也会成功——两个壳同时应答同一端口，
+    请求随机落到其中一个，设置/退出都会作用在错误的对象上（实测踩过）。
+    关掉之后端口被占就是 bind 失败，`LocalServer.start()` 的 +1 回退才有意义。
+    """
+
+    allow_reuse_address = False
+    daemon_threads = True
 
 
 class LocalServer:
@@ -199,11 +313,10 @@ class LocalServer:
         last_error: OSError | None = None
         for candidate in self._candidates():
             try:
-                httpd = ThreadingHTTPServer((BIND_HOST, candidate), Handler)
+                httpd = _LoopbackServer((BIND_HOST, candidate), Handler)
             except OSError as error:
                 last_error = error
                 continue
-            httpd.daemon_threads = True
             httpd.app = self  # type: ignore[attr-defined]
             self._httpd = httpd
             self.port = httpd.server_address[1]
@@ -252,6 +365,38 @@ class LocalServer:
             return (0, {}, b"")
         finally:
             connection.close()
+
+    def proxy_write(self, method: str, path: str, body: bytes, content_type: str | None):
+        """代发写请求：注入 Bearer 与 CSRF 派生值，**不转发** origin/referer/cookie。
+
+        返回 `(status, response, connection)`；daemon 不在/连不上返回 `None`（调用方报 503）。
+        `x-console-v2` 是壳自己的闸门，停在这里，不往上送。
+        """
+        port = self.controller.daemon_port()
+        if not port:
+            return None
+        token = self.controller.daemon_token()
+        headers = {
+            "accept": "application/json",
+            "host": f"127.0.0.1:{port}",
+            "content-type": content_type or "application/json",
+        }
+        if body:
+            headers["content-length"] = str(len(body))
+        if token:
+            headers["authorization"] = f"Bearer {token}"
+            headers[CSRF_HEADER] = csrf_token_for(token)
+        # SSE 路由豁免普通超时（daemon 合同 §3.5）；其余沿用 10s 级。
+        streaming = any(path.startswith(prefix) for prefix in STREAMING_PREFIXES)
+        connection = http.client.HTTPConnection(BIND_HOST, port, timeout=None if streaming else 10.0)
+        try:
+            connection.request(method, path, body=body or None, headers=headers)
+            response = connection.getresponse()  # 每个响应只取一次
+            return (response.status, response, connection)
+        except (OSError, http.client.HTTPException) as error:
+            log.warning("写代理 %s %s 失败：%s", method, path, error)
+            connection.close()
+            return None
 
     # ------------------------------------------------------------- shell api
     def dispatch_post(self, handler: Handler, path: str, payload: dict) -> None:

@@ -39,10 +39,18 @@ test('a modified payload file aborts the install with 12 and leaves no program t
   assert.equal(journal.state, 'ok');
   assert.equal(journal.journal.phase, 'ROLLED_BACK');
 
-  // The service was never registered, but rollback still tries to remove it (idempotent).
+  // Rollback touches only what this transaction created. It failed while copying/verifying
+  // staging, so it never registered a service — and a rollback that "helpfully" unregisters a
+  // service it did not create is the P0 failure mode one object over: on a repair it would
+  // delete the service the restored install needs. The complementary direction (service
+  // created → deleted on rollback) is asserted in `regressions.test.js` (H3).
   const plan = readPlan(layout);
   assert.equal(plan.some((entry) => entry.op === 'service.install'), false);
-  assert.equal(plan.some((entry) => entry.op === 'service.delete'), true);
+  assert.equal(
+    plan.some((entry) => entry.op === 'service.delete'),
+    false,
+    'rollback must not delete a service this transaction never registered',
+  );
 });
 
 test('an unlisted extra file in the payload aborts with 12 (not "extra files are fine")', async (t) => {

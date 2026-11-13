@@ -9,6 +9,12 @@
  *
  * Size enforcement is deliberately not done here: the source collector applies
  * `maxEventBytes` so the same event object is still available to the gap ledger.
+ *
+ * `integrity` is part of the envelope and is computed **here, once** (A2-SHAPE §3):
+ * `{algorithm:'sha256', digest: canonicalDigest(payload)}`. A caller may still pass a
+ * value, but it is only accepted when it equals the recomputed digest — a second
+ * implementation of the digest would otherwise drift and the store would reject every
+ * event with `ERR_INTEGRITY_DIGEST_MISMATCH`.
  */
 
 import { randomUUID as createUuid } from 'node:crypto';
@@ -22,6 +28,7 @@ import {
   toIsoTimestamp,
 } from './errors.js';
 import { assertCollectorInstanceId, assertStableSourceId } from './ids.js';
+import { payloadIntegrity } from './integrity.js';
 
 export const EVENT_SCHEMA_VERSION = '1.0';
 
@@ -68,6 +75,34 @@ export function measureEventBytes(event) {
   return Buffer.byteLength(serialized, 'utf8');
 }
 
+/**
+ * Compute (or verify) the `integrity` member of the envelope.
+ *
+ * @param {unknown} provided Caller-supplied integrity, if any.
+ * @param {object} payload Normalized payload.
+ * @returns {{algorithm: string, digest: string}} Integrity object.
+ * @throws {CollectorError} `INVALID_RECORD` when a supplied value disagrees with the payload.
+ */
+function resolveIntegrity(provided, payload) {
+  const computed = payloadIntegrity(payload);
+  if (provided === undefined || provided === null) {
+    return computed;
+  }
+  if (!isPlainObject(provided)
+    || provided.algorithm !== computed.algorithm
+    || provided.digest !== computed.digest) {
+    throw new CollectorError(
+      ERROR_CODES.INVALID_RECORD,
+      'integrity must be null/undefined or equal { algorithm: "sha256", digest: canonicalDigest(payload) }',
+      {
+        expected: computed.digest,
+        received: isPlainObject(provided) && typeof provided.digest === 'string' ? provided.digest.slice(0, 128) : null,
+      },
+    );
+  }
+  return computed;
+}
+
 export function createEventFactory({
   clock = Date.now,
   idFactory = createUuid,
@@ -102,7 +137,10 @@ export function createEventFactory({
 
       const nativeRecordId = record.nativeRecordId === undefined || record.nativeRecordId === null
         ? null
-        : record.nativeRecordId;
+        : String(record.nativeRecordId);
+      // A2-SHAPE §1/§3: `integrity` is required by the contract *and* NOT NULL in
+      // `telemetry_event.integrity_digest`, so it is always computed, never omitted.
+      const integrity = resolveIntegrity(record.integrity, payload);
       const observedAtMs = record.observedAt === undefined || record.observedAt === null
         ? clock()
         : assertTimestamp('observedAt', record.observedAt);
@@ -110,22 +148,27 @@ export function createEventFactory({
       const eventId = idFactory();
       assertNonEmptyString('event_id', eventId);
 
-      return Object.freeze({
+      const envelope = {
         schemaVersion: EVENT_SCHEMA_VERSION,
         event_id: eventId,
         stable_source_id: stableSourceId,
         collector_instance_id: collectorInstanceId,
         source_generation: generation,
         boot_id: bootId,
-        native_record_id: nativeRecordId === null ? null : String(nativeRecordId),
+        // `native_record_id` is optional but *not nullable* in the contract
+        // (`schema.js:142` rejects an explicit null with ERR_NULL_NOT_ALLOWED). A source
+        // without a native id must therefore omit the key instead of emitting null; the
+        // store's column stays NULL and the stable key already uses `source_seq`.
+        ...(nativeRecordId === null ? {} : { native_record_id: nativeRecordId }),
         source_seq: sequence,
         observed_at: toIsoTimestamp(observedAtMs),
         received_at: toIsoTimestamp(receivedAtMs),
         type,
         severity,
         payload,
-        integrity: record.integrity === undefined ? null : record.integrity,
-      });
+        integrity,
+      };
+      return Object.freeze(envelope);
     },
   });
 }

@@ -1,0 +1,5 @@
+aidriven-netdefense (@VERSION@) unstable; urgency=medium
+
+  * Release @VERSION@.
+
+ -- PT-dove <pt-dove@users.noreply.github.com>  @DATE@

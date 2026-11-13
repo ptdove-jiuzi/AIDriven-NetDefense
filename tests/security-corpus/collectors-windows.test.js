@@ -192,9 +192,18 @@ test('PowerShell 输出不是 JSON 时按 BAD_JSON 失败，并带截断摘要',
   );
 });
 
-test('PowerShell 空输出被当成"没有结果"，不是解析失败', async () => {
+test('PowerShell 空输出是显式 EMPTY_OUTPUT 失败，不是"没有结果"', async () => {
+  // R3-007 语料同步：CL-5 已把"exit 0 但没有打印任何东西"判定为缺陷（`EMPTY_OUTPUT`），
+  // 不是一次合法的空读。"空 stdout → null" 是被移除的旧行为，不能继续写成期望值。
+  // A2-SHAPE §6：只有 `{events:[], empty:{code,reason}}` 才是合法的 0 条。
   const client = createPowerShellClient({ runner: fakeRunner({ stdout: '   \n' }) });
-  assert.equal(await client.runJson('Get-Item'), null);
+  await assert.rejects(
+    () => client.runJson('Get-Item'),
+    (error) => {
+      assert.equal(error.code, WINDOWS_ERROR_CODES.EMPTY_OUTPUT);
+      return true;
+    },
+  );
 });
 
 test('PowerShell 输出带 BOM 时先剥 BOM 再解析', async () => {
@@ -209,14 +218,27 @@ test('PowerShell 输出里的重复键是 last-wins（记录：DEF-06，与 plug
   assert.deepEqual(await client.runJson('Get-Item'), { a: 2 });
 });
 
-test('脚本始终通过 stdin 传入，命令行参数固定（没有拼接式注入面）', async () => {
-  const runner = fakeRunner({ stdout: '{}' });
+test('脚本以单个 base64 编码参数传入，命令行参数固定（没有拼接式注入面）', async () => {
+  // R3-007 语料同步：实现已从 `-Command -`（stdin）改为 `-EncodedCommand <base64>`
+  // （CL-5：PS 5.1 会截断经 stdin 输入的多行块）。语料必须断言当前形态，
+  // 否则"防止命令行注入"的回归只是在验证一个已不存在的实现。
+  const runner = fakeRunner({ stdout: '{"a":1}' });
   const client = createPowerShellClient({ runner });
   await client.runJson('Get-Item');
   const [call] = runner.calls;
-  assert.deepEqual(call.args, ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-']);
-  assert.equal(typeof call.stdin, 'string');
-  assert.equal(call.stdin.includes("$ErrorActionPreference='Stop'"), true);
+  assert.deepEqual(call.args.slice(0, -1), [
+    '-NoLogo',
+    '-NoProfile',
+    '-NonInteractive',
+    '-ExecutionPolicy',
+    'Bypass',
+    '-EncodedCommand',
+  ]);
+  assert.equal(call.args.length, 7, 'exactly one encoded argument follows the flags');
+  assert.equal(call.stdin, undefined, 'the script must not travel on stdin any more');
+  const decoded = Buffer.from(call.args[6], 'base64').toString('utf16le');
+  assert.equal(decoded.includes("$ErrorActionPreference='Stop'"), true, 'the decoded script carries the preamble');
+  assert.equal(decoded.includes('Get-Item'), true, 'the decoded script carries the whole body');
 });
 
 test('单引号字面量转义：引号被双写，无法闭合字符串', () => {

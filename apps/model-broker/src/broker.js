@@ -23,6 +23,8 @@
 import { BrokerError, BROKER_CODES, asBrokerError } from './errors.js';
 import { assertBudgetPort, readPreview } from './budget-port.js';
 import { assertEndpointActive, isResolvedEndpoint, resolveFixedEndpoint } from './endpoint.js';
+import { assertProviderBudgetPort } from './endpoint-budget.js';
+import { assertEscalationLedger, createEscalationLedger } from './escalation-ledger.js';
 import { BROKER_LIMITS, CIRCUIT_POLICY, resolveLimits } from './policy.js';
 import { RequestQueue } from './queue.js';
 import { buildOutboundPayload, estimateInputUpper, finalizeOutbound } from './redaction.js';
@@ -34,6 +36,21 @@ const NULL_LOGGER = Object.freeze({ emit() {} });
 const CIRCUIT_CLOSED = 'closed';
 const CIRCUIT_OPEN = 'open';
 const CIRCUIT_HALF_OPEN = 'half_open';
+
+/**
+ * tier 顺序（ADR-0010 §2.4）。
+ *
+ * 故意不 import `packages/policy`：broker 不该依赖判据包（那会把"选路"与"发不发"重新耦合）。
+ * 三值闭集是日志契约的一部分，由 `routing-record.test.js` 交叉校验它和 `TIERS` 一致。
+ */
+const TIER_ORDER = Object.freeze({ watch: 0, triage: 1, respond: 2 });
+
+/** 指纹/决策原因的字符集：只允许能安全写进单行日志的字符（挡换行注入）。 */
+const FINGERPRINT_PATTERN = /^[A-Za-z0-9._:-]{1,128}$/u;
+const DECISION_PATTERN = /^[A-Za-z0-9._:-]{1,64}$/u;
+
+/** 没有路由决策时的记录形状：键始终存在，值为 null（聚合时不会漏行）。 */
+const NULL_ROUTING = Object.freeze({ tier: null, fingerprint: null, decision: null, escalated_from: null });
 
 function brief(value, max = 64) {
   if (typeof value !== 'string') return value === undefined ? null : value;
@@ -76,6 +93,54 @@ function assertModelRoute(payload, model) {
       requested: brief(payload.model),
     });
   }
+}
+
+/**
+ * 读调用方给的**路由决策**（ADR-0010 §2.7）。
+ *
+ * broker 不选路：它只接收 `selectRoute` 的结论并原样记进日志。因此这里只做形态校验，
+ * 不做任何"猜一个 tier"的事——猜出来的 tier 会让用量页按错误口径聚合。
+ *
+ * 唯一要判的语义是 `escalatedFrom`：它必须是一个**更低的** tier（升级只能向上）。
+ * 这条校验挡的是"把降级/原地不动标成升级"，否则升级计数会被污染。
+ *
+ * @param {unknown} value `requestOptions.routing`。
+ * @returns {{tier: string|null, fingerprint: string|null, decision: string|null, escalated_from: string|null}} 冻结记录。
+ */
+function readRoutingDecision(value) {
+  if (value === undefined || value === null) return NULL_ROUTING;
+  const fail = (field, reason) => new BrokerError(BROKER_CODES.ERR_BROKER_INPUT, 'routing decision is malformed', {
+    reason: 'routing_decision_invalid',
+    field,
+    detail: reason,
+  });
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw fail('routing', 'routing must be a plain object');
+  }
+  if (typeof value.tier !== 'string' || !Object.hasOwn(TIER_ORDER, value.tier)) {
+    throw fail('routing.tier', 'tier must be watch, triage or respond');
+  }
+  if (typeof value.fingerprint !== 'string' || !FINGERPRINT_PATTERN.test(value.fingerprint)) {
+    throw fail('routing.fingerprint', 'fingerprint must be 1..128 characters of [A-Za-z0-9._:-]');
+  }
+  if (typeof value.decision !== 'string' || !DECISION_PATTERN.test(value.decision)) {
+    throw fail('routing.decision', 'decision must be 1..64 characters of [A-Za-z0-9._:-]');
+  }
+  let escalatedFrom = value.escalatedFrom ?? null;
+  if (escalatedFrom !== null) {
+    if (typeof escalatedFrom !== 'string' || !Object.hasOwn(TIER_ORDER, escalatedFrom)) {
+      throw fail('routing.escalatedFrom', 'escalatedFrom must be a tier or null');
+    }
+    if (TIER_ORDER[escalatedFrom] >= TIER_ORDER[value.tier]) {
+      throw fail('routing.escalatedFrom', 'escalatedFrom must be a strictly lower tier than tier');
+    }
+  }
+  return Object.freeze({
+    tier: value.tier,
+    fingerprint: value.fingerprint,
+    decision: value.decision,
+    escalated_from: escalatedFrom,
+  });
 }
 
 /**
@@ -208,6 +273,8 @@ function classifyTransportFailure(error, context) {
  *   now?: () => number,
  *   logger?: { emit: Function },
  *   circuitStatePort?: { load: Function, save: Function } | null,
+ *   providerBudgetPort?: object,
+ *   escalationLedger?: object,
  * }} options
  */
 export function createModelBroker(options = {}) {
@@ -235,6 +302,38 @@ export function createModelBroker(options = {}) {
   });
   const now = typeof options.now === 'function' ? options.now : () => Date.now();
   const logger = options.logger ?? NULL_LOGGER;
+  // ---- 每端点日预算（ADR §2.1 / §2.5 第 5 条）-------------------------------
+  // 声明了预算就必须能执行：没有端口时**拒绝启动**，而不是"记下了但不拦"。
+  // 这是审查 P1-1 的核心要求——"接受但不生效"比"拒绝"危险得多。
+  const providerBudget = options.providerBudgetPort === undefined || options.providerBudgetPort === null
+    ? null
+    : assertProviderBudgetPort(options.providerBudgetPort);
+  const declaresProviderBudget = endpoint.dailyInputTokens !== null || endpoint.dailyOutputTokens !== null;
+  if (declaresProviderBudget && providerBudget === null) {
+    throw new BrokerError(
+      BROKER_CODES.ERR_BROKER_ADAPTER,
+      'provider declares a daily token budget but no providerBudgetPort was supplied',
+      { reason: 'provider_budget_port_missing', provider_id: route.providerId },
+    );
+  }
+  if (providerBudget !== null) {
+    if (typeof route.providerId !== 'string' || route.providerId === '') {
+      throw new BrokerError(
+        BROKER_CODES.ERR_BROKER_ADAPTER,
+        'provider budget port requires a registered provider id',
+        { reason: 'provider_budget_port_missing', provider_id: null },
+      );
+    }
+    providerBudget.register(route.providerId, {
+      dailyInputTokens: endpoint.dailyInputTokens,
+      dailyOutputTokens: endpoint.dailyOutputTokens,
+    });
+  }
+  // ---- 升级账本（ADR §2.5 第 3、4 条的唯一生产者）----------------------------
+  // 缺省给一个进程内账本：没有生产者时，冷却与小时上限就是摆设（审查 P1-6）。
+  const escalationLedger = options.escalationLedger === undefined || options.escalationLedger === null
+    ? createEscalationLedger({ now })
+    : assertEscalationLedger(options.escalationLedger);
   const timeoutMs = Number.isInteger(options.timeoutMs) && options.timeoutMs > 0
     ? Math.min(options.timeoutMs, limits.defaultTimeoutMs)
     : limits.defaultTimeoutMs;
@@ -286,6 +385,31 @@ export function createModelBroker(options = {}) {
 
   const inFlightPerAnalysis = new Map();
 
+  /**
+   * R5-005：同一 fingerprint 的升级请求准入串行化。
+   *
+   * 冷却判据在调用方（`selectRoute`）读 `recent`，而账本写入在"已 markSent 之后"——
+   * 两个并发请求会在账本仍为空时同时通过判据，把冷却窗口放大成 maxConcurrentRequests 次。
+   * 这里在**预扣之前**用同步的 in-flight 集合把同一 fingerprint 的升级串起来：
+   * 后来的那个直接拒绝（fail-closed，宁可少升级，不可多花钱）。占位在请求终态释放。
+   */
+  const inFlightEscalations = new Set();
+
+  function claimEscalation(routing) {
+    if (routing.escalated_from === null || routing.escalated_from === undefined) return null;
+    const fingerprint = routing.fingerprint;
+    if (inFlightEscalations.has(fingerprint)) {
+      throw new BrokerError(BROKER_CODES.ERR_BROKER_ROUTE, 'a concurrent escalation for the same fingerprint is in flight', {
+        reason: 'escalation_in_flight',
+        fingerprint: String(fingerprint).slice(0, 128),
+      });
+    }
+    inFlightEscalations.add(fingerprint);
+    return () => {
+      inFlightEscalations.delete(fingerprint);
+    };
+  }
+
   const stats = {
     requests: 0,
     reserved: 0,
@@ -300,6 +424,7 @@ export function createModelBroker(options = {}) {
     voided: 0,
     queue_timeouts: 0,
     unsettled: 0,
+    provider_budget_rejections: 0,
   };
 
   function emit(event, details) {
@@ -416,6 +541,76 @@ export function createModelBroker(options = {}) {
   }
 
   /**
+   * 释放端点预留（只在"能证明没发出去"时调用）。
+   *
+   * 端点账失败不改变请求结论：全局账本才是权威，端点账是附加上限。
+   * 但**必须可见**——否则"端点额度慢慢漏光"会变成无法解释的拒绝。
+   */
+  function voidProviderReservation(requestId, reason) {
+    if (providerBudget === null) return;
+    try {
+      providerBudget.voidReservation({ request_id: requestId, provedNotSent: true });
+    } catch (error) {
+      emit('provider_budget.void_failed', {
+        request_id: requestId,
+        reason,
+        code: asBrokerError(error, BROKER_CODES.ERR_BROKER_ADAPTER, 'provider void failed').code,
+      });
+    }
+  }
+
+  /** 端点预留按上界结清（结果未知 / 结算失败时的保守处理）。 */
+  function settleProviderAtUpperBound(requestId, reason) {
+    if (providerBudget === null) return;
+    try {
+      providerBudget.settleUnknownAtUpperBound({ request_id: requestId });
+    } catch (error) {
+      // 结不清也不能假装结清：端点账停在 reserved，只会让后续请求更保守（fail-closed）。
+      emit('provider_budget.settle_failed', {
+        request_id: requestId,
+        reason,
+        code: asBrokerError(error, BROKER_CODES.ERR_BROKER_ADAPTER, 'provider settle failed').code,
+      });
+    }
+  }
+
+  /**
+   * 按请求的 token 结算端点账。
+   *
+   * 失败只记录不抛：全局账本此时已经结算成功，把请求标成失败会与真实结果矛盾。
+   * 端点账的偏差由 `provider_budget.settle_failed` 事件暴露给运维。
+   */
+  function settleProvider(requestId, usage) {
+    if (providerBudget === null) return;
+    try {
+      providerBudget.settle({ request_id: requestId, usage });
+    } catch (error) {
+      emit('provider_budget.settle_failed', {
+        request_id: requestId,
+        reason: 'settle_rejected',
+        code: asBrokerError(error, BROKER_CODES.ERR_BROKER_ADAPTER, 'provider settle failed').code,
+      });
+    }
+  }
+
+  /**
+   * 记一笔升级（ADR §2.5 第 3、4 条的输入）。
+   *
+   * 时机是"已 markSent、尚未 send"：只有真正要发出去的升级才算发生过。
+   * 用 broker 自己的时钟（`now`），而不是账本的默认时钟——否则判据与账本会活在两个时区里。
+   */
+  function recordEscalation(routing) {
+    if (routing.escalated_from === null) return;
+    try {
+      escalationLedger.record(routing.fingerprint, now());
+    } catch (error) {
+      emit('escalation.record_failed', {
+        code: asBrokerError(error, BROKER_CODES.ERR_BROKER_ADAPTER, 'escalation record failed').code,
+      });
+    }
+  }
+
+  /**
    * 预扣之后、发送之后的失败收尾：**只保留债务，不放额度**。
    *
    * 这是整个 broker 最容易被"优化"错的地方：取消/超时/500 看起来都像
@@ -425,6 +620,9 @@ export function createModelBroker(options = {}) {
    *   unknown/sent，需要人工核对——调用方不得再宣称 settled。
    */
   function holdDebt(requestId, reason) {
+    // 端点账先结：全局账本有两条失败分支（下方 catch 会提前 return），
+    // 把端点结算放在最后会让"结不清全局"的那条路径把端点预留永久占住。
+    settleProviderAtUpperBound(requestId, reason);
     try {
       budgetPort.markUnknown({ request_id: requestId, reason });
     } catch (error) {
@@ -448,7 +646,7 @@ export function createModelBroker(options = {}) {
     return true;
   }
 
-  async function execute(payload, identity, signal, attempt) {
+  async function execute(payload, identity, signal, attempt, routing) {
     const { analysisId, attemptId } = identity;
 
     // 排队期间熔断可能已经打开，或有别的请求抢到了半开探针；预扣前再检查一次：
@@ -502,6 +700,30 @@ export function createModelBroker(options = {}) {
       const wire = finalizeOutbound(payload, { model: route.model, maxTokens: outputLimit, limits });
       const inputUpper = estimateInputUpper(wire.body, payload.messages.length);
 
+      /**
+       * 结算日志（ADR §4-10 的唯一口径来源）。
+       *
+       * 账本按上界结清就报上界，结不清就报 **null** —— 报 0 会让"没结清"看起来像"没花钱"，
+       * 而 §4-10 要求用量页与日志逐条求和 ±0：只要有一条已落账的请求没写 token，
+       * 两边就永远对不上。所以"发送成功但 usage 不可用""发送后断连""预扣后适配器违约"
+       * 三条路径都必须走这里，不能只在成功路径写。
+       */
+      const emitSettled = (requestId, settled, latencyMs) => {
+        emit('request.settled', {
+          request_id: requestId,
+          provider_id: route.providerId,
+          model_id: route.model,
+          usage_source: settled ? 'upper_bound' : 'unsettled',
+          input_tokens: settled ? inputUpper : null,
+          output_tokens: settled ? outputLimit : null,
+          latency_ms: latencyMs,
+          tier: routing.tier,
+          fingerprint: routing.fingerprint,
+          decision: routing.decision,
+          escalated_from: routing.escalated_from,
+        });
+      };
+
       if (preview.analysis_input_remaining < inputUpper) {
         stats.rejected += 1;
         throw new BrokerError(BROKER_CODES.ERR_BROKER_BUDGET, 'per-analysis input budget is insufficient', {
@@ -519,8 +741,32 @@ export function createModelBroker(options = {}) {
         });
       }
 
-      // ---- 原子预扣：此行的成功与否是唯一准入结论，之后才有网络动作 ----
+      // ---- 端点日预算准入：仍在"花钱之前"，失败即零网络、零全局账本行 ----
+      // 顺序上先于全局预扣：端点拒绝是最便宜的那条路径，不需要补偿一次全局预留。
       const requestId = uuid();
+      if (providerBudget !== null) {
+        try {
+          providerBudget.reserve({
+            provider_id: route.providerId,
+            request_id: requestId,
+            input_upper: inputUpper,
+            output_limit: outputLimit,
+          });
+        } catch (error) {
+          stats.rejected += 1;
+          stats.provider_budget_rejections += 1;
+          const mapped = asBrokerError(error, BROKER_CODES.ERR_BROKER_BUDGET, 'provider budget reservation was rejected');
+          emit('request.rejected', {
+            stage: 'provider_reserve',
+            code: mapped.code,
+            reason: mapped.details?.reason ?? null,
+            provider_id: route.providerId,
+          });
+          throw mapped;
+        }
+      }
+
+      // ---- 原子预扣：此行的成功与否是唯一准入结论，之后才有网络动作 ----
       let reservation;
       try {
         reservation = budgetPort.reserve({
@@ -532,6 +778,8 @@ export function createModelBroker(options = {}) {
           output_limit: outputLimit,
         });
       } catch (error) {
+        // 全局拒绝 → 端点预留必须原样退回（它还没变成已花）。
+        voidProviderReservation(requestId, 'global_reserve_rejected');
         stats.rejected += 1;
         const mapped = asBrokerError(error, BROKER_CODES.ERR_BROKER_BUDGET, 'budget reservation was rejected');
         emit('request.rejected', { stage: 'reserve', code: mapped.code, reason: mapped.details?.store_code ?? null });
@@ -541,7 +789,8 @@ export function createModelBroker(options = {}) {
 
       if (reservation === null || typeof reservation !== 'object' || !Number.isInteger(reservation.request_seq)) {
         // 预扣成功了但适配器没给出序号：账本已经记账，只能按已发送处理，避免"记了账却当没发生"。
-        holdDebt(requestId, 'adapter_contract_violation');
+        // 这条路径同样要把结算数字写进日志：账本已经按上界落账，日志不报就再也对不上。
+        emitSettled(requestId, holdDebt(requestId, 'adapter_contract_violation'), 0);
         throw new BrokerError(BROKER_CODES.ERR_BROKER_ADAPTER, 'budget reservation returned no request_seq');
       }
 
@@ -556,6 +805,7 @@ export function createModelBroker(options = {}) {
             code: asBrokerError(error, BROKER_CODES.ERR_BROKER_ADAPTER, 'void failed').code,
           });
         }
+        voidProviderReservation(requestId, 'cancelled_before_send');
         stats.cancelled += 1;
         throw new BrokerError(BROKER_CODES.ERR_BROKER_CANCELLED, 'request cancelled before send', {
           request_id: requestId,
@@ -575,16 +825,24 @@ export function createModelBroker(options = {}) {
             code: asBrokerError(voidError, BROKER_CODES.ERR_BROKER_ADAPTER, 'void failed').code,
           });
         }
+        voidProviderReservation(requestId, 'mark_sent_failed');
         throw asBrokerError(error, BROKER_CODES.ERR_BROKER_ADAPTER, 'could not mark the request as sent');
       }
 
       // ---- 从这里开始：任何失败都必须保留债务，不存在 void ----
+      // 升级账本在"已 markSent、尚未 send"写入：这就是"升级请求发出前"的落点。
+      recordEscalation(routing);
       emit('request.sent', {
         request_id: requestId,
         analysis_id: analysisId,
         request_seq: reservation.request_seq,
         provider_id: route.providerId,
         model_id: route.model,
+        // ADR-0010 §2.7：按请求记录必须带 tier / fingerprint / decision / escalatedFrom。
+        tier: routing.tier,
+        fingerprint: routing.fingerprint,
+        decision: routing.decision,
+        escalated_from: routing.escalated_from,
         input_upper: inputUpper,
         output_limit: outputLimit,
         redactions: payload.redactions.length,
@@ -606,13 +864,25 @@ export function createModelBroker(options = {}) {
       } catch (error) {
         clearTimeout(timer);
         const failure = classifyTransportFailure(error, { timedOut });
-        holdDebt(requestId, failure.reason);
+        // 已发送但失败：账本会按上界保留债务（settleUnknownAtUpperBound），日志必须报同一个数字，
+        // 否则 §4-10 的「用量页 = 日志逐条求和 ±0」在任何一次断连/超时之后都不成立。
+        const settled = holdDebt(requestId, failure.reason);
         attempt.finish(failure.circuit);
         if (failure.code === BROKER_CODES.ERR_BROKER_TIMEOUT) stats.timed_out += 1;
         if (failure.code === BROKER_CODES.ERR_BROKER_CANCELLED) stats.cancelled += 1;
         if (failure.code === BROKER_CODES.ERR_BROKER_UNKNOWN) stats.unknown_outcome += 1;
         if (failure.code === BROKER_CODES.ERR_BROKER_PROVIDER) stats.provider_errors += 1;
-        emit('request.failed', { request_id: requestId, code: failure.code, reason: failure.reason });
+        emit('request.failed', {
+          request_id: requestId,
+          code: failure.code,
+          reason: failure.reason,
+          tier: routing.tier,
+          fingerprint: routing.fingerprint,
+          decision: routing.decision,
+          escalated_from: routing.escalated_from,
+        });
+        // 失败也是"这笔钱已经落账"：结算事件紧随失败事件，字段与成功路径完全一致。
+        emitSettled(requestId, settled, now() - startedAt);
         throw asBrokerError(error, failure.code, 'model request failed after send', {
           request_id: requestId,
           reason: failure.reason,
@@ -630,11 +900,7 @@ export function createModelBroker(options = {}) {
         attempt.finish('success');
         if (settled) stats.settled += 1;
         else stats.unsettled += 1;
-        emit('request.settled', {
-          request_id: requestId,
-          usage_source: settled ? 'upper_bound' : 'unsettled',
-          latency_ms: latencyMs,
-        });
+        emitSettled(requestId, settled, latencyMs);
         return Object.freeze({
           request_id: requestId,
           request_seq: reservation.request_seq,
@@ -659,6 +925,7 @@ export function createModelBroker(options = {}) {
       let discrepancy = null;
       try {
         budgetPort.settle({ request_id: requestId, usage: response.usage });
+        settleProvider(requestId, response.usage);
         stats.settled += 1;
       } catch (error) {
         // 结算失败不能释放债务。把行标成 unknown 让它在核对视图里可见，
@@ -690,9 +957,18 @@ export function createModelBroker(options = {}) {
 
       emit('request.settled', {
         request_id: requestId,
+        provider_id: route.providerId,
+        model_id: route.model,
         usage_source: 'provider',
+        // ADR §2.7 / §4-10：真实 token 数必须落进日志，用量页才能与账本逐条对账。
+        input_tokens: response.usage.input_tokens,
+        output_tokens: response.usage.output_tokens,
         latency_ms: latencyMs,
         discrepancy: discrepancy !== null,
+        tier: routing.tier,
+        fingerprint: routing.fingerprint,
+        decision: routing.decision,
+        escalated_from: routing.escalated_from,
       });
 
       return Object.freeze({
@@ -718,6 +994,15 @@ export function createModelBroker(options = {}) {
     endpoint,
 
     /**
+     * 升级账本（ADR §2.5 第 3、4 条的**生产者**）。
+     *
+     * daemon 组装 `selectRoute` 入参时应当读它：
+     * `recent: broker.escalationLedger.recent(now, { windowMs: cooldownSeconds * 1000 })`。
+     * 把它暴露出来而不是"内部记账"，是为了让"冷却到底有没有生效"可被测试与排查。
+     */
+    escalationLedger,
+
+    /**
      * 本实例锁定的路由（构造期定死，运行期只读）。
      *
      * 故意只给 `{scheme, host, port, pathPrefix}` 与 id：不给完整 URL 之外的可变入口，
@@ -735,6 +1020,15 @@ export function createModelBroker(options = {}) {
     async request(intent, requestOptions = {}) {
       const signal = requestOptions?.signal;
       stats.requests += 1;
+      // 0. 路由决策先校验：它是日志契约的一部分，畸形值不该走到预扣、更不该出网。
+      //    （未知的选项键仍然被忽略 —— RT-1 要求"请求期任何 URL 覆盖都无效"。）
+      let routing;
+      try {
+        routing = readRoutingDecision(requestOptions?.routing);
+      } catch (error) {
+        stats.rejected += 1;
+        throw error;
+      }
       // 1. 出域检查最先做：不合规的 DTO 不占队列、不预扣、不出网。
       let payload;
       try {
@@ -783,7 +1077,15 @@ export function createModelBroker(options = {}) {
         throw error;
       }
       try {
-        return await execute(payload, identity, signal, attempt);
+        // R5-005：升级准入门在预扣之前同步占位。execute() 的首个 await 在发送处，
+        // 因此这里的"检查 + 占位"对并发请求是原子的：第二个同 fingerprint 的升级
+        // 在这里就失败，不会进入预算/网络路径。
+        const releaseEscalation = claimEscalation(routing);
+        try {
+          return await execute(payload, identity, signal, attempt, routing);
+        } finally {
+          if (releaseEscalation !== null) releaseEscalation();
+        }
       } catch (error) {
         // 预算/队列/取消等"未出网"的失败不应影响熔断计数（finish 幂等）。
         attempt.finish('none');

@@ -219,6 +219,11 @@ export function isAllowedOrigin(originHeader, port) {
 /**
  * Extract a bearer token from an `Authorization` header.
  *
+ * The scheme is case-insensitive (RFC 9110 §11.1: auth-scheme is a token matched
+ * case-insensitively), so `bearer <token>` is as valid as `Bearer <token>`. The token
+ * itself is still matched exactly: `[A-Za-z0-9_-]` is already both cases, so the `i`
+ * flag changes nothing about the credential.
+ *
  * @param {string|undefined} header Raw header value.
  * @returns {string|null} Token, or `null` when the header is absent or malformed.
  */
@@ -226,7 +231,7 @@ export function readBearer(header) {
   if (typeof header !== 'string') {
     return null;
   }
-  const match = /^Bearer ([A-Za-z0-9_-]{16,512})$/u.exec(header.trim());
+  const match = /^Bearer ([A-Za-z0-9_-]{16,512})$/iu.exec(header.trim());
   return match === null ? null : match[1];
 }
 
@@ -239,12 +244,16 @@ export function readBearer(header) {
  * rename form also means two daemons starting at once cannot interleave their writes
  * and leave one of them holding a token that is not in the file.
  *
+ * Exported so `api/rotator.js` reuses this exact atomic form instead of growing a
+ * second, subtly different writer: the rotation must persist the new token before the
+ * live guard switches to it, and both paths must agree on what "persisted" means.
+ *
  * @param {typeof fs} fsModule Filesystem module.
  * @param {string} tokenFile Destination path.
  * @param {string} token Token to persist.
  * @returns {void}
  */
-function writeTokenFile(fsModule, tokenFile, token) {
+export function writeTokenFile(fsModule, tokenFile, token) {
   const directory = path.dirname(tokenFile);
   const temporary = path.join(directory, `.${path.basename(tokenFile)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`);
   let handle = null;
@@ -289,11 +298,14 @@ function writeTokenFile(fsModule, tokenFile, token) {
  *   failureWindowMs: number,
  *   csrfToken?: string
  * }} options Guard options.
- * @returns {object} Guard with `authenticate`, `authorize`, `csrfToken`, `cursorKey`
- *   and `stats`.
+ * @returns {object} Guard with `authenticate`, `authorize`, `rotateTo`, `csrfToken`,
+ *   `cursorKey` and `stats`. `csrfToken` and `cursorKey` are getters over the *current*
+ *   token so a rotation is observable on the next read.
  */
 export function createAuthGuard(options) {
-  const token = options.token;
+  // `let`, not `const`: `rotateTo()` replaces the credential in place. Everything
+  // derived from it is computed on read, so there is exactly one source of truth.
+  let token = options.token;
   if (!isUsableToken(token)) {
     throw new DaemonError(DAEMON_CODES.CONFIG_INVALID, 'auth guard requires a provisioned token');
   }
@@ -302,8 +314,11 @@ export function createAuthGuard(options) {
   const failureWindowMs = options.failureWindowMs;
   // The CSRF value is derived from the token, not independent: it therefore cannot
   // be guessed without the token, and it stays stable across a restart so an
-  // operator's saved client keeps working.
-  const csrfToken = options.csrfToken ?? createHash('sha256')
+  // operator's saved client keeps working. It is derived on *read* (getter, below)
+  // rather than frozen at construction, so the first `/status` after a rotation hands
+  // out the new proof. An explicit `csrfToken` option (tests) still wins.
+  const csrfOverride = options.csrfToken ?? null;
+  const currentCsrfToken = () => csrfOverride ?? createHash('sha256')
     .update(`aegis-csrf:${token}`, 'utf8')
     .digest('base64url');
   // Pagination cursors are MAC'd with a key derived one way from the token. It is
@@ -312,8 +327,10 @@ export function createAuthGuard(options) {
   // consequence is intentional — rotating the token invalidates every outstanding
   // cursor at once, and clients answer that with `CURSOR_INVALID` by restarting
   // from the first page. This value is never logged, never returned and never
-  // written to disk.
-  const cursorKey = createHmac('sha256', 'aegis-api-cursor-v1').update(token, 'utf8').digest();
+  // written to disk. Derived on read, for the same reason as the CSRF proof; a
+  // consumer that captures it once (the daemon does, at assembly time) keeps the
+  // old key until it re-reads the guard.
+  const deriveCursorKey = (value) => createHmac('sha256', 'aegis-api-cursor-v1').update(value, 'utf8').digest();
   /** @type {Map<string, {count: number, first: number}>} */
   const failures = new Map();
   let rejected = 0;
@@ -349,8 +366,14 @@ export function createAuthGuard(options) {
   }
 
   return {
-    csrfToken,
-    cursorKey,
+    /** CSRF proof derived from the token that is current *now*. */
+    get csrfToken() {
+      return currentCsrfToken();
+    },
+    /** Cursor MAC key derived from the token that is current *now*. */
+    get cursorKey() {
+      return deriveCursorKey(token);
+    },
     /**
      * Verify the bearer token.
      *
@@ -406,10 +429,39 @@ export function createAuthGuard(options) {
      * @returns {{ok: boolean, code?: string}} Decision.
      */
     authorize(header) {
-      if (typeof header !== 'string' || !safeEqual(header, csrfToken)) {
+      if (typeof header !== 'string' || !safeEqual(header, currentCsrfToken())) {
         return { ok: false, code: DAEMON_CODES.CSRF_REQUIRED };
       }
       return { ok: true };
+    },
+    /**
+     * Switch the bearer credential to a new token, in place and synchronously.
+     *
+     * `api/rotator.js` calls this only after the new token is durably on disk: the
+     * order is fail-closed, because switching first would hand out a credential no
+     * client can read. The token is re-validated against the same bearer grammar the
+     * configuration path uses — a rotation must never install a token the daemon
+     * would refuse to present.
+     *
+     * The failure buckets are cleared: their counts describe guesses against the
+     * *old* credential, and keeping them would leave a peer throttled after a
+     * rotation it never attacked. Clearing cannot be used to buy quota by rotating,
+     * because possessing the token is already required to rotate.
+     *
+     * @param {unknown} nextToken Replacement token.
+     * @returns {void}
+     * @throws {DaemonError} `CONFIG_INVALID` when the value is not a usable token;
+     *   the current credential is left untouched in that case.
+     */
+    rotateTo(nextToken) {
+      if (!isUsableToken(nextToken)) {
+        throw new DaemonError(
+          DAEMON_CODES.CONFIG_INVALID,
+          'rotated token does not match the bearer grammar (base64url, 32..512)',
+        );
+      }
+      token = nextToken;
+      failures.clear();
     },
     stats() {
       return { accepted, rejected, buckets: failures.size };

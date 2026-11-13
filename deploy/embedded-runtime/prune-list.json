@@ -5,7 +5,16 @@
   "reviewNote": "Generated evidence. A separate read-only agent reviews this decision and records the outcome in docs/implementation/status/M8-FORMAL-PACKAGING.md; the builder re-runs the same gate, so this file is a decision record, not an authority.",
   "inputs": {
     "lockfileSha256": "69e5190a12bf054da5e4e57e4d50ddbc45c23d3769f09103ecf43adc3d66f4f1",
-    "profileSha256": "a5a56348e86a2feb182d7533287538d541c75e88995844fd10a745807e80766b"
+    "profileSha256": "ccc8b4395e9522245888cb3704f1cf7972cc41db6a769fc8e95bd6083073e816",
+    "bundleProfileName": "worker",
+    "bundleProfileSha256": "6faf464aea54915f3afcf7213802869b421b8ad817f5bee8a927d88f6cb4a040",
+    "closureRoots": [
+      "@deepseek-ai/dsh",
+      "@aegisharness/harness-worker",
+      "@aegisharness/harness-adapter",
+      "@aegisharness/dsh-defense-profile",
+      "@aegisharness/dsh-defense-tools"
+    ]
   },
   "gate": {
     "closurePackages": 654,

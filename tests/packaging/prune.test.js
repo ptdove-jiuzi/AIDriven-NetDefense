@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { isAbsolute, join, resolve, relative } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -38,6 +38,7 @@ import { defaultBundleRoot } from './bundle-locator.mjs';
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const BUNDLE_ROOT = defaultBundleRoot();
 const PRUNE_LIST = join(REPO_ROOT, 'deploy', 'embedded-runtime', 'prune-list.json');
+const PRUNE_LIST_DIRECTORY = join(REPO_ROOT, 'deploy', 'embedded-runtime');
 const BUILD = join(REPO_ROOT, 'deploy', 'embedded-runtime', 'build.mjs');
 const CLOSURE_ROOTS = [
   '@deepseek-ai/dsh',
@@ -53,6 +54,38 @@ function readJson(path) {
 
 function loadProfile() {
   return readJson(join(REPO_ROOT, 'plugins', 'dsh-defense-profile', 'profile.json'));
+}
+
+/**
+ * The prune list the *delivered bundle* records in its own `bundle.json`.
+ *
+ * The recorded path is repository-relative and must stay inside
+ * `deploy/embedded-runtime`: a bundle that named an outside file would make the
+ * gate read bytes that are not reviewed evidence. The helper returns the resolved
+ * path plus the digest of the bytes actually on disk, so callers can compare the
+ * bundle's claim against the file instead of against a hard-coded name.
+ *
+ * Why this exists: the payloads v14/v15 ship are assembled from the
+ * **daemon-console** list, while this file's worker-list assertions (`PRUNE_LIST`)
+ * belong to the worker bundle. Fact source: `dist/bundle/win32-x64-v15/bundle.json
+ * > prune.list.path` is `deploy/embedded-runtime/prune-list-daemon-console.json`,
+ * and its `manifests/trim-report.json > pruneList.path` records the same value.
+ * Reading that recorded path keeps the assertion as strong as before: the bundle
+ * must hash to the digest it itself recorded, so a rebuilt bundle that names a
+ * stale list still fails.
+ */
+function deliveredBundlePruneList(bundle) {
+  const stored = bundle?.prune?.list?.path;
+  assert.equal(typeof stored, 'string', 'bundle.json must record the prune list it was built from');
+  const path = resolve(REPO_ROOT, ...stored.split('/'));
+  const fromRoot = relative(REPO_ROOT, path);
+  assert.ok(fromRoot.length > 0 && !fromRoot.startsWith('..') && !isAbsolute(fromRoot),
+    `the recorded prune list must live inside the repository: ${stored}`);
+  const fromPruneDirectory = relative(PRUNE_LIST_DIRECTORY, path);
+  assert.ok(fromPruneDirectory.length > 0 && !fromPruneDirectory.startsWith('..') && !isAbsolute(fromPruneDirectory),
+    `the recorded prune list must live under deploy/embedded-runtime: ${stored}`);
+  assert.ok(existsSync(path), `the recorded prune list is missing on disk: ${path}`);
+  return { path, sha256: sha256File(path), document: readJson(path) };
 }
 
 /** One analysis pass, shared by every assertion in this file. */
@@ -250,9 +283,21 @@ test('the shipped bundle contains exactly the packages the trim report kept', ()
   const inventory = readJson(join(BUNDLE_ROOT, 'manifests', 'third-party-packages.json'));
   const names = stagedNames(BUNDLE_ROOT);
 
-  assert.equal(trim.pruneList.sha256, sha256File(PRUNE_LIST),
-    'the bundle was built from a different prune list than the one in the repository');
-  assert.equal(bundle.prune.list.sha256, trim.pruneList.sha256);
+  // The bundle must hash to the prune list *it records*, resolved inside the
+  // repository. v15 recorded `prune-list-daemon-console.json @ 5cad8db7…`, but that
+  // file was regenerated at 23:48:02 (→ cb51cd3f…, 405 entries) after v15 was
+  // assembled at 19:32, so under v15 this check was red; the v16 payload was then
+  // built from the current desktop-v16 list (df53481c…), which is what makes it
+  // green now. That history is the point of the strong equality below: if the
+  // recorded list drifts from the bytes on disk again, this goes red — it must not
+  // be softened to "the recorded file exists".
+  const recordedList = deliveredBundlePruneList(bundle);
+  assert.equal(recordedList.sha256, bundle.prune.list.sha256,
+    'the prune list recorded by bundle.json no longer hashes to the digest bundle.json recorded');
+  assert.equal(trim.pruneList.sha256, bundle.prune.list.sha256,
+    'the trim report must name the same prune list digest as bundle.json');
+  assert.equal(trim.pruneList.path, bundle.prune.list.path,
+    'the trim report must name the same prune list as bundle.json');
 
   const pruned = new Set(trim.pruned.map((row) => row.name));
   assert.ok(pruned.size > 100, `expected a substantial trim, saw ${pruned.size}`);
@@ -500,7 +545,14 @@ test('the delivered bundle ships no dfa copy and no open licence gap', () => {
   assert.equal(bundle.license.packagesWithoutLicenseText, 0);
   assert.equal(bundle.license.complete, true, 'license.complete must be true once no gap is open');
   assert.deepEqual(bundle.releaseGaps, [], 'a closed gap must not stay in releaseGaps');
-  assert.equal(bundle.prune.prunedNames, readJson(PRUNE_LIST).summary.prunable);
+  // The bundle's own claim about how many names it pruned must agree with the
+  // prune list it records (the desktop-v16 list for the v16 payload; v14/v15
+  // payloads recorded the daemon-console list instead, as the helper explains),
+  // not with the worker list this file reviews in its first test. Under v15 this
+  // was red for the same delivery-ordering reason and was healed by the v16
+  // rebuild; the strong equality stays so a future drift is red again.
+  assert.equal(bundle.prune.prunedNames, deliveredBundlePruneList(bundle).document.summary.prunable,
+    'the bundle prunedNames claim must match the prune list it was built from');
 
   const uncovered = inventory.packages.filter((row) => row.licenseFiles.length === 0);
   assert.deepEqual(uncovered.map((row) => `${row.name}@${row.version}`), [],

@@ -30,6 +30,11 @@ from pathlib import Path
 
 from . import paths
 
+try:  # 包内导入（正常路径）；被当作顶层模块直接 import 时退回同级导入
+    from . import logrotate
+except ImportError:  # pragma: no cover - 仅脚本式调用会走到
+    import logrotate  # type: ignore[no-redef]
+
 log = logging.getLogger("aidn.daemon")
 
 CREATE_NO_WINDOW = 0x08000000
@@ -37,6 +42,14 @@ CREATE_NEW_PROCESS_GROUP = 0x00000200
 
 START_TIMEOUT_S = 25.0
 PORT_ATTEMPTS = 4
+
+
+def _enforce_log_dir(directory: Path) -> None:
+    """对日志目录执行一次保留策略（过期删除 / 总量上限）。失败只记 warning。"""
+    try:
+        logrotate.enforce([directory])
+    except Exception as error:  # noqa: BLE001 - 维护动作绝不能影响 daemon 启停
+        log.warning("日志保留策略执行失败（%s）", error)
 
 
 class DaemonError(RuntimeError):
@@ -139,9 +152,12 @@ def _http_json(url: str, timeout: float = 2.5, headers: dict[str, str] | None = 
 
 
 def port_free(port: int, host: str = "127.0.0.1") -> bool:
-    """该回环端口现在能不能被绑定。"""
+    """该回环端口现在能不能被绑定。
+
+    **不设 SO_REUSEADDR**：在 Windows 上它允许绑定到别人正在监听的端口，探测会
+    把「已被占用」报成「空闲」，然后 daemon 在启动时才发现绑不上。
+    """
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             sock.bind((host, port))
         except OSError:
@@ -211,6 +227,7 @@ class DaemonSupervisor:
         self._node: Path | None = None
         self._entry: Path | None = None
         self._log_handle = None
+        self._log_check_at = 0.0
         self._watch_stop = threading.Event()
         self._watcher: threading.Thread | None = None
         self._stopping = False
@@ -334,10 +351,14 @@ class DaemonSupervisor:
     def _spawn_and_wait(self, port: int, conf: Path) -> tuple[bool, str]:
         log_path = paths.daemon_log_path()
         log_path.parent.mkdir(parents=True, exist_ok=True)
+        # 打开之前先收一次：上一次运行留下的 stderr 日志可能已经很大或很旧。
+        _enforce_log_dir(log_path.parent)
         self._log_handle = open(log_path, "ab", buffering=0)
         self._log_handle.write(
             f"\n=== 启动 {time.strftime('%Y-%m-%d %H:%M:%S')} port={port} conf={conf} ===\n".encode()
         )
+        # 打开之后再收一次；此时 daemon.stderr.log 已是「最新文件」，任何策略都不会动它。
+        _enforce_log_dir(log_path.parent)
         creation = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP
         # cwd 取「包含 apps 的那一层」：两种布局下都等于安装根/仓库根，daemon 的
         # node_modules 查找因此不依赖壳自己的启动目录。
@@ -402,6 +423,8 @@ class DaemonSupervisor:
 
         def watch() -> None:
             while not self._watch_stop.wait(1.5):
+                # 每 ≥60 s 检查一次日志（保留策略 + 活跃文件轮转）；失败只记 warning。
+                self.maintain_logs()
                 with self._lock:
                     process = self._process
                     stopping = self._stopping
@@ -421,6 +444,42 @@ class DaemonSupervisor:
 
     def _stop_watcher(self) -> None:
         self._watch_stop.set()
+
+    def maintain_logs(self, min_interval_s: float = 60.0) -> dict[str, object]:
+        """周期性日志维护：每 ≥`min_interval_s` 秒做一次保留 + 活跃文件轮转。
+
+        `daemon.stderr.log` 是以 "ab"（O_APPEND）打开的，子进程还继承了这个
+        句柄，所以只能「复制到 .1 + 原地 truncate」：重命名会让子进程继续写改名
+        后的旧文件，Windows 上还会直接 EPERM；truncate 之后追加回到文件开头，
+        句柄依然有效，也不会出现空洞。
+
+        返回一个可断言的小字典（`checked`/`rotated`/`target`/`reason`）；
+        任何异常都只记 warning，绝不影响 daemon 启停。
+        """
+        now = time.monotonic()
+        if now - self._log_check_at < min_interval_s:
+            return {"checked": False, "rotated": False, "target": None, "reason": "interval"}
+        self._log_check_at = now
+        log_path = paths.daemon_log_path()
+        outcome: dict[str, object] = {"checked": True, "rotated": False, "target": None, "reason": None}
+        try:
+            _enforce_log_dir(log_path.parent)
+            if not log_path.is_file():
+                return outcome
+            result = logrotate.rotate_active(log_path, logrotate.MAX_FILE_BYTES)
+            outcome["target"] = result.get("target")
+            if result.get("ok") and result.get("rotated"):
+                outcome["rotated"] = True
+                log.info(
+                    "daemon.stderr.log 已轮转 → %s（%s 字节）", result.get("target"), result.get("bytes")
+                )
+            elif not result.get("ok"):
+                outcome["reason"] = result.get("reason")
+                log.warning("daemon.stderr.log 轮转失败：%s", result.get("reason"))
+        except Exception as error:  # noqa: BLE001 - 维护动作不能影响 daemon 启停
+            outcome["reason"] = str(error)
+            log.warning("daemon 日志维护失败（%s）", error)
+        return outcome
 
     def _terminate(self, timeout: float = 6.0) -> None:
         self._stopping = True

@@ -47,7 +47,11 @@ export const SCHEDULED_TASKS_SCRIPT = [
   '  try { $info = Get-ScheduledTaskInfo -TaskPath $_.TaskPath -TaskName $_.TaskName -ErrorAction Stop } catch { $info = $null }',
   '  $action = ($_.Actions | ForEach-Object { ([string]$_.Execute + " " + [string]$_.Arguments).Trim() }) -join " | "',
   '  $triggers = ($_.Triggers | ForEach-Object { [string]$_.CimClass.CimClassName }) -join ","',
-  '  [pscustomobject]@{ taskPath = [string]$_.TaskPath; taskName = [string]$_.TaskName; state = [string]$_.State; action = $action; runAsUser = [string]$_.Principal.UserId; runLevel = [string]$_.Principal.RunLevel; triggerTypes = $triggers; lastRunTime = $info.LastRunTime; lastResult = [int]$info.LastTaskResult; nextRunTime = $info.NextRunTime }',
+  // `LastTaskResult` is a UInt32: a task stopped by Ctrl-C reports 3221225786
+  // (0xC000013A), which overflows `[int]`. Once the script actually ran (the stdin
+  // truncation used to hide this), the cast aborted the whole read, so the width is part
+  // of the fix: `[long]` keeps every 32-bit result.
+  '  [pscustomobject]@{ taskPath = [string]$_.TaskPath; taskName = [string]$_.TaskName; state = [string]$_.State; action = $action; runAsUser = [string]$_.Principal.UserId; runLevel = [string]$_.Principal.RunLevel; triggerTypes = $triggers; lastRunTime = $info.LastRunTime; lastResult = [long]$info.LastTaskResult; nextRunTime = $info.NextRunTime }',
   '})',
   'ConvertTo-Json -InputObject $rows -Depth 3 -Compress',
 ].join('\n');

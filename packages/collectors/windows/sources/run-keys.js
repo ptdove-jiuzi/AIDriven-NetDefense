@@ -34,6 +34,7 @@ import { createSourceDescriptor } from '../descriptor.js';
 import { WINDOWS_ERROR_CODES, WindowsCollectorError } from '../errors.js';
 import { buildPayload } from '../payload.js';
 import { psQuote, toArray, toText } from '../powershell.js';
+import { bind, isAvailable, koffi, loadLibrary } from '../win32/koffi.js';
 
 export const RUN_KEYS_SOURCE_ID = 'windows.run-key';
 export const RUN_KEYS_INTERVAL_MS = 60_000;
@@ -141,19 +142,26 @@ export function buildRunKeysScript(keys = RUN_KEY_PATHS) {
     '  return $false',
     '}',
     'foreach ($k in $targets) {',
+    // `Get-Item -LiteralPath 'HKLM\...'` resolves against the *filesystem* provider and
+    // throws ItemNotFoundException; the catch below used to swallow that as "the key does
+    // not exist", so this source reported a successful empty read while the Run keys held
+    // eleven values. The declared form stays `HKLM\...` (it is the payload key_path), and
+    // the drive-qualified form is derived here for the provider call only.
+    '  $declaredKey = $k',
+    "  $k = $k -replace '^(HKLM|HKCU|HKU|HKCR)\\\\(.*)$', '$1:\\$2'",
     '  $key = $null',
     '  try { $key = Get-Item -LiteralPath $k -ErrorAction Stop }',
     '  catch {',
-    '    if (Test-AccessDenied $_.Exception) { $deniedKeys += $k }',
+    '    if (Test-AccessDenied $_.Exception) { $deniedKeys += $declaredKey }',
     '    continue',
     '  }',
     '  try { $names = @($key.GetValueNames()) }',
     '  catch {',
-    '    if (Test-AccessDenied $_.Exception) { $deniedKeys += $k }',
+    '    if (Test-AccessDenied $_.Exception) { $deniedKeys += $declaredKey }',
     '    continue',
     '  }',
     '  foreach ($n in $names) {',
-    '    $entries += [pscustomobject]@{ keyPath = $k; valueName = [string]$n; command = [string]$key.GetValue($n) }',
+    '    $entries += [pscustomobject]@{ keyPath = $declaredKey; valueName = [string]$n; command = [string]$key.GetValue($n) }',
     '  }',
     '}',
     'ConvertTo-Json -InputObject ([pscustomobject]@{ values = @($entries); deniedKeys = @($deniedKeys) }) -Depth 4 -Compress',
@@ -205,11 +213,33 @@ function normalizeRow(row) {
  * source now prevents.
  */
 function splitTable(payload) {
+  // R3-005: a parsed `null` / `[]` / `{}` means "the script produced no structure", not
+  // "the registry really has zero values" — downstream they were indistinguishable
+  // (`status: ok`, `records: 0`). The script always emits `{ values, deniedKeys }`, so a
+  // value without that shape is a failed read, not an empty one. A **non-empty** bare
+  // array is still accepted because fixtures replay that row shape; an **empty** one is
+  // rejected: it carries neither rows nor denial information.
   if (payload === null || payload === undefined) {
-    return { rows: [], deniedKeys: [] };
+    throw new WindowsCollectorError(
+      WINDOWS_ERROR_CODES.INVALID_OUTPUT,
+      'the run-keys script emitted no result; expected { values, deniedKeys }',
+    );
   }
   if (Array.isArray(payload)) {
+    if (payload.length === 0) {
+      throw new WindowsCollectorError(
+        WINDOWS_ERROR_CODES.INVALID_OUTPUT,
+        'the run-keys script emitted an empty array instead of { values, deniedKeys }',
+      );
+    }
     return { rows: payload, deniedKeys: [] };
+  }
+  if (typeof payload !== 'object' || (!Object.hasOwn(payload, 'values') && !Object.hasOwn(payload, 'deniedKeys'))) {
+    throw new WindowsCollectorError(
+      WINDOWS_ERROR_CODES.INVALID_OUTPUT,
+      'the run-keys script must emit { values, deniedKeys }',
+      { details: { type: Array.isArray(payload) ? 'array' : typeof payload } },
+    );
   }
   if (payload.deniedKeys !== undefined && payload.deniedKeys !== null && !Array.isArray(payload.deniedKeys)) {
     throw new WindowsCollectorError(
@@ -222,6 +252,206 @@ function splitTable(payload) {
     rows: Array.isArray(payload.values) ? payload.values : [payload],
     deniedKeys: toArray(payload.deniedKeys).filter((key) => typeof key === 'string' && key.length > 0),
   };
+}
+
+/* ------------------------------------------------------------------------------------ *
+ * Native registry transport (PERF-CPU)
+ *
+ * One `Get-Item` + `GetValueNames` PowerShell read of the declared Run keys cost 1085.94 ms
+ * of CPU per poll on the reference host, ~680 ms of which was the interpreter starting. The
+ * same 14 values come out of `advapi32!RegGetValueW` in **single-digit milliseconds**, with
+ * no subprocess at all.
+ *
+ * This is the same read, not a narrower one: the declared key list, the denied-key
+ * classification and the payload field set are unchanged, and `readRunKeysNative()` returns
+ * `null` (never an empty table) whenever the native path cannot be used, so the PowerShell
+ * script — and the persistent session that carries it — stays the fallback.
+ *
+ * The `HKLM\` vs `HKLM:\` trap (N-007 §5): the declared `key_path` payload field keeps the
+ * registry-path form with a backslash, exactly as the script emits it. Only the hive and the
+ * subkey are split for the call; no `:` ever reaches the payload.
+ * ------------------------------------------------------------------------------------ */
+
+const NATIVE_HIVES = Object.freeze({
+  HKLM: 0x80000002n,
+  HKCU: 0x80000001n,
+  HKU: 0x80000003n,
+  HKCR: 0x80000000n,
+});
+
+const REG_KEY_READ = 0x20019;
+const RRF_RT_ANY = 0x0000ffff;
+const REG_NO_MORE_ITEMS = 259;
+const REG_ERROR_MORE_DATA = 234;
+const REG_ERROR_ACCESS_DENIED = 5;
+const REG_ERROR_FILE_NOT_FOUND = 2;
+const REG_TYPE_SZ = 1;
+const REG_TYPE_EXPAND_SZ = 2;
+const REG_TYPE_BINARY = 3;
+const REG_TYPE_DWORD = 4;
+const REG_TYPE_MULTI_SZ = 7;
+const REG_TYPE_QWORD = 11;
+const NATIVE_NAME_CAPACITY = 512;
+const NATIVE_DATA_CAPACITY = 64 * 1024;
+
+let nativeTransport = null;
+let nativeFailure = null;
+
+function loadNativeTransport() {
+  if (nativeTransport !== null || nativeFailure !== null) {
+    return nativeTransport;
+  }
+  if (!isAvailable()) {
+    nativeFailure = 'koffi is unavailable on this host';
+    return null;
+  }
+  try {
+    const advapi32 = loadLibrary('advapi32');
+    nativeTransport = {
+      RegOpenKeyExW: bind(advapi32, 'int32 RegOpenKeyExW(int64 hKey, const char16_t *lpSubKey, uint32 ulOptions, uint32 samDesired, int64 *phkResult)', 'advapi32'),
+      RegEnumValueW: bind(advapi32, 'int32 RegEnumValueW(int64 hKey, uint32 dwIndex, char16_t *lpValueName, uint32 *lpcchValueName, void *lpReserved, uint32 *lpType, void *lpData, uint32 *lpcbData)', 'advapi32'),
+      RegGetValueW: bind(advapi32, 'int32 RegGetValueW(int64 hKey, const char16_t *lpSubKey, const char16_t *lpValue, uint32 dwFlags, uint32 *pdwType, void *pvData, uint32 *pcbData)', 'advapi32'),
+      RegCloseKey: bind(advapi32, 'int32 RegCloseKey(int64 hKey)', 'advapi32'),
+      buffers: {
+        handle: koffi.alloc('int64', 1),
+        name: koffi.alloc('char16_t', NATIVE_NAME_CAPACITY),
+        nameLength: koffi.alloc('uint32', 1),
+        type: koffi.alloc('uint32', 1),
+        size: koffi.alloc('uint32', 1),
+        data: koffi.alloc('uint8_t', NATIVE_DATA_CAPACITY),
+      },
+    };
+  } catch (error) {
+    nativeFailure = error?.message ?? String(error);
+    nativeTransport = null;
+  }
+  return nativeTransport;
+}
+
+function decodeNativeValue(type, bytes) {
+  if (type === REG_TYPE_DWORD) {
+    return bytes.length >= 4 ? String(bytes.readUInt32LE(0)) : null;
+  }
+  if (type === REG_TYPE_QWORD) {
+    return bytes.length >= 8 ? String(bytes.readBigUInt64LE(0)) : null;
+  }
+  if (type === REG_TYPE_BINARY) {
+    // `[string]$key.GetValue($name)` on a byte[] renders exactly this, so the fallback path
+    // and the native path agree on the payload for a hostile value too.
+    return 'System.Byte[]';
+  }
+  // The registry hands back a NUL-terminated count, and the block may be a byte or two
+  // longer than the string it holds, so the string ends at the first NUL — trailing bytes
+  // must never leak into `command` (they did: `"…\\hipstray.exe"\u0000p`).
+  const decoded = bytes.toString('utf16le');
+  const terminatedAt = decoded.indexOf('\u0000');
+  const text = terminatedAt === -1 ? decoded : decoded.slice(0, terminatedAt);
+  if (type === REG_TYPE_MULTI_SZ) {
+    // `[string](string[])` joins the entries with a space; empty trailing entries are the
+    // terminator, not values.
+    return decoded.split('\u0000').filter((entry) => entry.length > 0).join(' ');
+  }
+  return text;
+}
+
+function readNativeValue(transport, handle, name) {
+  const { buffers } = transport;
+  koffi.encode(buffers.type, 'uint32', 0);
+  koffi.encode(buffers.size, 'uint32', 0);
+  let status = transport.RegGetValueW(handle, null, name, RRF_RT_ANY, buffers.type, null, buffers.size);
+  if (status !== 0 && status !== REG_ERROR_MORE_DATA) {
+    return null;
+  }
+  const byteLength = koffi.decode(buffers.size, 'uint32');
+  const target = byteLength > NATIVE_DATA_CAPACITY ? koffi.alloc('uint8_t', byteLength) : buffers.data;
+  koffi.encode(buffers.size, 'uint32', byteLength);
+  status = transport.RegGetValueW(handle, null, name, RRF_RT_ANY, buffers.type, target, buffers.size);
+  if (status !== 0) {
+    return null;
+  }
+  const bytes = Buffer.from(koffi.decode(target, 'uint8_t', byteLength));
+  return decodeNativeValue(koffi.decode(buffers.type, 'uint32'), bytes);
+}
+
+/**
+ * Read the declared Run keys through `advapi32`, without a subprocess.
+ *
+ * @param {string[]} declared declared key paths (`HKLM\...`, `HKLM:\...` is rejected upstream)
+ * @returns {{values: object[], deniedKeys: string[], elapsedMs: number}|null} `null` when the
+ *   native path is unavailable, so the caller falls back to the script transport.
+ */
+export function readRunKeysNative(declared) {
+  const transport = loadNativeTransport();
+  if (transport === null) {
+    return null;
+  }
+  const startedAt = Date.now();
+  const values = [];
+  const deniedKeys = [];
+  for (const keyPath of declared) {
+    const separator = keyPath.indexOf('\\');
+    const hive = NATIVE_HIVES[keyPath.slice(0, separator).toUpperCase()];
+    const subKey = keyPath.slice(separator + 1);
+    if (hive === undefined || subKey.length === 0) {
+      continue;
+    }
+    const status = transport.RegOpenKeyExW(hive, subKey, 0, REG_KEY_READ, transport.buffers.handle);
+    if (status === REG_ERROR_ACCESS_DENIED) {
+      deniedKeys.push(keyPath);
+      continue;
+    }
+    if (status === REG_ERROR_FILE_NOT_FOUND) {
+      continue;
+    }
+    if (status !== 0) {
+      return null;
+    }
+    const handle = koffi.decode(transport.buffers.handle, 'int64');
+    try {
+      for (let index = 0; ; index += 1) {
+        koffi.encode(transport.buffers.nameLength, 'uint32', NATIVE_NAME_CAPACITY);
+        const itemStatus = transport.RegEnumValueW(
+          handle,
+          index,
+          transport.buffers.name,
+          transport.buffers.nameLength,
+          null,
+          null,
+          null,
+          null,
+        );
+        if (itemStatus === REG_NO_MORE_ITEMS) {
+          break;
+        }
+        if (itemStatus === REG_ERROR_ACCESS_DENIED) {
+          deniedKeys.push(keyPath);
+          break;
+        }
+        if (itemStatus !== 0) {
+          return null;
+        }
+        const valueName = koffi.decode(transport.buffers.name, 'char16_t', -1);
+        values.push({
+          keyPath,
+          valueName,
+          command: readNativeValue(transport, handle, valueName),
+        });
+      }
+    } finally {
+      transport.RegCloseKey(handle);
+    }
+  }
+  return { values, deniedKeys, elapsedMs: Date.now() - startedAt };
+}
+
+/** Diagnostics for the degradation report: which transport is active and why. */
+export function describeRunKeysNative() {
+  const transport = loadNativeTransport();
+  return Object.freeze({
+    available: transport !== null,
+    reason: nativeFailure,
+    libraries: transport === null ? null : ['advapi32.dll'],
+  });
 }
 
 export function createRunKeysSource({
@@ -246,12 +476,33 @@ export function createRunKeysSource({
   const differ = createSnapshotDiffer({ maxEntities });
   const descriptor = runKeysDescriptor({ intervalMs });
 
+  /**
+   * Native first (no subprocess, single-digit ms), script second. The script is not merely a
+   * fixture path: it is the fallback that a host without koffi runs, and both must produce
+   * the same rows.
+   */
+  async function readTable() {
+    if (powershell.nativeCapable === true) {
+      try {
+        const native = readRunKeysNative(declared);
+        if (native !== null) {
+          // Same table shape the script produces, so the snapshot differ sees one format.
+          return { rows: native.values, deniedKeys: native.deniedKeys };
+        }
+      } catch {
+        // An unexpected native failure degrades to the script — the same read — instead of
+        // surfacing as a partial/empty registry snapshot.
+      }
+    }
+    return splitTable(await powershell.runJson(script));
+  }
+
   return Object.freeze({
     descriptor,
     sourceId: RUN_KEYS_SOURCE_ID,
 
     async read() {
-      const { rows, deniedKeys } = splitTable(await powershell.runJson(script));
+      const { rows, deniedKeys } = await readTable();
       const items = [];
       const seenKeys = new Set();
       for (const row of rows) {
@@ -325,3 +576,4 @@ export function createRunKeysSource({
     },
   });
 }
+

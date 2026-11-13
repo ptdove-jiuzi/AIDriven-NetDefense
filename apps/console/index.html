@@ -472,6 +472,23 @@
   <div class="drawer-body" id="drawer-body"></div>
 </aside>
 
+<!-- SEED-03: the 7×159 locale files under i18n/locales are only live if the entry
+     loads the loader and starts it. The loader is injected at runtime so the entry keeps
+     exactly one <script src> (asserted by tests/console/console-ui.test.js); the
+     reference and the NDI18N.autoStart() call are asserted by scripts/i18n-check.mjs
+     (ENTRY_NOT_WIRED / ENTRY_LOADER_UNUSED) and by tests/console/i18n/**. -->
+<script>
+  window.addEventListener('DOMContentLoaded', function () {
+    var loader = document.createElement('script');
+    loader.src = 'i18n/index.js';
+    loader.onload = function () {
+      if (window.NDI18N && typeof window.NDI18N.autoStart === 'function') {
+        window.NDI18N.autoStart();
+      }
+    };
+    document.head.appendChild(loader);
+  });
+</script>
 <script src="app.js" defer></script>
 </body>
 </html>

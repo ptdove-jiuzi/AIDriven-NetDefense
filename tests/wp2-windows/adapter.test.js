@@ -493,6 +493,10 @@ test('attachWindowsSources registers every source with the runtime', async (t) =
       async runJson(script) {
         if (script.includes('aegis-source:processes')) return [];
         if (script.includes('aegis-source:services')) return [];
+        // R3-005: the run-keys script always emits `{ values, deniedKeys }`; an empty array
+        // is a degenerate output now, not "zero values", so the fixture must use the real
+        // script shape for a legitimate empty read.
+        if (script.includes('aegis-source:run-keys')) return { values: [], deniedKeys: [] };
         return [];
       },
     },

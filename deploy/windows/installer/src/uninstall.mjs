@@ -24,6 +24,7 @@ import { beginJournal, loadJournal, PHASES, TERMINAL_PHASES } from './journal.mj
 import { isServiceAbsentError, OpsError } from './ops.mjs';
 import { REG_ARP_KEY, REG_EVENT_SOURCE_KEY, REG_PRODUCT_KEY, SERVICE_NAME } from './paths.mjs';
 import { recoverTransaction } from './recovery.mjs';
+import { rollbackInstall } from './install.mjs';
 
 /**
  * @param {{ layout: object, logger: object, ops: object }} ctx
@@ -43,7 +44,9 @@ export async function runUninstall({ layout, logger, ops }) {
   // first if §6.2 gives a convergent action (H1), otherwise refuse.
   const resuming = existing.state === 'ok' && existing.journal.phase === PHASES.UNINSTALLING;
   if (existing.state === 'ok' && !TERMINAL_PHASES.has(existing.journal.phase) && !resuming) {
-    const recovered = await recoverTransaction({ layout, journal: existing.journal, logger, ops });
+    const recovered = await recoverTransaction({
+      layout, journal: existing.journal, logger, ops, rollback: rollbackInstall,
+    });
     if (recovered.outcome === 'converged') {
       logger.warn('先收敛了中断的安装事务，继续执行卸载', { phase: existing.journal.phase, action: recovered.action });
     } else if (recovered.outcome === 'failed') {
@@ -86,9 +89,15 @@ export async function runUninstall({ layout, logger, ops }) {
     try {
       ops.serviceStop({ timeoutMs: 90_000 });
     } catch (error) {
-      journal.settle(false, error.message);
-      logger.error('停止服务失败，未删除任何文件', error.message);
-      return { code: EXIT.SERVICE_STOP, message: `停止服务失败：${error.message}` };
+      // Step 1 had the same hole as step 3: a service that is already gone has nothing to
+      // stop, but the failure parked the phase at `UNINSTALLING` and answered 20 to every
+      // rerun while `/install` answered 15 — a second one-way door (H5, other entrance).
+      if (!isServiceAbsentError(error)) {
+        journal.settle(false, error.message);
+        logger.error('停止服务失败，未删除任何文件', error.message);
+        return { code: EXIT.SERVICE_STOP, message: `停止服务失败：${error.message}` };
+      }
+      logger.warn('服务已不存在，无需停止');
     }
 
     // 2. Event Log Readers membership (D14). It goes before the service is unregistered,

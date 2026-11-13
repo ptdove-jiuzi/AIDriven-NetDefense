@@ -17,8 +17,8 @@
  * `session/prompt` and any real broker are out of scope for this PoC.
  *
  * Environment:
- * - `M8_BUNDLE_DIR` overrides the bundle location (default: sibling `_m8_poc`
- *   directory next to the repository, i.e. outside the working tree).
+ * - `M8_BUNDLE_DIR` overrides which in-repository bundle is read; the override and
+ *   the default must both be a complete `dist/bundle/win32-x64-v<N>` artifact.
  * - `M8_NODE_LICENSE` is passed through to the builder when a bundle has to be
  *   produced first, because the Windows Node installer ships no LICENSE file.
  */
@@ -38,12 +38,24 @@ import {
 } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
-import test from 'node:test';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import test, { after } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { listBundleFiles, sha256File } from '../../deploy/embedded-runtime/lib/stage.mjs';
-import { defaultBundleRoot, readPlan, resolvePlanPaths, scanBundleForHostPaths } from './bundle-locator.mjs';
+import { reapAll, trackedSpawn } from './child-reaper.mjs';
+import {
+  BUNDLE_DIRECTORY_PATTERN,
+  defaultBundleRoot,
+  isCompleteBundle,
+  readPlan,
+  resolvePlanPaths,
+  scanBundleForHostPaths,
+} from './bundle-locator.mjs';
+
+after(async () => {
+  await reapAll();
+});
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 // The bundle stores no build-host path, so this suite resolves the launch plan
@@ -227,7 +239,7 @@ function sleep(milliseconds) {
  * `process.execPath`, so the launch is really tested.
  */
 async function probeWorker({ command, args, cwd, env, runtimeManifest, timeoutMs = 90000 }) {
-  const child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  const child = trackedSpawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
   const frames = [];
   const pending = new Map();
   let stdoutBuffer = '';
@@ -336,12 +348,36 @@ function blockedRecords(path) {
   return readTripwireLog(path).filter((entry) => entry.kind !== 'armed' && entry.kind !== 'net.allowed');
 }
 
-test('the bundle lives outside the repository and its launch plan stores no build-host path', () => {
+test('the delivered bundle is the in-repository versioned artifact and its launch plan stores no build-host path', () => {
   ensureBundle();
   const raw = readPlan(BUNDLE_ROOT);
   const plan = resolvePlanPaths(raw, BUNDLE_ROOT);
-  const inside = relative(REPO_ROOT, BUNDLE_ROOT);
-  assert.ok(inside.startsWith('..') || isAbsolute(inside), `bundle must live outside the repository, got ${BUNDLE_ROOT}`);
+  // The delivered bundle is an artifact *of this repository*, never a build-host
+  // scratch tree: it must sit directly under `<repo>/dist/bundle/`, be a versioned
+  // `win32-x64-v<N>` directory, carry the four completeness markers, and not
+  // overlap a source tree. This replaces the pre-v14 assertion "the bundle lives
+  // outside the repository": that was true only while the sole bundle was the
+  // external `_m8_poc` build, and that tree is exactly what BASE-01 showed to be
+  // stale. `v14-profile.test.js` already makes "in-repository artifact path" the
+  // contract (`daemon-console.json.defaultOut = dist/bundle/win32-x64-v14`), and
+  // rc.3 ships `dist/bundle/win32-x64-v15`; the invariant is inverted, not
+  // relaxed — it now names the delivered artifact instead of accepting any
+  // directory outside the tree.
+  const insideRoot = relative(REPO_ROOT, BUNDLE_ROOT);
+  assert.ok(insideRoot.length > 0 && !insideRoot.startsWith('..') && !isAbsolute(insideRoot),
+    `the delivered bundle must live inside the repository, got ${BUNDLE_ROOT}`);
+  const bundleParent = join(REPO_ROOT, 'dist', 'bundle');
+  assert.equal(dirname(BUNDLE_ROOT), bundleParent,
+    `the delivered bundle must be a direct child of ${bundleParent}`);
+  assert.ok(BUNDLE_DIRECTORY_PATTERN.test(basename(BUNDLE_ROOT)),
+    `the delivered bundle directory must be a versioned artifact (win32-x64-v<N>), got ${basename(BUNDLE_ROOT)}`);
+  assert.ok(isCompleteBundle(BUNDLE_ROOT),
+    `the delivered bundle must be complete (${BUNDLE_ROOT} is missing bundle.json / launch plan / runtime / hash manifest)`);
+  for (const sourceDirectory of ['apps', 'packages', 'plugins', 'tests', 'docs']) {
+    const fromSource = relative(join(REPO_ROOT, sourceDirectory), BUNDLE_ROOT);
+    assert.ok(fromSource.startsWith('..') || isAbsolute(fromSource),
+      `the delivered bundle must not sit inside the ${sourceDirectory}/ source tree: ${BUNDLE_ROOT}`);
+  }
 
   assert.equal(plan.author, 'PT-dove');
   assert.equal(plan.kind, 'packaging-poc');
@@ -387,9 +423,37 @@ test('the bundle lives outside the repository and its launch plan stores no buil
   assert.equal(plan.profile.dshHomePolicy, 'attempt-scoped', 'DSH_HOME must be per attempt, not the bundle');
   assert.match(plan.profile.note, /\.cordis/, 'the launch plan must explain why DSH_HOME cannot be the bundle');
   assert.deepEqual(plan.network.brokerHostAllowlist, ['127.0.0.1', '::1']);
-  for (const nonGoal of ['code signing', 'formal installer / uninstaller', 'updater', 'four-OS packaging', 'model weights']) {
-    assert.ok(plan.nonGoals.includes(nonGoal), `launch plan must state the non-goal "${nonGoal}"`);
+  // The plan must state what the delivered payload deliberately does not do.
+  // A bundle profile may override the builder's defaults: build.mjs:831-852 takes
+  // `profile.document.nonGoals` when it is a non-empty array, replacing
+  // `defaultNonGoals` (whose first three entries are a v13-era "code signing /
+  // formal installer / uninstaller / updater" trio). The delivered v15/v16
+  // desktop payloads declare their own list, because rc.3+ ships the desktop shell
+  // and its installer chain — the old "no formal installer / updater" claim would
+  // describe a payload that no longer exists. The assertions below pin the current
+  // contract instead of accepting any list: the retired claim must stay retired
+  // (a reappearance is a red flag), and the updater non-goal must be stated in the
+  // current wording.
+  assert.ok(Array.isArray(plan.nonGoals) && plan.nonGoals.length > 0,
+    'the launch plan must declare a non-empty nonGoals array');
+  for (const nonGoal of plan.nonGoals) {
+    assert.equal(typeof nonGoal, 'string', `nonGoals entries must be strings, saw ${JSON.stringify(nonGoal)}`);
+    assert.ok(nonGoal.trim().length > 0, 'nonGoals entries must not be empty');
   }
+  const statedNonGoals = plan.nonGoals.join('\n');
+  for (const nonGoal of [
+    'code signing',
+    'four-OS packaging',
+    'model weights',
+    'broker / sandbox-launcher integration',
+    'service registration',
+  ]) {
+    assert.ok(statedNonGoals.includes(nonGoal), `launch plan must state the non-goal "${nonGoal}"`);
+  }
+  assert.equal(statedNonGoals.includes('formal installer / uninstaller'), false,
+    'the retired "formal installer / uninstaller" non-goal must not reappear: rc.3+ ships the installer chain');
+  assert.ok(plan.nonGoals.some((nonGoal) => nonGoal.includes('automatic download/apply of an update')),
+    'the launch plan must state the updater non-goal in the current wording');
 
   const stub = readFileSync(join(BUNDLE_ROOT, 'launch', 'aegis-harness-worker.cmd'), 'utf8');
   assert.ok(stub.includes('%~dp0'), 'the stub must derive the bundle root from its own location');

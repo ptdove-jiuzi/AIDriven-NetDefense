@@ -175,23 +175,31 @@ test('the reclaim report refuses a path that is not a directory and still compar
   }
 });
 
-test('the real bundle pair is reported with figures that match its own manifests', (t) => {
+test('the real bundle pair is reported with figures that match its own manifests', () => {
   // Real-tree counterpart of the fixtures above. It compares the delivered bundle
-  // against the previous release rather than sweeping the whole `_m8_poc` tree:
-  // the same code path, the same real manifests, two directories instead of
-  // sixteen, so the gate does not spend three minutes on a stale directory walk.
-  // A missing pair is a visible skip, not a silent pass.
-  const baseline = join(dirname(DELIVERED_BUNDLE), 'aegis-embedded-win32-x64-v9-pruned');
-  if (!existsSync(join(DELIVERED_BUNDLE, 'bundle.json')) || !existsSync(join(baseline, 'bundle.json'))) {
-    t.skip('the delivered bundle and its baseline are not both present');
-    return;
-  }
+  // against the previous in-repository release rather than sweeping the old
+  // `_m8_poc` tree: the same code path, the same real manifests, two directories
+  // instead of sixteen, so the gate does not spend three minutes on a stale
+  // directory walk. Both sides are delivered artifacts now: v15 is the rc.3
+  // payload and v16 the rc.4 payload, both under `dist/bundle/` with
+  // `defaultBundleRoot()` selecting the newest complete one. The old baseline
+  // (`aegis-embedded-win32-x64-v9-pruned`) only ever existed inside the external
+  // `_m8_poc` build tree that the packaging suites no longer read, so a missing
+  // pair must be a hard failure, not a skip: under `test:packaging`
+  // (`run-tests.mjs` `maxSkip=0`) a skip already fails the gate, and a silent one
+  // would hide that the report lost its real counterpart.
+  const baseline = join(dirname(DELIVERED_BUNDLE), 'win32-x64-v15');
+  assert.ok(existsSync(join(baseline, 'bundle.json')),
+    `the previous in-repo release ${baseline} must remain for the real-pair report; `
+    + 'if it was reclaimed, update this baseline deliberately instead of skipping the measurement');
+  assert.ok(existsSync(join(DELIVERED_BUNDLE, 'bundle.json')),
+    `the delivered bundle ${DELIVERED_BUNDLE} must be present for the real-pair report`);
   const text = run([baseline, DELIVERED_BUNDLE]);
   assert.equal(text.status, 0, `the delivered pair must be reportable:\n${text.stderr}`);
   assert.match(text.stdout, /delta \(after - before\)/);
 
   const json = JSON.parse(run([baseline, DELIVERED_BUNDLE, '--json']).stdout);
-  assert.equal(json.before.name, 'aegis-embedded-win32-x64-v9-pruned');
+  assert.equal(json.before.name, 'win32-x64-v15');
   assert.equal(json.after.name, DEFAULT_BUNDLE_NAME,
     'the report must name the tree it measured, and it must be the delivered bundle');
   assert.equal(json.delta.logicalMiB, Number((json.after.logicalMiB - json.before.logicalMiB).toFixed(2)));

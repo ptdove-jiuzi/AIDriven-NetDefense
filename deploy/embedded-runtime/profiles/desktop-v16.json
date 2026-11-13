@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "1.0",
+  "name": "desktop-v16",
+  "bundleName": "win32-x64-v16",
+  "defaultOut": "dist/bundle/win32-x64-v16",
+  "description": "v16 composition (release 0.0.1-rc.4): byte-for-byte the v15 desktop composition (daemon + desktop shell at the payload root), with the console asset switched from apps/console to apps/console-next. The console spec is otherwise unchanged: the product tree wins over the packaging shell, and its own serve.mjs is the server (console-shell/serve.mjs stays only as the declared fallback). v15 is left untouched so the rc.3 payload stays reproducible.",
+  "closureRoots": [
+    "@deepseek-ai/dsh",
+    "@aegisharness/harness-worker",
+    "@aegisharness/harness-adapter",
+    "@aegisharness/dsh-defense-profile",
+    "@aegisharness/dsh-defense-tools",
+    "@aegisharness/daemon"
+  ],
+  "assets": {
+    "console": {
+      "preferredSource": "apps/console-next",
+      "shellSource": "deploy/embedded-runtime/console-shell",
+      "serverFallback": "deploy/embedded-runtime/console-shell/serve.mjs",
+      "target": "console",
+      "requireEntry": "index.html",
+      "note": "apps/console-next is the product console for rc.4 (WebUI v2, 6 pages). It ships its own loopback server (js/app.js is an ES module graph), so serve.mjs beside it is the real server; the packaging shell is only the declared fallback the builder would use if the console tree ever lost its server. The builder fails closed if the staged console ends up with neither."
+    },
+    "rules": {
+      "source": "deploy/embedded-runtime/rules",
+      "target": "rules",
+      "requirePattern": "*.json",
+      "note": "Built-in rule pack, validated with the repository's own detection package before staging. Unchanged from v15."
+    },
+    "desktop": {
+      "source": "dist/desktop/AIDrivenNetDefense.exe",
+      "target": "AIDrivenNetDefense.exe",
+      "note": "The Windows desktop shell (tray + WebView2), staged as a single file at the payload root. Unchanged from v15: the shell derives its install root from its own directory, so it must sit beside apps/, runtime/ and console/."
+    }
+  },
+  "entryForwarders": [
+    {
+      "package": "@aegisharness/daemon",
+      "target": "apps/daemon",
+      "note": "Unchanged from v15: a four-line forwarder so node <bundle>/apps/daemon/bin.js resolves the real package in app/node_modules."
+    }
+  ],
+  "launchers": ["worker", "daemon", "console"],
+  "nonGoals": [
+    "code signing",
+    "automatic download/apply of an update",
+    "four-OS packaging (this payload is win32-x64 only)",
+    "model weights",
+    "broker / sandbox-launcher integration",
+    "service registration (apps/service-host is not in this payload)"
+  ],
+  "readme": {
+    "title": "AegisHarness embedded runtime bundle (desktop, console-next / rc.4)"
+  }
+}

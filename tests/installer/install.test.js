@@ -124,8 +124,19 @@ test('the plan records ACLs, service registration, registry entries and the Star
   const serviceInstall = plan.find((entry) => entry.op === 'service.install');
   assert.ok(serviceInstall.argv.includes('--install-service'));
   assert.ok(serviceInstall.argv.includes(`NT SERVICE\\${SERVICE_NAME}`), 'must not use LocalSystem');
+
+  // `--preshutdown-ms` is the same shape as the H4 flag: the host does not parse it, and the
+  // value only "arrives" because the C++ default happens to be the same number. So assert both
+  // halves — what we ask for, and that the host's built-in default is still that number. If
+  // either drifts, this goes red instead of quietly succeeding for the wrong reason.
   assert.ok(serviceInstall.argv.includes('--preshutdown-ms'));
   assert.ok(serviceInstall.argv.includes('120000'));
+  const nativeHost = readFileSync(
+    fileURLToPath(new URL('../../apps/service-host/native/aegis-svc.cpp', import.meta.url)),
+    'utf8',
+  );
+  assert.match(nativeHost, /kPreshutdownMs\s*=\s*120000/u,
+    'the requested preshutdown timeout must equal the host default while the flag is unparsed');
 
   // H4: the plan must not claim the host does something it does not implement. The old
   // assertion here was `argv.includes('--event-log-readers')` — true by construction, because

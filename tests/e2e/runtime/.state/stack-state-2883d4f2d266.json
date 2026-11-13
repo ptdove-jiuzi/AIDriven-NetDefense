@@ -1,0 +1,44 @@
+{
+  "schemaVersion": "1.0",
+  "updatedAt": "2026-11-04T14:08:37.264Z",
+  "node": "v24.20.0",
+  "qaRoot": "D:\\AIUSE\\_qa\\int\\2026-11-04",
+  "stacks": {
+    "data": {
+      "daemon": {
+        "pid": 16632,
+        "port": 17511,
+        "owned": false,
+        "commandLine": "\"C:\\Program Files\\nodejs\\node.exe\" apps\\daemon\\bin.js --config D:\\AIUSE\\_qa\\int\\2026-11-04\\daemon.json --collectors D:\\AIUSE\\_qa\\int\\2026-11-04\\collectors.json",
+        "log": "D:\\AIUSE\\_qa\\int\\2026-11-04\\logs\\daemon-17511.log",
+        "recordedAt": "2026-11-04T14:08:30.144Z"
+      },
+      "host": {
+        "pid": 40380,
+        "port": 17512,
+        "owned": false,
+        "commandLine": "\"C:\\Program Files\\nodejs\\node.exe\" apps\\console-next\\serve.mjs --daemon http://127.0.0.1:17511 --token-file D:\\AIUSE\\_qa\\int\\2026-11-04\\secrets\\api-token --port 17512 --verbose",
+        "log": "D:\\AIUSE\\_qa\\int\\2026-11-04\\logs\\console-host-17512.log",
+        "recordedAt": "2026-11-04T14:08:30.144Z"
+      }
+    },
+    "mock": {
+      "daemon": {
+        "pid": 8848,
+        "port": 17521,
+        "owned": false,
+        "commandLine": "\"C:\\Program Files\\nodejs\\node.exe\" apps\\daemon\\bin.js --config D:\\AIUSE\\_qa\\int\\2026-11-04\\mock\\daemon-mock.json",
+        "log": "D:\\AIUSE\\_qa\\int\\2026-11-04\\logs\\daemon-17521.log",
+        "recordedAt": "2026-11-04T14:08:37.264Z"
+      },
+      "host": {
+        "pid": 7240,
+        "port": 17522,
+        "owned": false,
+        "commandLine": "\"C:\\Program Files\\nodejs\\node.exe\" apps\\console-next\\serve.mjs --daemon http://127.0.0.1:17521 --token-file D:\\AIUSE\\_qa\\int\\2026-11-04\\mock\\secrets\\api-token --port 17522",
+        "log": "D:\\AIUSE\\_qa\\int\\2026-11-04\\logs\\console-host-17522.log",
+        "recordedAt": "2026-11-04T14:08:37.264Z"
+      }
+    }
+  }
+}

@@ -63,11 +63,15 @@ const SID = Object.freeze({
  * phase stayed at `UNINSTALLING`, `/install` refused with 15, and no command could converge.
  * "Already absent" is the desired end state of a delete, so it is success.
  */
+export function isServiceAbsentText(text) {
+  return /1060|specified service does not exist|service does not exist|服务不存在|指定的服务未安装|没有该服务/iu.test(String(text ?? ''));
+}
+
 export function isServiceAbsentError(error) {
   if (error === null || typeof error !== 'object') return false;
   if (error.details?.status === 1060) return true;
   const text = `${error.message ?? ''} ${error.details?.stderr ?? ''} ${error.details?.stdout ?? ''}`;
-  return /1060|specified service does not exist|service does not exist|服务不存在|指定的服务未安装|没有该服务/iu.test(text);
+  return isServiceAbsentText(text);
 }
 
 /**
@@ -100,15 +104,32 @@ export function eventLogReadersScript({ sid = EVENT_LOG_READERS_SID, account, ac
   if (action !== 'add' && action !== 'remove') {
     throw new OpsError('E_OPS_ARG', `eventLogReadersScript 不支持的动作：${String(action)}`);
   }
-  const verb = action === 'add' ? 'Add-LocalGroupMember' : 'Remove-LocalGroupMember';
-  const guard = action === 'add' ? '-not ' : '';
-  return [
+  // Parameter sets, not string shaping: `Add-LocalGroupMember`/`Remove-LocalGroupMember` only
+  // gained a `-SID` parameter set in recent Windows builds, so the portable path is
+  // "resolve the group by SID, then pass the group object". `Get-LocalGroup -SID` has existed
+  // since the LocalAccounts module was introduced (Server 2016 / Windows 10).
+  const statements = [
     '$ErrorActionPreference = "Stop"',
     `$sid = '${sid}'`,
     `$acct = '${account.replace(/'/gu, "''")}'`,
-    `$members = @(Get-LocalGroupMember -SID $sid -ErrorAction Stop)`,
-    `if (${guard}($members | Where-Object { $_.Name -ieq $acct })) { ${verb} -SID $sid -Member $acct }`,
-  ].join('; ');
+    '$group = Get-LocalGroup -SID $sid -ErrorAction Stop',
+    // Resolvable only while the service exists. A resumed uninstall runs after the service is
+    // gone, and that is not an error: the membership cannot exist without the account, so the
+    // probe below simply finds nothing and the operation becomes a no-op.
+    '$acctSid = $null',
+    'try { $acctSid = (New-Object System.Security.Principal.NTAccount($acct)).Translate([System.Security.Principal.SecurityIdentifier]).Value } catch { $acctSid = $null }',
+    '$members = @()',
+    'try { $members = @(Get-LocalGroupMember -Group $group -ErrorAction Stop) } catch { $members = @() }',
+    '$present = @($members | Where-Object { $_.Name -ieq $acct -or ($null -ne $acctSid -and $_.SID.Value -eq $acctSid) }).Count -gt 0',
+  ];
+  if (action === 'add') {
+    statements.push('if (-not $present) { Add-LocalGroupMember -Group $group -Member $acct -ErrorAction Stop }');
+  } else {
+    // No `-not` here: removal is guarded by the positive membership test, so an account that
+    // is already gone (or never a member) is a success rather than a 30 that blocks /uninstall.
+    statements.push('if ($present) { Remove-LocalGroupMember -Group $group -Member $acct -ErrorAction Stop }');
+  }
+  return statements.join('; ');
 }
 
 
@@ -225,14 +246,27 @@ export function createOps({ mode, layout, logger }) {
       if (mode === 'disarm') return record({ op: 'service.stop', name: SERVICE_NAME, timeoutMs });
       // `sc stop` returns immediately; the wait is what actually proves it stopped.
       const stop = spawnSync('sc', ['stop', SERVICE_NAME], { encoding: 'utf8', windowsHide: true });
-      if (stop.status !== 0 && !/not active|未启动|1062/u.test(`${stop.stdout}${stop.stderr}`)) {
-        throw new OpsError('E_SERVICE_STOP', `sc stop 失败：${(stop.stderr ?? '').trim()}`, {});
+      const stopText = `${stop.stdout ?? ''}${stop.stderr ?? ''}`;
+      if (stop.status !== 0) {
+        // H5, the other entrance: a service that is already gone has nothing to stop. This
+        // used to be exit 20 with the phase parked at `UNINSTALLING`, which deadlocked both
+        // `/uninstall` (rerun answered 20 forever) and `/install` (answered 15) — the same
+        // lock as the delete path, reached through `sc stop` instead of `--uninstall-service`.
+        // The numeric status is authoritative: `sc.exe` reports the Win32 error as its exit
+        // code, and its message is localized/OEM-encoded (Node decodes it as UTF-8, so the
+        // text below is a best-effort fallback, not the primary test).
+        if (stop.status === 1060 || isServiceAbsentText(stopText)) return { simulated: false, stopped: true, absent: true };
+        if (!/not active|未启动|1062/u.test(stopText)) {
+          throw new OpsError('E_SERVICE_STOP', `sc stop 失败：${(stop.stderr ?? '').trim()}`, {});
+        }
       }
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
         const query = spawnSync('sc', ['query', SERVICE_NAME], { encoding: 'utf8', windowsHide: true });
-        const output = `${query.stdout ?? ''}`;
+        const output = `${query.stdout ?? ''}${query.stderr ?? ''}`;
         if (/STOPPED/u.test(output)) return { simulated: false, stopped: true };
+        // Deleted while we waited: "stopped" is the truth we were waiting for.
+        if (isServiceAbsentText(output)) return { simulated: false, stopped: true, absent: true };
         sleep(150);
       }
       throw new OpsError('E_SERVICE_STOP', `服务 ${SERVICE_NAME} 在 ${timeoutMs} ms 内未停止`, {});

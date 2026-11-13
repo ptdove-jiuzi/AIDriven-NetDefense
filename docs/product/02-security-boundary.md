@@ -33,7 +33,10 @@
 - daemon 的 API 只允许绑定 `127.0.0.1` 或 `::1`（`apps/daemon/src/config.js` 的 `LOOPBACK_HOSTS`）。
   **不接受 `localhost`**（会经过名称解析），不接受通配地址。
 - 协议是**明文 HTTP/1.1**，没有 TLS 监听器。CLI 也因此只接受 `http://` 端点。
-- 默认端口 `0`（启动时由系统分配临时端口），需显式配置 `api.port` 才能让客户端稳定连上。
+- daemon 自己的默认端口是 `0`（启动时由系统分配临时端口，`apps/daemon/src/config.js:48`）；
+  已构建的桌面壳会先写一个固定候选端口 `17802`，被占用就 +1 重试
+  （`apps/desktop/aidn/settings.py:26`、`apps/desktop/aidn/daemon.py:155-169`），
+  所以装好的产品里实际端口通常不是 0——以 `data\shell\daemon.conf.json` 为准。
 - 除 API 外没有其它监听端口；没有对外 UDP、没有 DNS 服务、没有内置反向代理。
 
 **推论**：把它放到容器里做端口映射、或在前面挂反向代理，会直接破坏这条边界。
@@ -154,6 +157,11 @@ return sendJson(res, 200, { ...payload, csrf_token: auth.csrfToken });
 - 设计上 `apps/model-broker` 是**唯一**模型出口：准入、预算预留、脱敏、固定端点、不重试、不自动切换模型。
 - 当前只用回环桩 broker 与测试凭据验证过；**未接真实生产密钥，未观测真实出网行为**
   （见 [04-gaps.md](./04-gaps.md) 第 6 项）。
+- 产物事实：rc.5 载荷 `dist/bundle/win32-x64-v17` 里**没有** `@aegisharness/model-broker`，
+  全树也没有 `console-host.js`，`bundle.json` 0 处提及（核对输出见
+  `evidence/docs/privacy/09-defaults-and-payload.txt`）。因此在这个产物里模型出口**不可达**，
+  daemon 走到 broker 路径只会得到 503（`apps/daemon/src/api/broker-client.js:28-30`）——
+  这不改变上面的设计边界，但意味着“已构建产物有没有出站面”与“设计上允许什么”要分开看。
 - Harness 侧只暴露两个防御工具，模型面来自真实的 `systemPrompt.assemble()` 与工具 schema
   （`docs/implementation/status/WP0-HARNESS.md` 的记录）。
 
@@ -203,7 +211,7 @@ return sendJson(res, 200, { ...payload, csrf_token: auth.csrfToken });
 | 属性 | 现状 |
 |---|---|
 | 交付物来源可验证 | 无代码签名、无证书、无 `signtool`/`osslsigncode` 调用 |
-| 安装/升级过程安全 | 无安装器、无升级器、无服务单元 |
+| 安装/升级过程安全 | 有安装器（rc.5 `AIDrivenNetDefense-Setup-0.0.1-rc.5.exe`，带卸载项）与便携版启动器，但**无代码签名**；**无升级器**（`AUTO_UPDATE_ENABLED = 0`，`apps/desktop/updater/constants.py:24`；唯一读取点 `engine.py:146`；更新器未被壳装配——`apps/desktop/aidn/**` 无引用，`apps/desktop/main.py:32-33` 只装配 `aidn.app.ShellController`）；**无服务单元**（安装/便携都不装常驻服务） |
 | 传输机密性 | 明文 HTTP，无 TLS；依赖回环这一事实，不依赖加密 |
 | 多用户隔离 | 不存在。单 token，单写者，所有持 token 者权限相同 |
 | 执行隔离 | 无 OS 级沙箱（`apps/sandbox-launcher/` 为空目录） |

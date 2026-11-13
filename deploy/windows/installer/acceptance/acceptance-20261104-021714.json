@@ -1,0 +1,250 @@
+﻿{
+    "schemaVersion":  "1.0",
+    "author":  "PT-dove",
+    "generatedAt":  "2026-11-04T02:18:28.0089878+08:00",
+    "installer":  "Setup.ps1 v2 (payload v14, exe shortcuts, /AUTOSTART)",
+    "productVersion":  "0.0.1-rc.1",
+    "payload":  "synthetic v14-shaped fixture",
+    "payloadStandInExe":  true,
+    "root":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714",
+    "checks":  [
+                   {
+                       "name":  "T1 exit code 0",
+                       "pass":  true,
+                       "detail":  "exit=0 安装完成：0.0.1-rc.1  路径：C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1"
+                   },
+                   {
+                       "name":  "T1 exe present",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\app\\AIDrivenNetDefense.exe"
+                   },
+                   {
+                       "name":  "T1 install.json present",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\install\\install.json"
+                   },
+                   {
+                       "name":  "T1 install.json version",
+                       "pass":  true,
+                       "detail":  "version=0.0.1-rc.1"
+                   },
+                   {
+                       "name":  "T1 install.json upgradedFrom empty on fresh install",
+                       "pass":  true,
+                       "detail":  "upgradedFrom=[]"
+                   },
+                   {
+                       "name":  "T1 install.json desktopExe",
+                       "pass":  true,
+                       "detail":  "desktopExe=app\\AIDrivenNetDefense.exe"
+                   },
+                   {
+                       "name":  "T1 start menu shortcut -\u003e exe",
+                       "pass":  true,
+                       "detail":  "target=C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\app\\AIDrivenNetDefense.exe"
+                   },
+                   {
+                       "name":  "T1 desktop shortcut -\u003e exe",
+                       "pass":  true,
+                       "detail":  "target=C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\app\\AIDrivenNetDefense.exe"
+                   },
+                   {
+                       "name":  "T1 诊断 sub-menu points at self-check",
+                       "pass":  true,
+                       "detail":  "target=C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\启动-自检.cmd"
+                   },
+                   {
+                       "name":  "T1 self-check script kept",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\启动-自检.cmd"
+                   },
+                   {
+                       "name":  "T1 no autostart without /AUTOSTART",
+                       "pass":  true,
+                       "detail":  "run=[]"
+                   },
+                   {
+                       "name":  "T2 seeded data file",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\data\\state.db"
+                   },
+                   {
+                       "name":  "T3 exit code 0",
+                       "pass":  true,
+                       "detail":  "exit=0 升级完成：0.0.1-rc.1 -\u003e 0.0.1-rc.1  路径：C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1"
+                   },
+                   {
+                       "name":  "T3 upgradedFrom non-empty",
+                       "pass":  true,
+                       "detail":  "upgradedFrom=[0.0.1-rc.1]"
+                   },
+                   {
+                       "name":  "T3 data file survived upgrade",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\data\\state.db"
+                   },
+                   {
+                       "name":  "T3 exe still present",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\app\\AIDrivenNetDefense.exe"
+                   },
+                   {
+                       "name":  "T3 /AUTOSTART wrote HKCU Run",
+                       "pass":  true,
+                       "detail":  "run=[\"C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1\\app\\AIDrivenNetDefense.exe\"]"
+                   },
+                   {
+                       "name":  "T3 install.json autostart=true",
+                       "pass":  true,
+                       "detail":  "autostart=True"
+                   },
+                   {
+                       "name":  "T4 shortcut launched the exe (tasklist)",
+                       "pass":  true,
+                       "detail":  "instances=1"
+                   },
+                   {
+                       "name":  "T4 process path is inside install dir",
+                       "pass":  true,
+                       "detail":  "matched=1"
+                   },
+                   {
+                       "name":  "T4 cmdline-matched child detected",
+                       "pass":  true,
+                       "detail":  "cmdline-only matches=1"
+                   },
+                   {
+                       "name":  "T5 exit code 0",
+                       "pass":  true,
+                       "detail":  "exit=0 卸载完成：C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app1"
+                   },
+                   {
+                       "name":  "T5 install dir emptied/removed",
+                       "pass":  true,
+                       "detail":  "leftover items=0"
+                   },
+                   {
+                       "name":  "T5 HKCU Run entry removed",
+                       "pass":  true,
+                       "detail":  "run=[]"
+                   },
+                   {
+                       "name":  "T5 no AIDrivenNetDefense process",
+                       "pass":  true,
+                       "detail":  "instances=0"
+                   },
+                   {
+                       "name":  "T5 no process under install dir",
+                       "pass":  true,
+                       "detail":  "matches=0"
+                   },
+                   {
+                       "name":  "T5 start menu folder gone",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\StartMenu\\AIDriven NetDefense.lnk"
+                   },
+                   {
+                       "name":  "T5 desktop shortcut gone",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\Desktop\\AIDriven NetDefense.lnk"
+                   },
+                   {
+                       "name":  "T6 exit code 0",
+                       "pass":  true,
+                       "detail":  "exit=0"
+                   },
+                   {
+                       "name":  "T6 no start menu shortcut",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\StartMenu\\AIDriven NetDefense.lnk"
+                   },
+                   {
+                       "name":  "T6 no desktop shortcut",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\Desktop\\AIDriven NetDefense.lnk"
+                   },
+                   {
+                       "name":  "T6 uninstall exit 0",
+                       "pass":  true,
+                       "detail":  "exit=0"
+                   },
+                   {
+                       "name":  "T7 install exit 0",
+                       "pass":  true,
+                       "detail":  "exit=0"
+                   },
+                   {
+                       "name":  "T7 data\\ kept",
+                       "pass":  true,
+                       "detail":  "out: "
+                   },
+                   {
+                       "name":  "T7 install\\ kept",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app3\\install"
+                   },
+                   {
+                       "name":  "T7 program files removed",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app3\\app"
+                   },
+                   {
+                       "name":  "T8 first install landed on default dir",
+                       "pass":  true,
+                       "detail":  "path=C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\default"
+                   },
+                   {
+                       "name":  "T8 second install reused default dir",
+                       "pass":  true,
+                       "detail":  "path=C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\default"
+                   },
+                   {
+                       "name":  "T8 upgradedFrom resolved from install.json",
+                       "pass":  true,
+                       "detail":  "upgradedFrom=[0.0.1-rc.1]"
+                   },
+                   {
+                       "name":  "T9 ARP key written with InstallLocation",
+                       "pass":  true,
+                       "detail":  "InstallLocation=C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app4"
+                   },
+                   {
+                       "name":  "T9 second install hit the registry path",
+                       "pass":  true,
+                       "detail":  "path=C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app4"
+                   },
+                   {
+                       "name":  "T9 upgradedFrom non-empty",
+                       "pass":  true,
+                       "detail":  "upgradedFrom=[0.0.1-rc.1]"
+                   },
+                   {
+                       "name":  "T9 uninstall exit 0",
+                       "pass":  true,
+                       "detail":  "exit=0"
+                   },
+                   {
+                       "name":  "T9 ARP key removed",
+                       "pass":  true,
+                       "detail":  "HKCU ARP"
+                   },
+                   {
+                       "name":  "T10 v13 payload rejected (non-zero exit)",
+                       "pass":  true,
+                       "detail":  "exit=1"
+                   },
+                   {
+                       "name":  "T10 error names the missing exe",
+                       "pass":  true,
+                       "detail":  "out=powershell.exe : 载荷里找不到 AIDrivenNetDefense.exe（bundle.json kind=packaging-poc）。\r\n安装器自 v2 起只接受 v14 桌面载荷（含 daemon + console），v13 的 packaging-poc 载荷没有桌面入口。已查找位置：AI\r\nDrivenNetDefense.exe / app\\AIDrivenNetDefense.exe / console\\AIDrivenNetDefense.\r\nexe / bin\\AIDrivenNetDefense.exe / app\\console\\AIDrivenNetDefense.exe / app\\bin\r\n\\AIDrivenNetDefense.exe。请改用 v14 bundle，或重新解压完整压缩包。\r\n所在位置 D:\\AIUSE\\网络防御\\deploy\\windows\\installer\\acceptance\\run-acceptance.ps1:139 字\r\n符: 12\r\n+     $out = \u0026 $psExe -NoProfile -ExecutionPolicy Bypass -File (Join-Pa ...\r\n+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\r\n    + CategoryInfo          : NotSpecified: (载荷里找不到 AIDriven...dle，或重新解压完整压缩包。 \r\n   :String) [], RemoteException\r\n    + FullyQualifiedErrorId : NativeCommandError"
+                   },
+                   {
+                       "name":  "T10 nothing written to target",
+                       "pass":  true,
+                       "detail":  "C:\\Users\\user\\AppData\\Local\\Temp\\aidn-installer-v2-20261104-021714\\app13"
+                   }
+               ],
+    "passed":  47,
+    "failed":  0,
+    "verdict":  "PASS"
+}

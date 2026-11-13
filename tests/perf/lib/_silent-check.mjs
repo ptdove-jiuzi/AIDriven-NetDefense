@@ -1,0 +1,16 @@
+import { jobApi } from './jobobj.mjs';
+import { readFileSync } from 'node:fs';
+const api = jobApi();
+const state = JSON.parse(readFileSync('D:/AIUSE/_perf/PERF-CPU/pre/stack-pre.json', 'utf8'));
+const job = api.openJob(state.jobName);
+const a0 = api.queryAccounting(job);
+const t0 = Date.now();
+console.log('SILENT_START totalSec', a0.totalSec.toFixed(3), 'total', a0.totalProcesses, 'active', a0.activeProcesses);
+await new Promise((r) => setTimeout(r, 100000));
+const a1 = api.queryAccounting(job);
+const dt = (Date.now() - t0) / 1000;
+const dsec = a1.totalSec - a0.totalSec;
+console.log('SILENT_END totalSec', a1.totalSec.toFixed(3), 'total', a1.totalProcesses, 'active', a1.activeProcesses);
+console.log('deltaSec', dsec.toFixed(3), 'windowSec', dt.toFixed(1), 'pctOfMachine', ((dsec / dt / 12) * 100).toFixed(3) + '%');
+console.log('deltaProcesses', a1.totalProcesses - a0.totalProcesses);
+api.closeHandle(job.handle);

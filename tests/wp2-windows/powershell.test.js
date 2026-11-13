@@ -15,14 +15,16 @@ import {
   toInteger,
   toText,
   wrapScript,
-} from '../../packages/collectors/windows/index.js';
-import { createFakeRunner } from './helpers.js';
+} from '../../packages/collectors/windows/index.js';import { createFakeRunner } from './helpers.js';
 
-test('the interpreter invocation never uses a command shell or an encoded command', () => {
+test('the interpreter invocation never uses a command shell and carries the script as one encoded argument', () => {
+  // CL-5: `-Command -` (script on stdin) is truncated by Windows PowerShell 5.1 as soon as
+  // the script contains a multi-line brace block, silently and with exit code 0. The script
+  // therefore travels base64-encoded (UTF-16LE) in a single `-EncodedCommand` argument.
   assert.deepEqual([...POWERSHELL_FLAGS], [
-    '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', '-',
+    '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand',
   ]);
-  assert.equal(POWERSHELL_FLAGS.includes('-EncodedCommand'), false);
+  assert.equal(POWERSHELL_FLAGS.includes('-Command'), false, '-Command - is the truncated path');
   assert.match(SCRIPT_PREAMBLE, /\$ErrorActionPreference='Stop'/u);
   assert.match(SCRIPT_PREAMBLE, /\$ProgressPreference='SilentlyContinue'/u);
 });
@@ -109,13 +111,24 @@ test('non-JSON stdout is a BAD_JSON failure rather than a silent empty result', 
   );
 });
 
-test('empty stdout is an empty read, not a parse error', async () => {
+test('empty stdout is an explicit EMPTY_OUTPUT failure, never "no new events"', async () => {
+  // The old behaviour returned null here, and three sources (event log ×3, run keys,
+  // scheduled tasks) reported `ok` with zero events for ten minutes (COLLECTOR-LIVE §4
+  // CL-5). An interpreter that exits 0 without printing is a defect, not a quiet channel.
   const runner = createFakeRunner(() => ({ ok: true, code: 0, stdout: '  \r\n', stderr: '', durationMs: 1, timedOut: false, truncated: false }));
   const client = createPowerShellClient({ runner });
-  assert.equal(await client.runJson('# aegis-source:x'), null);
+
+  await assert.rejects(
+    () => client.runJson('# aegis-source:x'),
+    (error) => error.code === WINDOWS_ERROR_CODES.EMPTY_OUTPUT,
+  );
+  await assert.rejects(
+    () => client.runText('# aegis-source:x'),
+    (error) => error.code === WINDOWS_ERROR_CODES.EMPTY_OUTPUT,
+  );
 });
 
-test('the client sends the wrapped script on stdin and no script in an argument', async () => {
+test('the client sends the script encoded in argv and puts nothing on stdin', async () => {
   const runner = createFakeRunner(() => ({ ok: true, code: 0, stdout: '{"a":1}', stderr: '', durationMs: 1, timedOut: false, truncated: false }));
   const client = createPowerShellClient({ runner, executable: 'pwsh.exe' });
 
@@ -123,9 +136,13 @@ test('the client sends the wrapped script on stdin and no script in an argument'
 
   const call = runner.calls[0];
   assert.equal(call.executable, 'pwsh.exe');
-  assert.deepEqual(call.args, [...POWERSHELL_FLAGS]);
-  assert.ok(call.stdin.includes('# aegis-source:demo'));
-  assert.equal(call.args.some((arg) => arg.includes('aegis-source')), false);
+  assert.deepEqual(call.args.slice(0, POWERSHELL_FLAGS.length), [...POWERSHELL_FLAGS]);
+  assert.equal(call.args.length, POWERSHELL_FLAGS.length + 1, 'exactly one encoded script argument');
+  assert.equal(call.stdin, undefined, 'the script must not travel on stdin any more');
+  const decoded = Buffer.from(call.args[POWERSHELL_FLAGS.length], 'base64').toString('utf16le');
+  assert.ok(decoded.includes('# aegis-source:demo'), 'the decoded argument is the whole wrapped script');
+  assert.ok(decoded.includes("$ErrorActionPreference='Stop'"), 'the preamble travels with it');
+  assert.equal(call.args.some((arg) => arg.includes('aegis-source')), false, 'no plaintext script in argv');
 });
 
 test('probe reports the classified error code instead of throwing', async () => {

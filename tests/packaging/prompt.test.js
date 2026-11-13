@@ -37,12 +37,17 @@ import {
 import { randomUUID } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import test from 'node:test';
+import test, { after } from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { startStubBroker } from './stub-broker.mjs';
+import { reapAll, trackedSpawn } from './child-reaper.mjs';
 import { defaultBundleRoot, readPlan, resolvePlanPaths } from './bundle-locator.mjs';
 import { sha256File } from '../../deploy/embedded-runtime/lib/stage.mjs';
+
+after(async () => {
+  await reapAll();
+});
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 // The bundle stores no build-host path, so the launch plan is resolved against
@@ -188,7 +193,7 @@ function createAttempt(plan, brokerURL) {
  * streamed model turn necessarily emits them and an unexpected one must fail.
  */
 function driveWorker({ command, args, cwd, env, timeoutMs = 120000 }) {
-  const child = spawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+  const child = trackedSpawn(command, args, { cwd, env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
   const frames = [];
   const notifications = [];
   const pending = new Map();

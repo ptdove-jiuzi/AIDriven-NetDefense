@@ -149,6 +149,31 @@ function truncateMessage(value) {
   return text.length > MAX_MESSAGE_CHARS ? `${text.slice(0, MAX_MESSAGE_CHARS)}...` : text;
 }
 
+/**
+ * Locale-independent "this query matched nothing" predicate, emitted into every read script.
+ *
+ * `Get-WinEvent` reports an empty page by *throwing*. The original catch matched the English
+ * message only (`no events were found`), so on a zh-CN host — where the message is
+ * "找不到与指定的选择条件匹配的事件。" — the exception was re-thrown, the whole read failed and
+ * an idle channel produced `COMMAND_FAILED` on every poll (prof-collector, probe-once.json).
+ *
+ * The fix keys on the `FullyQualifiedErrorId` first (`NoMatchingEventsFound,…`), which is a
+ * locale-invariant identifier emitted by the cmdlet itself, and keeps the bilingual message
+ * as a second signal for hosts that rewrite the error id. Anything else — a denied channel,
+ * a missing channel, a provider failure — is still re-thrown: this must not become "any
+ * exception means the log is empty".
+ */
+export const NO_EVENTS_PREDICATE = [
+  'function Test-AegisNoEvents([System.Management.Automation.ErrorRecord] $record) {',
+  '  if ([string]$record.FullyQualifiedErrorId -match "(?i)^NoMatchingEventsFound") { return $true }',
+  '  $text = [string]$record.Exception.Message',
+  '  if ($text -match "(?i)no events were found") { return $true }',
+  '  if ($text -match "找不到任何与指定的选择条件匹配的事件") { return $true }',
+  '  if ($text -match "找不到与指定的选择条件匹配的事件") { return $true }',
+  '  return $false',
+  '}',
+].join('\n');
+
 export function buildReadScript(channel, afterRecordId, maxRecords = MAX_RECORDS_PER_READ) {
   assertChannelName(channel);
   if (!Number.isSafeInteger(afterRecordId) || afterRecordId < 0) {
@@ -159,21 +184,28 @@ export function buildReadScript(channel, afterRecordId, maxRecords = MAX_RECORDS
   }
   return [
     '# aegis-source:event-log',
+    NO_EVENTS_PREDICATE,
     `$channel = ${psQuote(channel)}`,
     `$after = ${afterRecordId}`,
+    // CL-10: the previous filter was `EventRecordID > $after` with a client-side
+    // `Sort-Object` over the *whole* channel (27 561 records on Application ≈ >120 s, so
+    // every first read timed out). Bounding the id range in XPath keeps the matched set at
+    // one page, so the sort is over ≤ maxRecords rows and the provider can use its record-id
+    // index instead of materialising the channel.
+    `$until = $after + ${maxRecords}`,
     '$newest = [long]0',
     'try {',
     '  $probe = @(Get-WinEvent -LogName $channel -MaxEvents 1 -ErrorAction Stop)',
     '  if ($probe.Count -gt 0) { $newest = [long]$probe[0].RecordId }',
     '} catch {',
-    '  if ($_.Exception.Message -notmatch "(?i)no events were found") { throw }',
+    '  if (-not (Test-AegisNoEvents $_)) { throw }',
     '}',
-    '$xpath = "*[System[EventRecordID > $after]]"',
+    '$xpath = "*[System[EventRecordID > $after and EventRecordID <= $until]]"',
     '$rows = @()',
     'try {',
     `  $rows = @(Get-WinEvent -LogName $channel -FilterXPath $xpath -ErrorAction Stop | Sort-Object RecordId | Select-Object -First ${maxRecords} | ForEach-Object { [pscustomobject]@{ recordId = [long]$_.RecordId; timeCreated = $_.TimeCreated; eventId = [int]$_.Id; level = [int]$_.Level; provider = [string]$_.ProviderName; message = [string]$_.Message } })`,
     '} catch {',
-    '  if ($_.Exception.Message -notmatch "(?i)no events were found") { throw }',
+    '  if (-not (Test-AegisNoEvents $_)) { throw }',
     '}',
     'ConvertTo-Json -InputObject ([pscustomobject]@{ newestRecordId = $newest; events = $rows }) -Depth 5 -Compress',
   ].join('\n');

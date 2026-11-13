@@ -1,0 +1,53 @@
+{
+  "schemaVersion": "1.0",
+  "packId": "aegis-builtin-seed04",
+  "packVersion": "1.0.0",
+  "minEngineVersion": "1.0.0",
+  "rules": [
+    {
+      "ruleId": "auth.bruteforce-threshold",
+      "version": "1.0.0",
+      "type": "threshold",
+      "enabled": true,
+      "severity": "medium",
+      "fields": ["event_type", "user", "computer", "source_ip"],
+      "groupBy": ["user", "computer"],
+      "fingerprint": ["user", "computer"],
+      "count": { "operator": "gte", "value": 5 },
+      "windowMs": 600000,
+      "maxEvents": 500,
+      "when": { "field": "event_type", "operator": "eq", "value": "auth.failure" },
+      "tags": ["authentication", "bruteforce"],
+      "description": "Repeated authentication failures for the same user on the same host inside ten minutes."
+    },
+    {
+      "ruleId": "proc.encoded-command-shell",
+      "version": "1.0.0",
+      "type": "condition",
+      "enabled": true,
+      "severity": "high",
+      "fields": ["process_name", "command_line", "computer"],
+      "fingerprint": ["process_name", "computer"],
+      "when": {
+        "all": [
+          { "field": "process_name", "operator": "in", "value": ["powershell.exe", "pwsh.exe", "powershell", "pwsh"] },
+          { "field": "command_line", "operator": "contains", "value": "-encodedcommand" }
+        ]
+      },
+      "tags": ["execution", "lolbin"],
+      "description": "A PowerShell process started with an encoded command, which hides the script from casual inspection."
+    },
+    {
+      "ruleId": "file.screen-saver-executable",
+      "version": "1.0.0",
+      "type": "condition",
+      "enabled": true,
+      "severity": "medium",
+      "fields": ["file_path", "computer"],
+      "fingerprint": ["file_path", "computer"],
+      "when": { "field": "file_path", "operator": "ends_with", "value": ".scr" },
+      "tags": ["persistence", "file"],
+      "description": "A screen-saver file appeared; .scr is an executable and is used as a masquerade for payloads."
+    }
+  ]
+}

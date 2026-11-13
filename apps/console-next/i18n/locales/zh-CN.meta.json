@@ -1,0 +1,7 @@
+{
+  "_machine": false,
+  "_source": "zh-CN",
+  "_updated": "2026-11-05T08:31:19Z",
+  "_note": "hand-written zh-CN catalog; regenerate with tests/e2e/i18n/build-locales.mjs",
+  "_keys": 1127
+}

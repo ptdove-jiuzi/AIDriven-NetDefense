@@ -24,20 +24,36 @@
 
 把「未验证」写成「未实现」会低估工作量；把「未实现」写成「未验证」会高估成熟度。两者都不能写成「完成」。
 
+### 0.1 事实订正（2026-11-05，仅订正与磁盘冲突的条目）
+
+本文主体成文于 2026-11-03，**早于 rc.1–rc.5 的打包与安装链落地**。下表是逐项对磁盘复核过的订正；
+**未列出的条目未被复核**，引用前请自行核对。订正只把与实物冲突的句子改准，不放宽任何缺口判定。
+
+| 位置 | 原文断言 | 2026-11-05 实测 | 证据 |
+|---|---|---|---|
+| §1 第 1 行 | 安装器「未实现」，`deploy/windows/` 为空目录 | **部分实现**（正文该行已改） | `deploy/windows/installer/**`、`dist/release/0.0.1-rc.5/` |
+| §1 第 2 行 | 无代码签名 | **仍成立**：`*.pfx/*.p12/*.cer/*.sig/*.cat` 在 apps/packages/deploy/scripts/dist/release/docs/tests/plugins 下计数 **0**；`Get-AuthenticodeSignature` 对 rc.5 Setup.exe 返回 `NotSigned` | 本会话复算，见 `docs/implementation/status/DOCS-COMMANDER.md` |
+| §1 第 4 行 | 真实响应未实现 | **仍成立**：`apps/response-helper/src/build.js:15` 仍为 `EXECUTION_ENABLED = false` | `apps/response-helper/src/build.js:15` |
+| §3 图形控制台 | `apps/console/` 为空目录 | **已实现**（正文该行已改） | `apps/console/**`、`apps/console-next/**` |
+| §3 采集器装配 | `apps/daemon/bin.js` 不注入采集源 | **已接线**：`bin.js:34` 引入 `src/adapters/collector-sources.js`，`:51` 解析 `--collectors <path>` | `apps/daemon/bin.js:34,51` |
+| §3 沙箱启动器 | `apps/sandbox-launcher/` 为空目录 | **仍成立**：目录在、文件数 0 | `apps/sandbox-launcher/` |
+
 ---
 
 ## 1. 六类发布级缺口（缺一不可写成正式可发布）
 
 | # | 项 | 类型 | 现状（可核实） | 影响 |
 |---|---|---|---|---|
-| 1 | **正式安装器 / 升级器** | 未实现 | `deploy/windows/`、`deploy/systemd/` 均为**空目录**；全仓无 `*.msi`、`*.msix`、`*.nsi`、`*.appx`、`*.dmg`、`*.deb`、`*.rpm`、`*.service` | 无法交付给终端用户；没有补丁/升级通道；没有卸载路径 |
+| 1 | **正式安装器 / 升级器** | **部分实现**（2026-11-05 订正，原写「未实现」） | Windows 安装链在树：`deploy/windows/installer/`（`Setup.ps1` 54 583 B、`app/aidn/install.py` 40 489 B、`src/uninstall.mjs` 13 214 B、`VERSION`=`0.0.1-rc.5`）；候选包 `dist/release/0.0.1-rc.5/AIDrivenNetDefense-Setup-0.0.1-rc.5.exe`（67 860 347 B，sha256 `ca0297d0…`，**未签名**）；升级=覆盖安装，rc.5 起旧树可原地升级（`latest.json`）。**仍缺**：`deploy/systemd/` 仍为空；无 `*.msi`/`*.msix`/`*.nsi`/`*.appx`/`*.dmg`/`*.deb`/`*.rpm`/`*.service`；**提权安装未验收** | 有卸载路径且非提权装/卸已实测（`evidence/rc5/accept/FINAL/RESULT.json`：非提权 21/21 PASS）；但提权验收结论是 `blocked(uac-cancelled)`，故仍不能算可交付的正式安装件 |
 | 2 | **代码签名** | 未实现 | 全仓无 `*.pfx`/`*.p12`/`*.cer`/`*.sig`/`*.cat`；无 `signtool` / `osslsigncode` 调用 | 交付物来源不可验证；Windows SmartScreen 无法通过 |
 | 3 | **四 OS 验证** | 未验证 | 只有 **win32-x64** 实跑；Linux / macOS / win32-arm64 无运行证据；`mkfifo` 等分支在非 Linux 无有效覆盖 | 不得宣称跨平台可用 |
 | 4 | **真实响应执行** | 未实现 | `apps/response-helper/src/build.js` 的 `EXECUTION_ENABLED = false`；`executeStub()` 恒返回 `dry_run_only`、`performed: false` | 「辅助响应」只有计划侧；处置侧没有代码路径 |
 | 5 | **真实生产密钥** | 未验证 | 只用回环桩 broker 与测试 token；未接真实模型凭据；token 轮换/吊销的真机行为未观测 | 生产部署路径未经观测 |
 | 6 | **真实 OS 采集** | 未验证 | 采集器在虚拟文件系统 / mock 源上验证；`/var/log/auth.log` 等为虚拟路径字符串；未在真实主机持续采集 | 采集保真度、资源占用（RSS/CPU）未知 |
 
-> 第 1、2、4 项是**代码不存在**，不是「还没测」。第 3、5、6 项是**代码在但没在真实环境跑过**。
+> **2026-11-05 订正**：第 **2、4** 项是**代码不存在**（无签名证书、无真实执行路径），不是「还没测」；
+> 第 **1** 项自 2026-11-05 起**代码已存在**（安装/卸载链在树，候选包已产出），剩下的是「无签名 + 提权路径未验收」；
+> 第 3、5、6 项是**代码在但没在真实环境跑过**。
 >
 > 这六项目前都有**规格文档**（`docs/implementation/adr/ADR-0009-release-distribution.md`
 > 与 `docs/implementation/release/*.md`），但每份都自述「规格（未实现）」或「全部未执行」。
@@ -60,7 +76,7 @@
 
 | 项 | 现状 | 影响 |
 |---|---|---|
-| 图形控制台 | `apps/console/` 为空目录 | 只能命令行使用 |
+| 图形控制台 | **已实现**（2026-11-05 订正，原写「`apps/console/` 为空目录」）。`apps/console/` 15 个文件（`index.html` 24 330 B、`app.js` 77 414 B、`i18n/locales/` 含 7 种语言）；新控制台 `apps/console-next/` 6 页（概览/告警/分析/Agent/模型与用量/设置），随 rc.5 载荷 `console/`（63 文件）分发 | 原「只能命令行使用」已失效；界面语言状态与页面数见 rc.5 `RELEASE-NOTES.md` |
 | 沙箱启动器 | `apps/sandbox-launcher/` 为空目录 | 无 OS 级执行隔离 |
 | 审批端点 | 路由闭集只有 5 条只读/探针路径 + 1 条内部采集轮询 `POST /api/v1/collectors/:id/poll`；**没有**审批或响应路由 | 「人工审批」在 0.0.1 范围内但尚未提供可调用的接口；审批只在数据模型与策略层存在 |
 | 告警处置动作 | 没有把告警与 response-helper 连起来的调度 | 计划器目前只能被库调用，不能由 daemon 触发 |
@@ -68,7 +84,7 @@
 | Harness → 存储回写 | `harness-worker` 不读写事件库 | 分析报告不会落 `analysis_report` |
 | 备份 / 恢复演练 | `recovery_manifest` 表存在，流程未做发布级验证 | 数据可恢复性未证明 |
 | 规则包分发 | 仓库不随产品附带任何规则包 | 开箱无法检测，必须自备 `schemaVersion 1.0` 规则包 |
-| 采集器装配 | `apps/daemon/bin.js` 不注入采集源 | `full` 模式无法用自带入口启动；真实采集需宿主注入 |
+| 采集器装配 | **已接线**（2026-11-05 订正，原写「`apps/daemon/bin.js` 不注入采集源」）。`bin.js:34` 引入 `src/adapters/collector-sources.js`，`:51` 解析 `--collectors <path>` | 原「`full` 模式无法用自带入口启动」已失效；真实源 10 分钟实测 `store.events=45775`（`docs/implementation/status/A-WAVE-RESULT.md`） |
 
 ---
 

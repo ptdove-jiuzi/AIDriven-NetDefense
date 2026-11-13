@@ -15,3 +15,15 @@ Thumbs.db
 
 # 本地实验副本，不属仓库内容
 /aegis-*-exp/
+
+# ---- 公开仓库导出补充（本机构建产物 / 证据 / 二进制不进仓库） ----
+/dist/
+/evidence/
+__pycache__/
+*.pyc
+*.exe
+*.msi
+*.msix
+*.zip
+*.7z
+*.dmp

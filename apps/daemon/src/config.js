@@ -56,7 +56,15 @@ const DEFAULTS = Object.freeze({
   },
   scheduler: {
     tickMs: 1000,
-    sourceTimeoutMs: 5000,
+    // PERF-CPU (attrib): a *legitimately* slow source must not be permanently judged as timed out.
+    // `windows.scheduled-task-table` costs 4.0–6.8 s wall (1406 ms CPU) per successful read on a
+    // real host, so the old 5000 ms ceiling was below the source's own floor: every poll aborted,
+    // the source was stuck in "unavailable" forever, and its serialized PowerShell queue held the
+    // habitual session long enough that neighbouring sources (`services`, `run-key`) timed out too.
+    // Raising the ceiling is not a relaxation of error handling: the scheduler still aborts a hung
+    // adapter, and `read_in_progress` already prevents a slow source from queueing up behind
+    // itself. The exponential failure backoff (scheduler.js) still fires on real failures.
+    sourceTimeoutMs: 20000,
     maxBatchEvents: 500,
     staleAfterMs: 30000,
     maxSources: 32,

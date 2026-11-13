@@ -153,6 +153,50 @@ async function openPipeline(file, clock) {
     return result;
   };
 
+  // PERF-CPU N-034: the pipeline may commit a run of findings-only events through
+  // `store.ingestBatch()`. This fixture used to wrap only `ingest()`, so a batched write would
+  // silently bypass the injection and the suite would stop testing what it claims to. Mirror the
+  // same rules into the batch entry point: decide per event, commit the rest in ONE transaction.
+  const batchIngest = typeof store.ingestBatch === 'function' ? store.ingestBatch.bind(store) : null;
+  if (batchIngest !== null) {
+    store.ingestBatch = (requests) => {
+      const blocked = new Map();
+      const allowed = [];
+      requests.forEach((request, index) => {
+        injected.calls += 1;
+        trace.push(request.event.source_seq);
+        if (injected.failSeqs.has(request.event.source_seq)) {
+          blocked.set(index, new DaemonError(DAEMON_CODES.STORE_WRITE_FAILED, 'injected write failure'));
+        } else {
+          allowed.push(index);
+        }
+      });
+      const out = allowed.length === 0
+        ? { accepted: 0, duplicates: 0, failed: 0, results: [] }
+        : batchIngest(allowed.map((index) => requests[index]));
+      const results = new Array(requests.length);
+      allowed.forEach((originalIndex, position) => {
+        results[originalIndex] = out.results[position];
+        const value = out.results[position]?.value;
+        // Batched runs never carry alerts (the pipeline only batches alert-free events), so the
+        // dangling-citation check has nothing to inspect here; the `written` set still has to grow.
+        if (value !== undefined && value.duplicate !== true) {
+          written.add(requests[originalIndex].event.event_id);
+        }
+      });
+      for (const [index, error] of blocked) {
+        results[index] = { ok: false, error };
+      }
+      return {
+        received: requests.length,
+        accepted: out.accepted,
+        duplicates: out.duplicates,
+        failed: (out.failed ?? 0) + blocked.size,
+        results,
+      };
+    };
+  }
+
   return { store, pipeline, injected, violations, trace };
 }
 

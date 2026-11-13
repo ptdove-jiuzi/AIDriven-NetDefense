@@ -12,6 +12,28 @@
  *    must never dial out.
  * 3. **Runs the whole core path** (collect → detect → alert → persist → status) with
  *    none of those components installed.
+ *
+ * ## 2026-11-04 narrowing (UI2, lead ruling — see CONSOLE-V2-CONTRACT §1.2)
+ *
+ * The console (UI v2) needs a provider-credential write route and one child process
+ * that owns all model egress. The original blanket rules ("no spawn anywhere", "the
+ * literal `apiKey` may not appear") would have been satisfied only by obfuscation —
+ * dynamic `import()` and string concatenation — which keeps this file green while
+ * deleting the invariant it was written to protect. The rule was therefore narrowed,
+ * not deleted:
+ *
+ * - outbound network primitives stay banned everywhere (`fetch(`, `http.request`,
+ *   `node:https`, `node:tls`, `node:net`, `node:dgram`) — the daemon still never dials out;
+ * - exactly one file (`apps/daemon/src/api/broker-client.js`) may spawn, it may not use
+ *   a shell, and it must spawn `console-host.js` — so it cannot become a generic
+ *   command channel;
+ * - the literal credential field may appear only in `apps/daemon/src/api/credentials.js`,
+ *   which must contain no file write and no logging — the secret is passed through,
+ *   never stored.
+ *
+ * The runtime half of this file (and the zero-egress assertions in the console tests)
+ * carries the intent that static text matching cannot: core still runs with the broker
+ * absent, and the broker child is never spawned while egress is disabled.
  */
 
 import assert from 'node:assert/strict';
@@ -86,37 +108,89 @@ describe('daemon source has no Harness or response dependency', () => {
     assert.equal(manifest.author, 'PT-dove');
   });
 
-  it('has no outbound network or process-spawning primitive', () => {
+  it('has no outbound network primitive', () => {
     const offenders = [];
     for (const file of daemonSources()) {
       if (file.endsWith('package.json')) {
         continue;
       }
       const text = readFileSync(file, 'utf8');
-      if (/from 'node:child_process'|require\('node:child_process'\)/u.test(text)) {
-        offenders.push(`${relative(process.cwd(), file)} → child_process`);
-      }
       if (/\bfetch\s*\(/u.test(text)) {
         offenders.push(`${relative(process.cwd(), file)} → fetch(`);
       }
       if (/https?\.request|https?\.get\b/u.test(text)) {
         offenders.push(`${relative(process.cwd(), file)} → http client`);
       }
-      if (/node:https|'node:tls'|require\('node:net'\)/u.test(text)) {
+      if (/node:https|'node:tls'|require\('node:net'\)|node:dgram/u.test(text)) {
         offenders.push(`${relative(process.cwd(), file)} → network client module`);
       }
     }
     assert.deepEqual(offenders, [], 'the daemon must serve loopback only and never dial out');
   });
 
-  it('has no provider, credential or model configuration surface', () => {
-    const text = daemonSources()
-      .filter((file) => file.endsWith('.js'))
-      .map((file) => readFileSync(file, 'utf8'))
-      .join('\n');
-    for (const forbidden of ['apiKey', 'api_key', 'providerToken', 'ANTHROPIC_API', 'OPENAI_API', 'dsh']) {
-      assert.equal(text.includes(forbidden), false, `source must not mention ${forbidden}`);
+  it('spawns no process except the single audited broker gate', () => {
+    // Sources live under `apps/daemon/src/**`, so the whitelist is relative to src.
+    const SRC_ROOT = join(DAEMON_ROOT, 'src');
+    const ALLOWED_GATE = join('api', 'broker-client.js');
+    const offenders = [];
+    let gateSource = null;
+    for (const file of daemonSources()) {
+      if (file.endsWith('package.json')) {
+        continue;
+      }
+      const text = readFileSync(file, 'utf8');
+      if (!/node:child_process/u.test(text)) {
+        continue;
+      }
+      if (relative(SRC_ROOT, file) === ALLOWED_GATE) {
+        gateSource = text;
+        continue;
+      }
+      offenders.push(`${relative(process.cwd(), file)} → child_process`);
     }
+    assert.deepEqual(offenders, [], 'only api/broker-client.js may spawn a process');
+    assert.ok(gateSource !== null, 'api/broker-client.js must implement the broker child gate');
+    assert.equal(/shell\s*:\s*true/u.test(gateSource), false, 'the broker gate must never use a shell');
+    assert.match(gateSource, /console-host\.js/u, 'the gate must spawn the console host, not an arbitrary command');
+  });
+
+  it('has no credential storage surface: the write route is pass-through only', () => {
+    const SRC_ROOT = join(DAEMON_ROOT, 'src');
+    const ALLOWED_WRITE_ROUTE = join('api', 'credentials.js');
+    const offenders = [];
+    let writeRouteSource = null;
+    for (const file of daemonSources()) {
+      if (!file.endsWith('.js')) {
+        continue;
+      }
+      const text = readFileSync(file, 'utf8');
+      for (const forbidden of ['providerToken', 'ANTHROPIC_API', 'OPENAI_API']) {
+        if (text.includes(forbidden)) {
+          offenders.push(`${relative(process.cwd(), file)} → ${forbidden}`);
+        }
+      }
+      // Word boundary, not substring: "handshake" in a comment is not the Harness.
+      if (/\bdsh\b/u.test(text)) {
+        offenders.push(`${relative(process.cwd(), file)} → dsh`);
+      }
+      if (!text.includes('apiKey') && !text.includes('api_key')) {
+        continue;
+      }
+      if (relative(SRC_ROOT, file) === ALLOWED_WRITE_ROUTE) {
+        writeRouteSource = text;
+        continue;
+      }
+      offenders.push(`${relative(process.cwd(), file)} → credential field name`);
+    }
+    assert.deepEqual(offenders, [], 'the credential field may only appear in the write-through route');
+    assert.ok(writeRouteSource !== null, 'api/credentials.js must implement the write-through route');
+    // Pass-through, not storage: naming the field is only safe while this file has no
+    // way to write it anywhere and no way to print it.
+    assert.equal(
+      /writeFile|appendFile|createWriteStream|console\./u.test(writeRouteSource),
+      false,
+      'the credential route must pass the secret through without writing or logging it',
+    );
   });
 });
 

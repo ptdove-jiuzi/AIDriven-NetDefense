@@ -1,0 +1,57 @@
+/*
+ * apps/console/i18n/i18n.css — 语言选择器与调试标记样式。
+ *
+ * 只作用于 `[data-i18n-select]` 与调试类，不改动控制台既有外观。
+ * 调试标记（.i18n-missing / .i18n-fallback）仅在 ?i18n=debug 下由加载器挂上；
+ * 加载器在调试模式下也会自动注入同一份样式，所以本文件不是必选项。
+ *
+ * 作者：PT-dove
+ */
+
+[data-i18n-select] {
+  min-width: 9.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: 1.4;
+}
+
+[data-i18n-select]:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+/* 回落命中：黄色下划线 */
+.i18n-fallback {
+  text-decoration: underline;
+  text-decoration-color: #f2c744;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+/* 缺词条：红底白字，绝不静默空白 */
+.i18n-missing {
+  background: #b3261e;
+  color: #fff;
+  outline: 1px solid #ff8a80;
+}
+
+/* 语言选择行的最小布局；宿主页面可覆盖 */
+.i18n-locale-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.i18n-locale-row > label {
+  font-weight: 600;
+}
+
+.i18n-locale-hint {
+  opacity: 0.72;
+  font-size: 0.875em;
+}

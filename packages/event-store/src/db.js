@@ -242,6 +242,17 @@ const WORD_START = /[A-Za-z_]/u;
 const WORD_PART = /[A-Za-z0-9_$]/u;
 
 /**
+ * `tx()` 用来做"事后断言"的 savepoint 名字。
+ *
+ * 曾经每次事务生成一个含随机后缀的名字，代价是这条 SQL 每次都不同、无法复用语句。
+ * 固定名字是安全的：事务不可嵌套（嵌套在任何 BEGIN 之前就被拒绝），而 savepoint
+ * 在 `RELEASE` 之后即从连接上消失，所以同一个连接上任何时刻最多只存在一个同名
+ * savepoint；不同连接各自独立。断言语义不变——`RELEASE` 一个不存在的 savepoint
+ * 仍然会抛错，`ERR_TX_ESCAPED` 的检测照旧。
+ */
+const TX_GUARD_NAME = `aegis_tx_guard_${process.pid}`;
+
+/**
  * 逐条扫描 SQL 的**首个关键字**，返回其中的事务控制语句。
  *
  * 为什么必须自己扫而不是正则：注释（`--`、`/* *\/`）、字符串字面量、带引号的
@@ -516,6 +527,8 @@ function createStoreHandle(context) {
   const { filePath, fileKey, db, readOnly, clock, options, lock } = context;
   const state = { inTx: false, closed: false, txDepth: 0 };
   let statementCache = new Map();
+  /** 事务控制语句的复用句柄：`db.exec` 每次都重新 parse/compile，热路径上一事务 4 次。 */
+  let txStatements = null;
 
   /**
    * 绕过事务控制扫描的原始 exec。
@@ -525,6 +538,39 @@ function createStoreHandle(context) {
   function execRaw(sql) {
     try {
       db.exec(sql);
+    } catch (error) {
+      throw mapSqliteError(error);
+    }
+  }
+
+  /**
+   * 事务控制语句走**复用过的** StatementSync，而不是 `db.exec(sql)`。
+   *
+   * 语义与 `execRaw` 完全一致（同一条 SQL、同一个连接、同一个错误映射），
+   * 只是不再每条语句重新 prepare 一次。SQLite 明确允许复用语句对象，
+   * `BEGIN IMMEDIATE` / `COMMIT` / `ROLLBACK` / `SAVEPOINT` / `RELEASE` 都不返回行，
+   * 用完自动 reset，因此可以安全地跨事务重复 `run()`。
+   */
+  function txStatement(name) {
+    if (txStatements === null) {
+      try {
+        txStatements = {
+          begin: db.prepare('BEGIN IMMEDIATE'),
+          savepoint: db.prepare(`SAVEPOINT "${TX_GUARD_NAME}"`),
+          release: db.prepare(`RELEASE "${TX_GUARD_NAME}"`),
+          commit: db.prepare('COMMIT'),
+          rollback: db.prepare('ROLLBACK'),
+        };
+      } catch (error) {
+        throw mapSqliteError(error);
+      }
+    }
+    return txStatements[name];
+  }
+
+  function execTx(name) {
+    try {
+      txStatement(name).run();
     } catch (error) {
       throw mapSqliteError(error);
     }
@@ -644,15 +690,14 @@ function createStoreHandle(context) {
       }
       const beginAt = clock.nowMs();
       const depth = state.txDepth + 1;
-      const guardName = `aegis_tx_guard_${process.pid}_${depth}_${randomHex(4)}`;
-      execRaw('BEGIN IMMEDIATE');
+      execTx('begin');
       state.inTx = true;
       state.txDepth = depth;
       try {
-        execRaw(`SAVEPOINT "${guardName}"`);
+        execTx('savepoint');
         const result = fn(store);
         try {
-          execRaw(`RELEASE "${guardName}"`);
+          execTx('release');
         } catch (error) {
           throw new StoreError(
             STORE_CODES.ERR_TX_ESCAPED,
@@ -660,11 +705,11 @@ function createStoreHandle(context) {
             { label, cause: error && error.code ? error.code : null },
           );
         }
-        execRaw('COMMIT');
+        execTx('commit');
         return result;
       } catch (error) {
         try {
-          execRaw('ROLLBACK');
+          execTx('rollback');
         } catch {
           // ROLLBACK 失败说明连接已经不可用（或事务已被外部提交），
           // 原始错误才是要向上报的那个。
@@ -765,6 +810,7 @@ function createStoreHandle(context) {
         }
       }
       statementCache = new Map();
+      txStatements = null;
       try {
         db.close();
       } catch {
