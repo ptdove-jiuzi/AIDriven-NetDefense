@@ -9,8 +9,8 @@
 import { spawnSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 
-const STACK = 'D:/AIUSE/_perf/PERF-CPU/pre/stack-pre.json';
-const OUT_DIR = 'D:/AIUSE/网络防御/docs/implementation/evidence/perf/measure/pre';
+const STACK = process.env.PERF_STACK || 'stack-pre.json';
+const OUT_DIR = process.env.PERF_OUT || 'evidence/perf/measure/pre';
 const LABELS = ['pre-a1', 'pre-a2', 'pre-a3'];
 
 mkdirSync(OUT_DIR, { recursive: true });
@@ -31,7 +31,7 @@ for (const label of LABELS) {
       '--label', label,
       '--out', `${OUT_DIR}/${label}.json`,
     ],
-    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, cwd: 'D:/AIUSE/网络防御' },
+    { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, cwd: process.cwd() },
   );
   const kiln = (run.stdout ?? '').split('\n').filter((line) => KEEP.test(line));
   process.stdout.write(`${kiln.join('\n')}\n`);

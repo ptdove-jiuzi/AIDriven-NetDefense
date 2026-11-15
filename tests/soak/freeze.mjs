@@ -18,7 +18,7 @@
  * 所以副本里的链接必须**重建为指向副本自身**（用 junction，Windows 上不需要管理员权限）。
  *
  * 用法：
- *   node tests/soak/freeze.mjs --out D:/AIUSE/_soak-freeze/2026-11-04
+ *   node tests/soak/freeze.mjs --out $AIDN_HOME/_soak-freeze/2026-11-04
  *   node tests/soak/freeze.mjs --out ... --force      # 仅用于重做（会先清空目标）
  */
 

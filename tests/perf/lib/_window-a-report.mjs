@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 const DIR = process.argv.includes('--dir')
   ? process.argv[process.argv.indexOf('--dir') + 1]
-  : 'D:/AIUSE/网络防御/docs/implementation/evidence/perf/measure/pre';
+  : (process.env.PERF_OUT || 'evidence/perf/measure/pre');
 
 const LABELS = ['pre-a1', 'pre-a2', 'pre-a3'];
 const round = (value, digits = 2) => (Number.isFinite(value) ? Number(value.toFixed(digits)) : null);

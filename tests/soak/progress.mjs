@@ -5,7 +5,7 @@
  * 它不判定任何结论——结论只由 `longrun.mjs` 结束时逐项判据给出。
  *
  * 用法：
- *   node tests/soak/progress.mjs --run-dir D:/AIUSE/_soak-run/2026-11-04-72h
+ *   node tests/soak/progress.mjs --run-dir $AIDN_HOME/_soak-run/2026-11-04-72h
  */
 
 import fs from 'node:fs';

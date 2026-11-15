@@ -35,8 +35,8 @@
  *   - 阈值一律**常量**，不读本次实测派生。
  *
  * 用法：
- *   node tests/soak/longrun.mjs --run-dir D:/AIUSE/_soak-run/2026-11-04 --hours 72 \
- *     --freeze-manifest D:/AIUSE/_soak-freeze/2026-11-04/FREEZE.json
+ *   node tests/soak/longrun.mjs --run-dir $AIDN_HOME/_soak-run/2026-11-04 --hours 72 \
+ *     --freeze-manifest $AIDN_HOME/_soak-freeze/2026-11-04/FREEZE.json
  *   node tests/soak/longrun.mjs --run-dir ... --resume          # 崩溃后接着算
  *   node tests/soak/longrun.mjs --run-dir ... --hours 0.05 --sample-ms 2000   # 冒烟
  */
@@ -235,7 +235,7 @@ export function parseArgs(argv) {
     }
   }
   if (options.runDir === null) {
-    throw new Error('--run-dir is required (e.g. --run-dir D:/AIUSE/_soak-run/2026-11-04)');
+    throw new Error('--run-dir is required (e.g. --run-dir $AIDN_HOME/_soak-run/2026-11-04)');
   }
   if ((options.batchSize / options.tickMs) * 1000 < 0.01) {
     throw new Error('batch-size / tick-ms yields < 0.01 events/s; the soak would measure an idle daemon');

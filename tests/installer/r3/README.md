@@ -1,12 +1,12 @@
 # r3 · UPGRADE-001 复现与修复验证（可照跑）
 
-三步全部在本机离线跑通，单条命令 < 10 s（红态真实 exe 约 4 s）。Python 用 `D:\Python311\python.exe`
-（带 `py7zr` 与 `winreg`）；`TEMP` 用长路径 `C:\Users\user\AppData\Local\Temp`（8.3 短名会制造假红）。
+三步全部在本机离线跑通，单条命令 < 10 s（红态真实 exe 约 4 s）。Python 用系统 Python 3.11+
+（带 `py7zr` 与 `winreg`）；`TEMP` 用长路径（8.3 短名会制造假红）。
 
 ## 0. 准备（都在 `%TEMP%\p1r2\cross` 下，可整体删掉重来）
 
 ```bash
-W="C:/Users/user/AppData/Local/Temp/p1r2/cross"
+W="$LOCALAPPDATA/Temp/p1r2/cross"
 "/c/Program Files/7-Zip/7z.exe" e dist/release/0.0.1-rc.6/AIDrivenNetDefense-0.0.1-rc.6-win-x64-portable.zip \
     AIDrivenNetDefense.exe -o"$(cygpath -w $W)" -y          # 真 rc.6 桌面 exe（sha256 48716d63…）
 python tests/installer/r3/tools/make_mini_payload.py "$W/payload-rc5" rc5

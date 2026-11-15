@@ -2,10 +2,10 @@
 
 **网域智防** — a local-first network defense agent for a single host.
 
-> **Status: pre-release source drop.** The version in this tree is `0.0.0`. The first
-> complete version is planned as `0.0.1` and has not been frozen. No installer, no signed
-> binary and no release artifact is distributed from this repository. Treat everything here
-> as work in progress, not as a finished product.
+> **Status: pre-release source drop.** The tree is at `0.0.1-rc.6` (pre-release candidate).
+> No installer, no signed binary and no release artifact is distributed from this repository;
+> release artifacts are built and published outside this source repository. Treat everything
+> here as work in progress, not as a finished product.
 
 Author: **PT-dove**
 
@@ -64,7 +64,6 @@ Four rules shape the codebase; most of the unusual decisions in it follow from t
 | `tests/` | Unit, contract, integration, e2e, packaging, security-corpus and soak suites |
 | `docs/design/` | Architecture, plugin system, harness contract, test & acceptance criteria |
 | `docs/product/` | Product-facing descriptions, including an explicit gap list |
-| `docs/adr/` | Accepted architecture decision records |
 
 ---
 
@@ -139,13 +138,12 @@ python apps/desktop/main.py
 | `docs/product/04-gaps.md` | The gap list — read this before believing any capability claim |
 | `docs/design/SOFTWARE_DESIGN.md` | Architecture, data model, storage, budgets |
 | `docs/design/TEST_AND_ACCEPTANCE.md` | Acceptance criteria, including data-boundary invariants |
-| `docs/adr/` | Accepted decisions, with the reasoning that led to them |
 
 ---
 
 ## 7. Versioning
 
-- `0.0.0` — the current development tree. Not a release.
+- `0.0.1-rc.6` — the current development tree (pre-release candidate). Not a release.
 - `0.0.1` — the first complete version, frozen only after functionality, install/upgrade,
   multi-OS validation, signing and the release gate all pass.
 - Afterwards: `0.0.x` patches, `0.x.0` features, `1.0.0` stable.
@@ -184,5 +182,5 @@ inventory is `sbom.cdx.json`. Security reports: see `SECURITY.md`.
 **构建**：Node.js ≥ 24.9.0、npm ≥ 11.6.0 < 12.0.0，执行 `npm ci` 后 `npm test` 或
 `npm run check`。测试用回环桩，不需要联网。桌面壳可选：`python apps/desktop/main.py`。
 
-**版本**：树内为 `0.0.0`；第一个完整版本是 `0.0.1`，尚未冻结。
+**版本**：树内为 `0.0.1-rc.6`（预发布候选）；第一个完整版本是 `0.0.1`，尚未冻结。
 **许可**：Apache-2.0，版权 2026 PT-dove；第三方义务见 `THIRD_PARTY_NOTICES`。

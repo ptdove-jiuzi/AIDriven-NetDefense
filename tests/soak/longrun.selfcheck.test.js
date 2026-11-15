@@ -122,7 +122,7 @@ function buildRun(options = {}) {
     end_at_ms: startedAtMs + hoursCount * HOUR_MS,
   };
   const freeze = {
-    root: 'D:/AIUSE/_soak-freeze/selfcheck',
+    root: process.env.AIDN_SOAK_FREEZE || '/tmp/_soak-freeze/selfcheck',
     created_at: new Date(startedAtMs).toISOString(),
     file_count: 200,
     total_bytes: 4_000_000,

@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import { launch } from '../lib/cdp.mjs';
 import { Checker, parseArgs, viewUrl, writeEvidence, VIEWS } from './common.mjs';
 
-const LOG_DIR = 'D:\\AIUSE\\_qa\\int\\2026-11-04\\logs';
+const LOG_DIR = process.env.AIDN_QA_LOGS || 'qa-int/logs';
 
 /** Read every regular file under `dir` (one level of recursion is enough for our logs). */
 function readLogFiles(dir) {

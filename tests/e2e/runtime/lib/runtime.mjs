@@ -29,7 +29,7 @@ export const RUNTIME_DIR = resolve(HERE, '..');
 export const REPO_ROOT = resolve(RUNTIME_DIR, '..', '..', '..');
 
 /** Canonical QA data root handed down by the Lead (see status/UI2-INTEGRATION.md). */
-export const DEFAULT_QA_ROOT = 'D:\\AIUSE\\_qa\\int\\2026-11-04';
+export const DEFAULT_QA_ROOT = process.env.AIDN_QA_ROOT || 'qa-int';
 
 /** Evidence root for this task's write domain. */
 export const EVIDENCE_ROOT = join(REPO_ROOT, 'docs', 'implementation', 'evidence', 'ui2', 'runtime');

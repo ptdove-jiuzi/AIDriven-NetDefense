@@ -25,6 +25,7 @@ import argparse
 import hashlib
 import http.client
 import json
+import os
 import re
 import shutil
 import sys
@@ -36,7 +37,7 @@ DESKTOP = REPO / "apps" / "desktop"
 BUNDLE_V15 = REPO / "dist" / "bundle" / "win32-x64-v15"
 CONSOLE_NEXT = REPO / "apps" / "console-next"
 CONSOLE_OLD = REPO / "apps" / "console"
-QA_TOKEN = Path("D:/AIUSE/_qa/int/2026-11-04/secrets/api-token")
+QA_TOKEN = Path(os.environ.get("AIDN_QA_TOKEN", "qa-secrets/api-token"))
 DAEMON_URL = ("127.0.0.1", 17511)
 
 sys.path.insert(0, str(DESKTOP))

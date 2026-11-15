@@ -1,7 +1,7 @@
 import { jobApi } from './jobobj.mjs';
 import { readFileSync } from 'node:fs';
 const api = jobApi();
-const state = JSON.parse(readFileSync('D:/AIUSE/_perf/PERF-CPU/pre/stack-pre.json', 'utf8'));
+const state = JSON.parse(readFileSync(process.env.PERF_STACK || 'stack-pre.json', 'utf8'));
 const job = api.openJob(state.jobName);
 const a0 = api.queryAccounting(job);
 const t0 = Date.now();

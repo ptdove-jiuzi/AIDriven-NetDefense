@@ -31,7 +31,7 @@
 因此直接调用入口文件：
 
 ```bash
-cd D:/AIUSE/网络防御
+cd <path-to-checkout>
 node apps/cli/bin.js --help
 node apps/cli/bin.js status --config ./cli.json
 ```
@@ -155,7 +155,7 @@ every cursor and --cursor then exits 8 asking you to start from the first page.
 ```json
 {
   "endpoint": "http://127.0.0.1:8787",
-  "tokenFile": "C:/AIUSE/nd-data/secrets/api-token",
+  "tokenFile": "<data-dir>/secrets/api-token",
   "timeoutMs": 5000,
   "maxResponseBytes": 1048576
 }

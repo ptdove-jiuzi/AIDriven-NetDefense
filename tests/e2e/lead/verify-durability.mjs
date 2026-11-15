@@ -19,7 +19,7 @@ import { Checker, parseArgs, writeEvidence } from './common.mjs';
 
 const REPO = process.cwd();
 const NODE = process.execPath;
-const QA_ROOT = 'D:\\AIUSE\\_qa\\int\\2026-11-04\\restart-test';
+const QA_ROOT = process.env.AIDN_QA_RESTART || 'qa-int/restart-test';
 const PORT = 17611;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
