@@ -1,0 +1,201 @@
+diff --git a/apps/model-broker/bin/console-host.js b/apps/model-broker/bin/console-host.js
+index 18f7cb4..11d0922 100644
+--- a/apps/model-broker/bin/console-host.js
++++ b/apps/model-broker/bin/console-host.js
+@@ -717,7 +717,7 @@ function startHost() {
+   }
+ 
+   /**
+-   * 跑一次 chat：产出 delta/usage/done/error 事件。
++   * 跑一次 chat：产出 delta/tool/usage/done/error 事件。
+    * 失败不抛给事件循环（否则就是未捕获异常）；一切都变成 `error` 事件。
+    */
+   async function runChat({ requestId, chat, brand, provider, normalized }) {
+@@ -742,6 +742,22 @@ function startHost() {
+           notifyChatEvent(requestId, Object.freeze({ type: 'delta', text: event.text }));
+           continue;
+         }
++        if (event.type === 'tool') {
++          // AGENT-001 修复：把传输层保留下来的 tool_calls 提案转给 daemon。
++          // 这里**只转发**：不执行、不落盘、不判断工具是否允许；
++          // `requiresApproval` 取 deny-by-default（0.0.1 没有工具白名单，任何模型发起的调用
++          // 都必须过 daemon 的审批门 chat.js:592-596）。daemon 侧仍按既有逻辑 register，
++          // 决策仍只记录不执行（chat.js:829-836 executed:false / EXECUTION_DISABLED）。
++          notifyChatEvent(requestId, Object.freeze({
++            type: 'tool',
++            state: event.state,
++            ...(event.callId === undefined ? {} : { callId: event.callId }),
++            name: event.name,
++            arguments: event.arguments,
++            requiresApproval: true,
++          }));
++          continue;
++        }
+         if (event.type === 'usage') {
+           usageSeen = event.usage;
+           totalTokens = event.usage.totalTokens;
+diff --git a/apps/model-broker/src/chat-transport.js b/apps/model-broker/src/chat-transport.js
+index dd023ff..88a01e9 100644
+--- a/apps/model-broker/src/chat-transport.js
++++ b/apps/model-broker/src/chat-transport.js
+@@ -262,6 +262,102 @@ async function* decodeSse(body, limits) {
+   }
+ }
+ 
++/** tool_calls 参数累积上限：避免超长 arguments 把堆撑爆（超出即截断，不报错）。 */
++const TOOL_ARGUMENTS_MAX_CHARS = 65536;
++
++/**
++ * 把 OpenAI `tool_calls` 片段并进 `state.toolCalls`（index → {id, name, arguments, emitted}）。
++ *
++ * 只做保真搬运：不执行、不判断是否需要审批、不生成 id。`arguments` 是分片字符串，逐片拼接；
++ * `id`/`name` 通常只在首片出现，后片为空则保留已有值。
++ *
++ * 一旦某个调用"name 已知且 arguments 已是完整 JSON 对象"，就立刻转成 `tool` 事件推进
++ * `state.toolEvents`——**不等流结束**。原因（AGENT-001）：
++ *   daemon 在收到 `done` 时会 releaseQuota → approvals.cancelSession，把本轮的待批项立刻作废；
++ *   若把 tool 帧压到 `done` 那一刻才发，提案在客户端可见的同一 tick 就被取消，用户永远无法决策。
++ *   提前发帧也让 UI 在 provider 收尾前就能显示待审批动作（与 R2 替身 host 的时序一致）。
++ * 参数分片尚未闭合的调用留给 `finalizeToolCalls()` 兜底。
++ *
++ * @param {unknown} fragments `choice.delta.tool_calls` 或 `choice.message.tool_calls`。
++ * @param {object} state 流状态（`toolCalls` Map + `toolEvents` 待发队列）。
++ * @returns {void}
++ */
++function collectToolCalls(fragments, state) {
++  if (!Array.isArray(fragments)) return;
++  for (const fragment of fragments) {
++    if (fragment === null || typeof fragment !== 'object') continue;
++    const index = Number.isInteger(fragment.index) ? fragment.index : state.toolCalls.size;
++    const current = state.toolCalls.get(index) ?? { id: null, name: null, arguments: '', emitted: false };
++    if (typeof fragment.id === 'string' && fragment.id !== '') current.id = fragment.id;
++    const fn = fragment.function;
++    if (fn !== null && typeof fn === 'object') {
++      if (typeof fn.name === 'string' && fn.name !== '') current.name = fn.name;
++      if (typeof fn.arguments === 'string' && current.arguments.length < TOOL_ARGUMENTS_MAX_CHARS) {
++        current.arguments = (current.arguments + fn.arguments).slice(0, TOOL_ARGUMENTS_MAX_CHARS);
++      }
++    }
++    state.toolCalls.set(index, current);
++    if (current.emitted !== true && current.name !== null) {
++      const args = parseToolArguments(current.arguments);
++      if (args !== null) {
++        current.emitted = true;
++        state.toolEvents.push(buildToolEvent(current, args));
++      }
++    }
++  }
++}
++
++/**
++ * 解析 provider 给的 `arguments` JSON 字符串。
++ *
++ * @param {string} raw 累积字符串。
++ * @returns {object|null} 对象，或 null（还不完整/不是对象）。
++ */
++function parseToolArguments(raw) {
++  if (raw === '') return null;
++  let parsed;
++  try {
++    parsed = JSON.parse(raw);
++  } catch {
++    return null;
++  }
++  return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
++}
++
++/**
++ * 构造一个 `tool proposed` 事件（形状与 contract §3.2 / `tests/ai/r2/stub-approval-host.mjs` 一致）。
++ *
++ * `callId` 只在 provider 真的给了 id 时才带上——不编造 id，也不代替 daemon 做编号。
++ *
++ * @param {{id: string|null, name: string}} call 调用记录。
++ * @param {object} args 已解析的参数对象。
++ * @returns {{type: 'tool', state: 'proposed', callId?: string, name: string, arguments: object}} 事件。
++ */
++function buildToolEvent(call, args) {
++  return {
++    type: 'tool',
++    state: 'proposed',
++    ...(call.id === null ? {} : { callId: call.id }),
++    name: call.name,
++    arguments: args,
++  };
++}
++
++/**
++ * 收尾：把还没发出去的调用补发一遍（参数始终不闭合的走这里，参数给空对象）。
++ *
++ * @param {object} state 流状态。
++ * @returns {void}
++ */
++function finalizeToolCalls(state) {
++  const entries = [...state.toolCalls.entries()].sort((a, b) => a[0] - b[0]);
++  for (const [, call] of entries) {
++    if (call.emitted === true || call.name === null) continue;
++    call.emitted = true;
++    state.toolEvents.push(buildToolEvent(call, parseToolArguments(call.arguments) ?? {}));
++  }
++}
++
+ /** 把流里的一条 `data:` 负载解释成事件；失败一律 malformed（不回显负载）。 */
+ function parseStreamPayload(payload, state) {
+   if (payload === '[DONE]') {
+@@ -300,6 +396,10 @@ function parseStreamPayload(payload, state) {
+     if (typeof choice.finish_reason === 'string' && choice.finish_reason !== '') {
+       state.finishReason = normalizeFinishReason(choice.finish_reason);
+     }
++    // AGENT-001：tool_calls 必须留到流结束再对外发，不能像以前那样静默丢弃。
++    // SSE 增量在 choice.delta 里（分片），忽略 stream:true 的整包响应在 choice.message 里。
++    collectToolCalls(choice.delta?.tool_calls, state);
++    collectToolCalls(choice.message?.tool_calls, state);
+     if (text !== null && text !== '') return { type: 'delta', text };
+   }
+   return null;
+@@ -330,7 +430,8 @@ export function createChatTransport(options) {
+     /**
+      * 发起一次流式 chat 请求。
+      *
+-     * 产出事件：`{type:'delta', text}` → 可选 `{type:'usage', ...}` → `{type:'done', finishReason, totalTokens}`。
++     * 产出事件：`{type:'delta', text}` → 可选 `{type:'tool', state:'proposed', callId?, name, arguments}`
++     * → 可选 `{type:'usage', ...}` → `{type:'done', finishReason, totalTokens}`。
+      * 失败抛 `ChatTransportError`（code ∈ UPSTREAM_*）。
+      *
+      * @param {{
+@@ -471,7 +572,7 @@ export function createChatTransport(options) {
+         }
+ 
+         const contentType = String(response.headers?.get?.('content-type') ?? '').toLowerCase();
+-        const state = { usage: null, finishReason: 'stop', sawDone: false };
++        const state = { usage: null, finishReason: 'stop', sawDone: false, toolCalls: new Map(), toolEvents: [] };
+ 
+         if (!contentType.includes('text/event-stream')) {
+           // provider 忽略了 stream:true 直接给整包 JSON：按"一次性响应"兜底解析，
+@@ -489,6 +590,9 @@ export function createChatTransport(options) {
+           const choice = Array.isArray(json?.choices) ? json.choices[0] : undefined;
+           const text = choice?.message?.content ?? choice?.delta?.content;
+           if (typeof text === 'string' && text !== '') yield { type: 'delta', text };
++          // tool_calls 与 SSE 分支同构：整包响应也要把提案交出去（AGENT-001 的兜底分支）。
++          finalizeToolCalls(state);
++          for (const toolEvent of state.toolEvents.splice(0)) yield toolEvent;
+           if (state.usage !== null) yield { type: 'usage', usage: state.usage };
+           yield { type: 'done', finishReason: state.finishReason, totalTokens: state.usage?.totalTokens ?? null };
+           return;
+@@ -497,6 +601,8 @@ export function createChatTransport(options) {
+         for await (const event of decodeSse(response.body, limits)) {
+           if (event.event !== 'message') continue; // 只处理 data 事件；其它事件名忽略
+           const parsed = parseStreamPayload(event.data, state);
++          // 参数一闭合就发 tool 帧（见 collectToolCalls 的时序说明）。
++          for (const toolEvent of state.toolEvents.splice(0)) yield toolEvent;
+           if (parsed === null) {
+             if (state.sawDone) break;
+             continue;
+@@ -504,6 +610,8 @@ export function createChatTransport(options) {
+           if (parsed.type === 'delta') yield parsed;
+         }
+ 
++        finalizeToolCalls(state);
++        for (const toolEvent of state.toolEvents.splice(0)) yield toolEvent;
+         if (state.usage !== null) yield { type: 'usage', usage: state.usage };
+         yield { type: 'done', finishReason: state.finishReason, totalTokens: state.usage?.totalTokens ?? null };
+       } catch (error) {

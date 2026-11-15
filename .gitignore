@@ -27,3 +27,12 @@ __pycache__/
 *.zip
 *.7z
 *.dmp
+
+# ---- r3 夹具运行产物：证据 / 临时树 / 载荷不进仓库（源码、补丁、变异体保留） ----
+/tests/installer/r3/**/evidence/
+/tests/installer/r3/**/_out/
+/tests/installer/r3/**/tree-*/
+/tests/installer/r3/**/payload-*/
+/tests/ai/r3/**/evidence/
+/tests/ai/r3/**/out/
+*.tmp

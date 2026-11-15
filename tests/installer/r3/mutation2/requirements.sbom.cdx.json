@@ -1,0 +1,909 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.6",
+  "serialNumber": "urn:uuid:6f1c8a52-3b7d-5c4e-9a21-8d0e4b7c2f13",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-11-04T08:45:00Z",
+    "component": {
+      "type": "application",
+      "bom-ref": "app:aidn-windows-installer",
+      "name": "AIDriven-NetDefense-Setup",
+      "version": "0.0.0",
+      "description": "Windows installer (PyInstaller --onefile) built from deploy/windows/installer/app. Version label is taken from the release tag at build time; this BOM describes the build inputs, which change only when requirements.txt or the CPython minor does.",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:artifact",
+          "value": "AIDrivenNetDefense-Setup-<version>.exe"
+        },
+        {
+          "name": "aidn:artifact:scope",
+          "value": "win32-x64 only. The Linux .deb and tar.gz are produced by scripts/release/assemble-deb.sh and are outside this BOM."
+        }
+      ]
+    },
+    "tools": {
+      "components": [
+        {
+          "type": "application",
+          "name": "pip",
+          "description": "Resolves and installs deploy/windows/installer/app/requirements.txt into the build host. Version is whatever the runner's CPython ships; not pinned."
+        },
+        {
+          "type": "application",
+          "name": "PyInstaller",
+          "version": "6.22.3"
+        },
+        {
+          "type": "application",
+          "name": "7-Zip",
+          "description": "Build-host 7z.exe, used by build_setup.py to create payload.7z and to verify it (-mf=off, plain LZMA2). Not redistributed: no 7z.exe exists in the payload or the installed tree, so 7-Zip's licence imposes no obligation on the artifact. Version is whatever the windows-latest image ships; not pinned."
+        },
+        {
+          "type": "application",
+          "name": "cpython",
+          "version": "3.13"
+        }
+      ]
+    },
+    "properties": [
+      {
+        "name": "aidn:sbom:why",
+        "value": "sbom.cdx.json at the repository root is generated from package-lock.json by cyclonedx-npm --package-lock-only, so it can only ever describe npm components. The Python build chain of the Windows installer is a different artifact with a different lifecycle, and scripts/check-sbom.mjs enforces a bijection between package-lock.json and that file. Adding PyPI components there would break the bijection and make the root SBOM unrebuildable from its documented command; it is therefore recorded here instead, as a second BOM scoped to the installer."
+      },
+      {
+        "name": "aidn:sbom:scope",
+        "value": "win_amd64 / CPython 3.13 (cp313). Components with scope=required are present in Setup.exe; scope=excluded components are build-host only and never reach the artifact."
+      },
+      {
+        "name": "aidn:sbom:reproduce",
+        "value": "python -m pip download --disable-pip-version-check --only-binary :all: --platform win_amd64 --python-version 3.13 --implementation cp --abi cp313 -r deploy/windows/installer/app/requirements.txt -d wheels  then sha256sum wheels/*.whl and compare with the hashes below and with requirements.lock.txt."
+      },
+      {
+        "name": "aidn:sbom:verify",
+        "value": "node -e \"const s=require('./deploy/windows/installer/app/requirements.sbom.cdx.json');const l=require('fs').readFileSync('deploy/windows/installer/app/requirements.lock.txt','utf8');const bad=s.components.filter(c=>c.hashes).filter(c=>!l.includes(c.hashes[0].content));console.log('components',s.components.length,'unmatched',bad.length);if(bad.length)process.exit(1)\""
+      },
+      {
+        "name": "aidn:sbom:revalidate",
+        "value": "Required after any change to requirements.txt, to the CPython minor version, or to build_setup.py's hidden imports: re-run aidn:sbom:reproduce, refresh the hashes, and update THIRD_PARTY_NOTICES if a licence changed."
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/altgraph@0.17.5",
+      "name": "altgraph",
+      "version": "0.17.5",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/altgraph@0.17.5",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f3a22400bce1b0c701683820ac4f3b159cd301acab067c51c653e06961600597"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/a9/ba/000a1996d4308bc65120167c21241a3b205464a2e0b58deda26ae8ac21d1/altgraph-0.17.5-py2.py3-none-any.whl",
+          "comment": "wheel altgraph-0.17.5-py2.py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "build-only"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "altgraph-0.17.5-py2.py3-none-any.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/backports.zstd@1.8.0",
+      "name": "backports.zstd",
+      "version": "1.8.0",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "PSF-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/backports.zstd@1.8.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "b583990d554cc6f6141c5c43b6db3c7da87a214253e08339d917ee3baa3021b6"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/12/0e/5c5a916cea73b455850083ccf76078de655face3dfe4126848570c57a6dd/backports_zstd-1.8.0-cp313-cp313-win_amd64.whl",
+          "comment": "wheel backports_zstd-1.8.0-cp313-cp313-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "backports_zstd-1.8.0-cp313-cp313-win_amd64.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "Required by py7zr on python_version < 3.14. CPython 3.14+ supplies the zstd module in the standard library instead."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/brotli@1.2.1",
+      "name": "brotli",
+      "version": "1.2.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/brotli@1.2.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e6c4fa55eab6b5684b33239597876a18a35ce1280b63ab960164032afbb8783f"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/96/c2/0c7abb25013043d4bcf7dd768d343bf7dee6ce99ac8c172f7ee4aef1c772/brotli-1.2.1-cp313-cp313-win_amd64.whl",
+          "comment": "wheel brotli-1.2.1-cp313-cp313-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "brotli-1.2.1-cp313-cp313-win_amd64.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/inflate64@1.0.4",
+      "name": "inflate64",
+      "version": "1.0.4",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "LGPL-2.1-or-later"
+        }
+      ],
+      "purl": "pkg:pypi/inflate64@1.0.4",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "3983f53b590ff7d0ba243f664ce852aca882482f30f7a8eab33e10d769336d0c"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/e7/4f/5784ee1eb8260f2310e24ef2883f1f494f9332bcfde4ed14ee780372149e/inflate64-1.0.4-cp313-cp313-win_amd64.whl",
+          "comment": "wheel inflate64-1.0.4-cp313-cp313-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "inflate64-1.0.4-cp313-cp313-win_amd64.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "Compiled decoder loaded by py7zr at run time; CPython 3.13 / win_amd64 wheel."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/multivolumefile@0.2.3",
+      "name": "multivolumefile",
+      "version": "0.2.3",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "LGPL-2.1-or-later"
+        }
+      ],
+      "purl": "pkg:pypi/multivolumefile@0.2.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "237f4353b60af1703087cf7725755a1f6fcaeeea48421e1896940cd1c920d678"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/22/31/ec5f46fd4c83185b806aa9c736e228cb780f13990a9cf4da0beb70025fcc/multivolumefile-0.2.3-py3-none-any.whl",
+          "comment": "wheel multivolumefile-0.2.3-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "multivolumefile-0.2.3-py3-none-any.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "Upstream declares the legacy 'LGPL-2.1+' form; normalised to the SPDX 'LGPL-2.1-or-later' identifier."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/packaging@26.3",
+      "name": "packaging",
+      "version": "26.3",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "expression": "Apache-2.0 OR BSD-2-Clause"
+        }
+      ],
+      "purl": "pkg:pypi/packaging@26.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/63/34/ba1c580383c9eada3711951fef0795c80b829a078d72188184bcab9dd527/packaging-26.3-py3-none-any.whl",
+          "comment": "wheel packaging-26.3-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "build-only"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "packaging-26.3-py3-none-any.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pefile@2024.8.26",
+      "name": "pefile",
+      "version": "2024.8.26",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/pefile@2024.8.26",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "76f8b485dcd3b1bb8166f1128d395fa3d87af26360c2358fb75b80019b957c6f"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/54/16/12b82f791c7f50ddec566873d5bdd245baa1491bac11d15ffb98aecc8f8b/pefile-2024.8.26-py3-none-any.whl",
+          "comment": "wheel pefile-2024.8.26-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "build-only"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "pefile-2024.8.26-py3-none-any.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/psutil@7.2.2",
+      "name": "psutil",
+      "version": "7.2.2",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/psutil@7.2.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "eb7e81434c8d223ec4a219b5fc1c47d0417b12be7ea866e24fb5ad6e84b3d988"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/b4/90/e2159492b5426be0c1fef7acba807a03511f97c5f86b3caeda6ad92351a7/psutil-7.2.2-cp37-abi3-win_amd64.whl",
+          "comment": "wheel psutil-7.2.2-cp37-abi3-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "psutil-7.2.2-cp37-abi3-win_amd64.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "Required unconditionally by py7zr on non-cygwin platforms."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/py7zr@1.1.4",
+      "name": "py7zr",
+      "version": "1.1.4",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "LGPL-2.1-or-later"
+        }
+      ],
+      "purl": "pkg:pypi/py7zr@1.1.4",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f6f868a457a6bd485b78d26e619045718bcd0b7720a6bf97d5fe86a1523423e8"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/96/bd/72bace0bf4025af8ab4bf972394fab466d4b565cdbea805281fbee9a8dbc/py7zr-1.1.4-py3-none-any.whl",
+          "comment": "wheel py7zr-1.1.4-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "py7zr-1.1.4-py3-none-any.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "Imported at run time by deploy/windows/installer/app/aidn/payload.py to unpack the embedded payload.7z. LGPL-2.1-or-later; see the relinkability statement in THIRD_PARTY_NOTICES."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pybcj@1.0.8",
+      "name": "pybcj",
+      "version": "1.0.8",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "LGPL-2.1-or-later"
+        }
+      ],
+      "purl": "pkg:pypi/pybcj@1.0.8",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e47d9c655d276200e5d08f7b550097dacc826364b44931f0fbdc0da2e4bdf448"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/39/f4/04d46f5059af00d2fae6086a7f47ebc23e553900ca75ea2a2e276d3a436c/pybcj-1.0.8-cp313-cp313-win_amd64.whl",
+          "comment": "wheel pybcj-1.0.8-cp313-cp313-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "pybcj-1.0.8-cp313-cp313-win_amd64.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pycryptodomex@3.24.1",
+      "name": "pycryptodomex",
+      "version": "3.24.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "BSD-2-Clause AND LicenseRef-Public-Domain"
+        }
+      ],
+      "purl": "pkg:pypi/pycryptodomex@3.24.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "82eb0dd8a95be97f03527b108ee49f9b86a7c534fa47fa7a510be3eab8ea9acd"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/13/4c/2c1963e4154da534a3b3a4d6ee9549f5cac4ecffe986d3b470d08b9c4df6/pycryptodomex-3.24.1-cp37-abi3-win_amd64.whl",
+          "comment": "wheel pycryptodomex-3.24.1-cp37-abi3-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "pycryptodomex-3.24.1-cp37-abi3-win_amd64.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "Declared by upstream as 'BSD, Public Domain'; encoded here as BSD-2-Clause AND LicenseRef-Public-Domain to keep the declaration auditable rather than collapsing it to one identifier."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pyinstaller@6.22.3",
+      "name": "pyinstaller",
+      "version": "6.22.3",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "GPL-2.0-or-later WITH Bootloader-exception"
+        }
+      ],
+      "purl": "pkg:pypi/pyinstaller@6.22.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "500bd58c7bf7e584a8435adccbd763a0b918d5c12b08d74ff50fd79b2915458b"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/24/83/c5422204772a27aef643280fdc887b7ef55679989096b21dceb1b9625fc4/pyinstaller-6.22.3-py3-none-win_amd64.whl",
+          "comment": "wheel pyinstaller-6.22.3-py3-none-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "build-and-embedded"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "pyinstaller-6.22.3-py3-none-win_amd64.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "The 7-Zip-free packaging tool. Its bootloader (bootloader/ + PyInstaller/loader/) is embedded in Setup.exe and is the only GPL-family code in the artifact; the Bootloader Exception permits distributing the combination without restriction. Its run-time hooks (PyInstaller/hooks/rthooks), pyi_splash and _pyi_rth_utils are Apache-2.0."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pyinstaller-hooks-contrib@2026.9",
+      "name": "pyinstaller-hooks-contrib",
+      "version": "2026.9",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "GPL-2.0-or-later AND Apache-2.0"
+        }
+      ],
+      "purl": "pkg:pypi/pyinstaller-hooks-contrib@2026.9",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "fb3e67dd64122561724c48ad0366ac9e8c16e638b63bf7d85de03bf3fdbf06c3"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/93/fe/ded0e20de0580257d97dbabb4db7ab4d96ad8ade7d41149e66308057cf52/pyinstaller_hooks_contrib-2026.9-py3-none-any.whl",
+          "comment": "wheel pyinstaller_hooks_contrib-2026.9-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "build-and-embedded"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "pyinstaller_hooks_contrib-2026.9-py3-none-any.whl"
+        },
+        {
+          "name": "aidn:note",
+          "value": "Two disjoint file sets: standard hooks are GPL-2.0-or-later and run only on the build host; run-time hooks (_pyinstaller_hooks_contrib/rthooks) are Apache-2.0 and are the only part embedded in Setup.exe."
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pyppmd@1.3.1",
+      "name": "pyppmd",
+      "version": "1.3.1",
+      "scope": "required",
+      "licenses": [
+        {
+          "expression": "LGPL-2.1-or-later"
+        }
+      ],
+      "purl": "pkg:pypi/pyppmd@1.3.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "df8d84ab72381058a964ba66e5e81ed52dbd0b5ad734a5ef8353452983506098"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/6c/6d/311d8faca142f39b4d158c94ed7eb237a197d41dd7eb67f53442a7904e04/pyppmd-1.3.1-cp313-cp313-win_amd64.whl",
+          "comment": "wheel pyppmd-1.3.1-cp313-cp313-win_amd64.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "pyppmd-1.3.1-cp313-cp313-win_amd64.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/pywin32-ctypes@0.2.3",
+      "name": "pywin32-ctypes",
+      "version": "0.2.3",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "id": "BSD-3-Clause"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/pywin32-ctypes@0.2.3",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "8a1513379d709975552d202d942d9837758905c8d01eb82b8bcc30918929e7b8"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/de/3d/8161f7711c017e01ac9f008dfddd9410dff3674334c233bde66e7ba65bbf/pywin32_ctypes-0.2.3-py3-none-any.whl",
+          "comment": "wheel pywin32_ctypes-0.2.3-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "build-only"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "pywin32_ctypes-0.2.3-py3-none-any.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/setuptools@84.2.1",
+      "name": "setuptools",
+      "version": "84.2.1",
+      "scope": "excluded",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/setuptools@84.2.1",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "ca140b45d5325a9478f880e351484f62fef15f336462e449ca0c03c873d589c2"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/ef/55/6dc6d6bb953bdfc52519a0059592c52b6e3b8ad51cf8256dffceb55b0610/setuptools-84.2.1-py3-none-any.whl",
+          "comment": "wheel setuptools-84.2.1-py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "build-only"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "setuptools-84.2.1-py3-none-any.whl"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "bom-ref": "pkg:pypi/texttable@1.7.2",
+      "name": "texttable",
+      "version": "1.7.2",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "purl": "pkg:pypi/texttable@1.7.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "a381e1ed30e4d4bd24cdacabe26463b7a570c0e964fc0b35d8d9276b2fcbe252"
+        }
+      ],
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://files.pythonhosted.org/packages/b9/4d/4de8896d9edcfb421e54d236b22a62be3827ca195ff649cad6fcae660f04/texttable-1.7.2-py2.py3-none-any.whl",
+          "comment": "wheel texttable-1.7.2-py2.py3-none-any.whl"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime"
+        },
+        {
+          "name": "aidn:wheel",
+          "value": "texttable-1.7.2-py2.py3-none-any.whl"
+        }
+      ]
+    },
+    {
+      "type": "framework",
+      "bom-ref": "pkg:generic/cpython@3.13",
+      "name": "cpython",
+      "version": "3.13",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "PSF-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:generic/cpython@3.13",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://www.python.org/downloads/windows/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime-interpreter"
+        },
+        {
+          "name": "aidn:pinned",
+          "value": "false"
+        },
+        {
+          "name": "aidn:note",
+          "value": "PyInstaller --onefile freezes the build interpreter into Setup.exe. The workflow asks actions/setup-python for '3.13', so the patch level floats between builds and no digest of pythonXY.dll is recorded. The exact version therefore has no hash here: see status/SUPPLYCHAIN-SWEEP.md item 1.5."
+        }
+      ]
+    },
+    {
+      "type": "framework",
+      "bom-ref": "pkg:generic/tcl-tk@8.6",
+      "name": "tcl-tk",
+      "version": "8.6",
+      "scope": "required",
+      "licenses": [
+        {
+          "license": {
+            "id": "TCL"
+          }
+        }
+      ],
+      "purl": "pkg:generic/tcl-tk@8.6",
+      "externalReferences": [
+        {
+          "type": "distribution",
+          "url": "https://www.tcl.tk/software/tcltk/"
+        }
+      ],
+      "properties": [
+        {
+          "name": "aidn:role",
+          "value": "runtime-gui"
+        },
+        {
+          "name": "aidn:pinned",
+          "value": "false"
+        },
+        {
+          "name": "aidn:note",
+          "value": "aidn/ui.py imports tkinter unconditionally, so every successful Setup.exe build contains the Tcl/Tk runtime that ships with CPython. The exact 8.6.x patch level and the tcl86t.dll / tk86t.dll digests are not recorded today."
+        }
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "ref": "app:aidn-windows-installer",
+      "dependsOn": [
+        "pkg:pypi/py7zr@1.1.4",
+        "pkg:pypi/pyinstaller@6.22.3",
+        "pkg:generic/cpython@3.13",
+        "pkg:generic/tcl-tk@8.6"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/py7zr@1.1.4",
+      "dependsOn": [
+        "pkg:pypi/pycryptodomex@3.24.1",
+        "pkg:pypi/brotli@1.2.1",
+        "pkg:pypi/psutil@7.2.2",
+        "pkg:pypi/backports.zstd@1.8.0",
+        "pkg:pypi/pyppmd@1.3.1",
+        "pkg:pypi/pybcj@1.0.8",
+        "pkg:pypi/multivolumefile@0.2.3",
+        "pkg:pypi/inflate64@1.0.4",
+        "pkg:pypi/texttable@1.7.2"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/pyinstaller@6.22.3",
+      "dependsOn": [
+        "pkg:pypi/altgraph@0.17.5",
+        "pkg:pypi/packaging@26.3",
+        "pkg:pypi/pefile@2024.8.26",
+        "pkg:pypi/pyinstaller-hooks-contrib@2026.9",
+        "pkg:pypi/pywin32-ctypes@0.2.3",
+        "pkg:pypi/setuptools@84.2.1"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/pyinstaller-hooks-contrib@2026.9",
+      "dependsOn": [
+        "pkg:pypi/packaging@26.3"
+      ]
+    },
+    {
+      "ref": "pkg:pypi/altgraph@0.17.5",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/backports.zstd@1.8.0",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/brotli@1.2.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/inflate64@1.0.4",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/multivolumefile@0.2.3",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/packaging@26.3",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/pefile@2024.8.26",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/psutil@7.2.2",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/pybcj@1.0.8",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/pycryptodomex@3.24.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/pyppmd@1.3.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/pywin32-ctypes@0.2.3",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/setuptools@84.2.1",
+      "dependsOn": []
+    },
+    {
+      "ref": "pkg:pypi/texttable@1.7.2",
+      "dependsOn": []
+    }
+  ]
+}

@@ -1,0 +1,221 @@
+--- a/deploy/windows/installer/app/aidn/install.py
++++ b/deploy/windows/installer/app/aidn/install.py
+@@ -69,6 +69,108 @@
+     return data if isinstance(data, dict) else None
+ 
+ 
++# ---------------------------------------------------------------- upgrade journal
++#: Name of the journal under ``<target>\install\`` (UPGRADE-001).
++JOURNAL_NAME = "upgrade.pending.json"
++#: Bumped only if the fields below change meaning.
++JOURNAL_SCHEMA = 1
++
++
++def _journal_path(root: Path) -> Path:
++    return root / constants.INSTALL_DIR_NAME / JOURNAL_NAME
++
++
++def read_upgrade_journal(root: Path) -> dict | None:
++    try:
++        data = json.loads(_journal_path(root).read_text(encoding="utf-8"))
++    except (OSError, ValueError):
++        return None
++    return data if isinstance(data, dict) else None
++
++
++def _journal_is_valid(root: Path, journal: dict, record: dict) -> bool:
++    """May this journal turn "not ours" into "ours, mid-upgrade"?
++
++    Never on its own.  The journal lives inside the directory being judged, so a
++    forger can write one; what it adds is *intent*, not authority.  Authority stays
++    with the credential the installer issued at install time, which an attacker who
++    can only write inside the target cannot mint:
++
++    1. the journal names this path and the version the record still carries (the
++       tree is not a copied tree, and the journal is not from another upgrade);
++    2. ``install.json``'s identity fields agree with the tree (``_record_is_ours``);
++    3. ``install.json.ownership`` is a valid HMAC-SHA256 over the canonical path
++       being judged (``ownership.verify``) — SEED-01/RC4-N01's rule: content is not
++       ownership, and a forged journal does not change that.
++
++    Only then is a tree whose payload bytes no longer match its manifest readable as
++    "an upgrade of our own install was cut off", which is exactly the state an
++    interrupted copy leaves (files new, manifest old, record old).
++    """
++
++    if ownership.canonical_path(str(journal.get("target") or "")) != ownership.canonical_path(root):
++        return False
++    if str(journal.get("fromVersion") or "") != str(record.get("version") or ""):
++        return False
++    if not _record_is_ours(root, record):
++        return False
++    ok, _reason = ownership.verify(record, root)
++    return ok
++
++
++def _resume_marker(root: Path) -> tuple[str, dict] | None:
++    """``(marker text, journal)`` when *root* is a tree whose upgrade was cut off."""
++
++    record = read_install_record(root)
++    if record is None:
++        return None
++    journal = read_upgrade_journal(root)
++    if journal is None or not _journal_is_valid(root, journal, record):
++        return None
++    return f"{constants.INSTALL_DIR_NAME}/{JOURNAL_NAME}", journal
++
++
++def _write_journal(
++    root: Path,
++    *,
++    from_version: str,
++    to_version: str,
++    payload_manifest_sha256: str,
++    log,
++) -> None:
++    """Declare the intent to change *root* before its first byte changes.
++
++    Written after the payload is unpacked and proven complete (a failed download
++    must not leave a journal) but before ``_copy_tree`` touches the target, so any
++    kill from here until the record is rewritten leaves the evidence a later run
++    needs.  ``payloadManifestSha256`` binds the journal to the payload bytes of this
++    particular upgrade, so a stale journal cannot bless a different payload.
++    """
++
++    path = _journal_path(root)
++    path.parent.mkdir(parents=True, exist_ok=True)
++    journal = {
++        "schema": JOURNAL_SCHEMA,
++        "fromVersion": from_version,
++        "toVersion": to_version,
++        "payloadManifestSha256": payload_manifest_sha256,
++        "startedAt": datetime.now().astimezone().isoformat(timespec="seconds"),
++        "target": str(root),
++    }
++    path.write_text(json.dumps(journal, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
++    log.write(f"upgrade journal written: {path} ({from_version or '?'} -> {to_version})")
++
++
++def _remove_journal(root: Path, log) -> None:
++    try:
++        _journal_path(root).unlink()
++        log.write("upgrade journal removed: no interrupted transaction is pending on this tree")
++    except FileNotFoundError:
++        return
++    except OSError as error:
++        log.write(f"WARN could not remove the upgrade journal: {error}")
++
++
+ def find_existing() -> tuple[Path, str, str] | None:
+     """``(path, version, source)`` of an existing install, registry first.
+ 
+@@ -136,14 +238,28 @@
+     # The upgrade writes the current credential, after which uninstall works again.
+     if target.exists() and not target.is_dir():
+         raise InstallError(f"目标路径已存在且不是目录：{target} / The target exists and is not a directory.")
++    # UPGRADE-001: a copy that was cut off half way leaves files new, manifest old
++    # and record old — so `_upgrade_marker` answers None and the user cannot install
++    # *or* uninstall.  A journal that is backed by the ownership credential proves
++    # the tree is ours and the mixed state is our own unfinished copy, so the run may
++    # continue instead of refusing.  The journal is never trusted alone; see
++    # `_journal_is_valid` for why.
++    pending_journal: dict | None = None
+     if target.is_dir() and _has_any_entry(target) and _upgrade_marker(target) is None:
+-        raise InstallError(
+-            f"安装被拒：{target} 不是空目录，也没有安装标记（install\\install.json）。"
+-            "往这样的目录里装会把你的文件和新装的文件混在一起，卸载时一起删掉。"
+-            "请换一个空目录，或先自行清空。什么都没有写入。"
+-            " / Refusing to install into a non-empty directory that is not an existing "
+-            "install: the two trees would merge and a later uninstall would delete your "
+-            "files with ours. Nothing was written."
++        resumed = _resume_marker(target)
++        if resumed is None:
++            raise InstallError(
++                f"安装被拒：{target} 不是空目录，也没有安装标记（install\\install.json）。"
++                "往这样的目录里装会把你的文件和新装的文件混在一起，卸载时一起删掉。"
++                "请换一个空目录，或先自行清空。什么都没有写入。"
++                " / Refusing to install into a non-empty directory that is not an existing "
++                "install: the two trees would merge and a later uninstall would delete your "
++                "files with ours. Nothing was written."
++            )
++        marker, pending_journal = resumed
++        log.write(
++            f"升级日志有效：{marker}（{pending_journal.get('fromVersion')} -> "
++            f"{pending_journal.get('toVersion')}）：继续上一次被中断的升级，不重新拒绝。"
+         )
+ 
+     extraction = paths.extraction_root()
+@@ -177,6 +293,29 @@
+         data_dir = target / constants.DATA_DIR_NAME
+         data_probe = _probe_data(data_dir)
+ 
++        # UPGRADE-001: this is the last moment before the target's bytes change, so the
++        # journal goes down here — after the payload is unpacked and resolvable (a
++        # corrupt download must not leave one), before `_copy_tree`.  It is removed only
++        # once `install.json` is rewritten, because only then do the bytes and the
++        # record agree again.
++        payload_manifest = extraction / ownership.MANIFEST_RELATIVE
++        payload_manifest_digest = _sha256(payload_manifest) if payload_manifest.is_file() else ""
++        if pending_journal is not None:
++            expected = str(pending_journal.get("payloadManifestSha256") or "")
++            if expected and expected != payload_manifest_digest:
++                raise InstallError(
++                    "升级日志与本次载荷不一致（载荷清单摘要不同），已中止，目标目录一个字节都没改。"
++                    " / The upgrade journal names a different payload; refusing to continue."
++                )
++        record_before = read_install_record(target)
++        _write_journal(
++            target,
++            from_version=str((record_before or {}).get("version") or upgraded_from or ""),
++            to_version=version,
++            payload_manifest_sha256=payload_manifest_digest,
++            log=log,
++        )
++
+         log.step("复制程序文件（请稍候）… / Copying program files…")
+         _copy_tree(extraction, target)
+ 
+@@ -257,6 +396,10 @@
+         (install_dir / constants.INSTALL_RECORD_NAME).write_text(
+             json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+         )
++        # The record now carries a credential issued for this exact path, version and
++        # manifest, and the manifest matches the bytes on disk: the transaction that
++        # the journal announced is complete.
++        _remove_journal(target, log)
+ 
+         _write_selfcheck(target, log)
+         installer_copy = _copy_installer(target, log)
+@@ -488,6 +631,21 @@
+ 
+     marker = _install_marker(target)
+     if marker is None:
++        # UPGRADE-001: an upgrade that was killed between "files copied" and "record
++        # rewritten" leaves the payload manifest older than the bytes, so the delete
++        # marker is None.  The journal plus the ownership credential proves both that
++        # the tree is ours and that the mismatch is our own unfinished copy — the
++        # same evidence the install side uses.  Nothing else about the delete changes:
++        # without that credential the refusal below still stands, byte for byte.
++        resumed = _resume_marker(target)
++        if resumed is not None:
++            marker = f"{resumed[0]}(interrupted-upgrade)"
++            log.write(
++                f"install marker: {marker} — 上一次升级被中断（"
++                f"{resumed[1].get('fromVersion')} -> {resumed[1].get('toVersion')}），"
++                "归属凭据仍然有效，允许卸载。"
++            )
++    if marker is None:
+         leftover = _has_any_entry(target)
+         if leftover:
+             raise UninstallRefused(
+@@ -543,6 +701,10 @@
+     # it first, then retry the deletion (DEFECT-self-uninstall / N-017).
+     _self_image_cleanup(target, log)
+     _delete_children(target, keep, log)
++    # `/KEEPDATA` keeps `install\`, so the journal would survive an uninstall that
++    # already succeeded.  A journal that outlives its transaction is not evidence, it
++    # is a stale licence to touch the next tree that lands here.
++    _remove_journal(target, log)
+ 
+     if not options.keep_data:
+         try:
