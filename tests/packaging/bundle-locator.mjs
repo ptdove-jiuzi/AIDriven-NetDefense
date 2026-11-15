@@ -7,23 +7,114 @@
  * launcher does: join every stored path onto the root it is looking at. Keeping
  * that in one module means a bundle rename touches one file, and it keeps each
  * suite from growing its own slightly different join.
+ *
+ * The delivered bundle is **inside the repository**: the newest complete
+ * `dist/bundle/win32-x64-v<N>` artifact. The old sibling `_m8_poc` tree was a
+ * v13-era build scratch whose profile is stale by construction (BASE-01: it still
+ * routes to `deepseek-v4.1-flash` while the approved profile says
+ * `deepseek-chat`), so reading it silently would let a gate pass on bytes that
+ * are not the deliverable. Every path this module answers is required to resolve
+ * inside the repository, and an explicit override is held to the same
+ * completeness contract as the discovered artifact.
  */
 
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 /** Repository root, derived from this file (`tests/packaging/` → repository). */
 export const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
-/** Delivered bundle directory name under `<repo parent>/_m8_poc/bundle/`. */
-export const DEFAULT_BUNDLE_NAME = 'aegis-embedded-win32-x64-v13-relocatable';
+/** Where delivered artifacts live, relative to the repository root. */
+export const BUNDLE_PARENT_RELATIVE = join('dist', 'bundle');
 
-/** Where the delivered bundle lives; `M8_BUNDLE_DIR` overrides it. */
-export function defaultBundleRoot() {
-  return resolve(process.env.M8_BUNDLE_DIR
-    ?? join(dirname(REPO_ROOT), '_m8_poc', 'bundle', DEFAULT_BUNDLE_NAME));
+/** Directory-name shape of a delivered artifact: `win32-x64-v<N>`. */
+export const BUNDLE_DIRECTORY_PATTERN = /^win32-x64-v(\d+)$/;
+
+/**
+ * The four shipped markers that make a directory a *complete* delivered bundle.
+ *
+ * A build writes into its output directory incrementally, so the version number
+ * alone is not evidence: `dist/bundle/win32-x64-v16` can exist, look promising,
+ * and still be ~500 MiB short of launchable. Discovery must skip such a tree
+ * instead of pointing a gate at a half-written one.
+ */
+export const COMPLETE_BUNDLE_MARKERS = [
+  'bundle.json',
+  join('launch', 'launch-plan.json'),
+  join('runtime', 'node', 'node.exe'),
+  join('manifests', 'files.sha256'),
+];
+
+/** True when `root` carries every marker a delivered bundle must have. */
+export function isCompleteBundle(root) {
+  return COMPLETE_BUNDLE_MARKERS.every((marker) => existsSync(join(root, marker)));
 }
+
+/**
+ * Reject a bundle root that is not strictly inside the repository.
+ *
+ * Returning the resolved absolute path means callers can keep comparing paths
+ * without each of them re-deriving the guard.
+ */
+function requireInsideRepository(candidate, label) {
+  const absolute = resolve(candidate);
+  const fromRoot = relative(resolve(REPO_ROOT), absolute);
+  if (fromRoot.length === 0 || fromRoot.startsWith('..') || isAbsolute(fromRoot)) {
+    throw new Error(`${label} must resolve inside the repository ${resolve(REPO_ROOT)}, got ${absolute}`);
+  }
+  return absolute;
+}
+
+/**
+ * The newest complete `dist/bundle/win32-x64-v<N>` artifact.
+ *
+ * Highest version wins, but only among complete trees: while a rebuild is in
+ * progress the newer directory exists without being launchable, and silently
+ * choosing it would make every measurement a measurement of a half-written tree.
+ */
+function latestCompleteBundle() {
+  const parent = join(REPO_ROOT, BUNDLE_PARENT_RELATIVE);
+  if (!existsSync(parent)) {
+    throw new Error(`no delivered bundle: ${parent} does not exist; build one with `
+      + 'node deploy/embedded-runtime/build.mjs --profile desktop --out dist/bundle/win32-x64-v15 --allow-repo-output');
+  }
+  const complete = readdirSync(parent, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => ({ name: entry.name, match: BUNDLE_DIRECTORY_PATTERN.exec(entry.name) }))
+    .filter((entry) => entry.match !== null)
+    .map((entry) => ({ name: entry.name, version: Number(entry.match[1]), root: join(parent, entry.name) }))
+    .filter((entry) => isCompleteBundle(entry.root))
+    .sort((left, right) => right.version - left.version);
+  if (complete.length === 0) {
+    throw new Error(`no complete delivered bundle under ${parent}; expected a ${BUNDLE_DIRECTORY_PATTERN.source} directory `
+      + `holding ${COMPLETE_BUNDLE_MARKERS.join(', ')}; build one with `
+      + 'node deploy/embedded-runtime/build.mjs --profile desktop --out dist/bundle/win32-x64-v15 --allow-repo-output');
+  }
+  return complete[0].root;
+}
+
+/**
+ * Where the delivered bundle lives; `M8_BUNDLE_DIR` overrides it.
+ *
+ * The override is an override of *which in-repository bundle*, not of the rule
+ * that the bundle is in the repository: a path outside `REPO_ROOT`, or one that
+ * is not a complete bundle, is refused with an explicit error rather than read.
+ */
+export function defaultBundleRoot() {
+  const override = process.env.M8_BUNDLE_DIR;
+  if (override !== undefined && override.length > 0) {
+    const root = requireInsideRepository(override, 'M8_BUNDLE_DIR');
+    if (!isCompleteBundle(root)) {
+      throw new Error(`M8_BUNDLE_DIR is not a complete bundle: ${root} (missing one of ${COMPLETE_BUNDLE_MARKERS.join(', ')})`);
+    }
+    return root;
+  }
+  return latestCompleteBundle();
+}
+
+/** Directory name of the delivered bundle (`<repo>/dist/bundle/<name>`). */
+export const DEFAULT_BUNDLE_NAME = basename(defaultBundleRoot());
 
 /**
  * Absolute form of a path stored relative to a bundle root.
