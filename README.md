@@ -2,6 +2,13 @@
 
 **网域智防** — a local-first network defense agent for a single host.
 
+**Language / 语言**：**[English](README.md)** · **[中文](README.zh-CN.md)**
+
+![license](https://img.shields.io/badge/license-Apache%202.0-blue)
+![status](https://img.shields.io/badge/status-pre--release-orange)
+![node](https://img.shields.io/badge/node-%3E%3D24.9.0-brightgreen)
+![platform](https://img.shields.io/badge/platform-win32--x64-lightgrey)
+
 > **Status: pre-release source drop.** The tree is at `0.0.1-rc.6` (pre-release candidate).
 > No installer, no signed binary and no release artifact is distributed from this repository;
 > release artifacts are built and published outside this source repository. Treat everything
@@ -18,7 +25,21 @@ against detection rules, stores findings and alerts as evidence, and — only th
 governed model-analysis path — produces a conclusion a human can act on.
 
 The product is deliberately narrow. It is not a SIEM, not a gateway appliance, and not a
-cloud service. One machine, one user, local data.
+cloud service. **One machine, one user, local data.**
+
+### Key capabilities
+
+| Capability | Where | Notes |
+|---|---|---|
+| Host telemetry collection | `packages/collectors` | Common / Linux / Windows collectors |
+| Rule-based detection | `packages/detection` | Accountable evidence: every `count` maps to real event rows |
+| Durable event store | `packages/event-store` | Dedupe keys, transactional ingest, crash recovery |
+| Governed model analysis | `apps/model-broker` | Budgeted, allowlisted endpoints, fail-closed |
+| Local read API | `apps/daemon` | Health, alerts, analysis, status |
+| CLI client | `apps/cli` | Command-line access to the local API |
+| Web console | `apps/console` | Static files, no build step, no framework, no CDN |
+| Desktop shell | `apps/desktop` | Python shell that supervises the daemon and hosts the console |
+| Response **planning** | `apps/response-helper` | Produces plans only; execution is disabled |
 
 ### Design stance
 
@@ -37,70 +58,53 @@ Four rules shape the codebase; most of the unusual decisions in it follow from t
 
 ---
 
-## 2. What is in the tree
+## 2. Architecture
 
-| Path | Contents |
-|---|---|
-| `apps/daemon` | The agent: ingestion pipeline, storage adapters, local read API, health |
-| `apps/cli` | Command-line client for the local API |
-| `apps/console` | Local web console — static files, no build step, no framework, no CDN |
-| `apps/desktop` | Desktop shell (Python, tkinter) that supervises the daemon and hosts the console |
-| `apps/model-broker` | Governed model endpoint: admission, budgets, circuit breaking, request shaping |
-| `apps/harness-worker` | Worker that runs the analysis session out of process |
-| `apps/plugin-manager` | Plugin inventory and compatibility checks |
-| `apps/response-helper` | Response **planning** (action execution is not implemented, see §3) |
-| `apps/service-host` | Service supervision helpers |
-| `packages/contracts` | Data contracts: events, findings, alerts, analysis reports |
-| `packages/collectors` | Telemetry collectors (common / linux / windows) |
-| `packages/detection` | Rule evaluation engine and contract adapters |
-| `packages/event-store` | Durable event log, dedupe keys, transactional ingest, recovery |
-| `packages/policy` | Budget and escalation policy |
-| `packages/response-policy` | Response gating and approval policy |
-| `packages/harness-adapter` | Validation and transport for the analysis session |
-| `packages/ipc`, `packages/test-support` | Local IPC helpers and shared test utilities |
-| `plugins/` | The defense profile (plugin tree manifest) and defense tools |
-| `deploy/` | Runtime staging, systemd unit templates, Windows installer prototype |
-| `scripts/` | Build, gate and release tooling |
-| `tests/` | Unit, contract, integration, e2e, packaging, security-corpus and soak suites |
-| `docs/design/` | Architecture, plugin system, harness contract, test & acceptance criteria |
-| `docs/product/` | Product-facing descriptions, including an explicit gap list |
+```mermaid
+flowchart LR
+  subgraph Host["single host"]
+    C[Collectors] --> P[Daemon pipeline]
+    P --> S[(Event store)]
+    S --> D[Detection engine]
+    D --> AL[Alerts &amp; findings]
+    AL --> B[Model broker]
+    B --> M[Model endpoint]
+    CLI[CLI] --> API[Local read API]
+    WEB[Web console] --> API
+    SHELL[Desktop shell] --> WEB
+    API --> AL
+  end
+  M -. budgeted &amp; allowlisted .-> EXT[[external model]]
+```
+
+The daemon exposes a **loopback-only** API (`127.0.0.1`). The web console is static and is
+served by the daemon or the desktop shell. The model broker is the **only** place that can
+talk to an external endpoint, and only for endpoints the local operator explicitly registered.
 
 ---
 
-## 3. Capability boundaries — what this does **not** do
+## 3. Directory layout
 
-This section exists because the honest description of a security tool is mostly a list of
-what it cannot do yet. The following are **absent or unverified today**:
-
-| Area | Current state |
-|---|---|
-| **Signed installer / uninstaller** | A Windows installer prototype and a transaction engine live under `deploy/windows/installer/`. There is no signed `.exe`, no MSI/MSIX, no packaged release. |
-| **Code signing** | No certificate, no signature chain, no `signtool` invocation. |
-| **Cross-platform validation** | Only `win32-x64` has actually been run. Linux and win32-arm64 paths exist in code but carry no runtime evidence. Do not assume they work. |
-| **Response execution** | `apps/response-helper` produces plans only. Execution is disabled in code; every action reports `dry_run_only`. |
-| **Approval API** | The local API has a closed set of read/probe routes. There is no approval or response endpoint, so "human approval" exists in the data model and policy layer only. |
-| **Bundled detection rules** | No rule pack ships with the repository. Detection needs a rule pack supplied by the operator. |
-| **Real-host collection** | Collectors are exercised against mock and virtual sources. Continuous collection on a real host, with measured RSS/CPU, has not been demonstrated. |
-| **Model credentials** | Tests use loopback stubs and test tokens. Real credential handling, rotation and revocation are unobserved. |
-| **Auto-update** | Designed in ADR-0011, which is **not accepted** and therefore not published here. No updater exists. |
-| **MCP control plane / gateway edition** | Out of scope. No implementation, not planned for the first version. |
-| **Performance and soak numbers** | Bench and soak suites exist but are not wired into any gate. No published figures. |
-
-If you need any of the above, this repository is not the tool you are looking for — yet.
+```
+apps/            agent, CLI, console, desktop shell, model broker, harness worker
+packages/        contracts, collectors, detection, event-store, policy, response-policy
+plugins/         defense profile and defense tools
+deploy/          runtime staging, systemd unit templates, Windows installer prototype
+scripts/         build, gate and release tooling
+tests/           unit, contract, integration, e2e, packaging, security-corpus and soak suites
+docs/design/     architecture, plugin system, harness contract, test & acceptance criteria
+docs/product/    product-facing descriptions, including an explicit gap list
+```
 
 ---
 
-## 4. Requirements
+## 4. Quick start
+
+Requirements:
 
 - **Node.js** `>= 24.9.0` (see `.nvmrc`)
 - **npm** `>= 11.6.0 < 12.0.0` — enforced by `scripts/check-node-version.mjs`, which fails closed
-- **Python 3.11+** only if you want the optional desktop shell (`apps/desktop`)
-- No network access is required to build or to run the test suites; the model endpoint used
-  by tests is a loopback stub
-
----
-
-## 5. Build and test
+- **Python 3.11+** only for the optional desktop shell (`apps/desktop`)
 
 ```bash
 npm ci
@@ -125,8 +129,31 @@ The optional desktop shell:
 python apps/desktop/main.py
 ```
 
-`npm test` is not read-only: the harness suites regenerate evidence files under
-`tests/wp0/` while they run. Expect the working tree to change after a full test run.
+No network access is required to build or to run the test suites; the model endpoint used by
+tests is a loopback stub.
+
+---
+
+## 5. Capability boundaries — what this does **not** do
+
+This section exists because the honest description of a security tool is mostly a list of
+what it cannot do yet. The following are **absent or unverified today**:
+
+| Area | Current state |
+|---|---|
+| **Signed installer / uninstaller** | A Windows installer prototype and a transaction engine live under `deploy/windows/installer/`. There is no signed `.exe`, no MSI/MSIX, no packaged release. |
+| **Code signing** | No certificate, no signature chain, no `signtool` invocation. |
+| **Cross-platform validation** | Only `win32-x64` has actually been run. Linux and win32-arm64 paths exist in code but carry no runtime evidence. Do not assume they work. |
+| **Response execution** | `apps/response-helper` produces plans only. Execution is disabled in code; every action reports `dry_run_only`. |
+| **Approval API** | The local API has a closed set of read/probe routes. There is no approval or response endpoint, so "human approval" exists in the data model and policy layer only. |
+| **Bundled detection rules** | No rule pack ships with the repository. Detection needs a rule pack supplied by the operator. |
+| **Real-host collection** | Collectors are exercised against mock and virtual sources. Continuous collection on a real host, with measured RSS/CPU, has not been demonstrated. |
+| **Model credentials** | Tests use loopback stubs and test tokens. Real credential handling, rotation and revocation are unobserved. |
+| **Auto-update** | Designed in ADR-0011, which is **not accepted** and therefore not published here. No updater exists. |
+| **MCP control plane / gateway edition** | Out of scope. No implementation, not planned for the first version. |
+| **Performance and soak numbers** | Bench and soak suites exist but are not wired into any gate. No published figures. |
+
+If you need any of the above, this repository is not the tool you are looking for — yet.
 
 ---
 
@@ -141,46 +168,29 @@ python apps/desktop/main.py
 
 ---
 
-## 7. Versioning
+## 7. Roadmap
 
-- `0.0.1-rc.6` — the current development tree (pre-release candidate). Not a release.
 - `0.0.1` — the first complete version, frozen only after functionality, install/upgrade,
   multi-OS validation, signing and the release gate all pass.
 - Afterwards: `0.0.x` patches, `0.x.0` features, `1.0.0` stable.
 
-Version numbers are not raised early to imply that a release happened.
+Version numbers are not raised early to imply that a release happened. The current tree is
+`0.0.1-rc.6` (pre-release candidate).
 
 ---
 
-## 8. License
+## 8. Contributing
+
+This is a single-author project in active development. If you want to report a bug or propose
+a change, open an issue first and describe the problem before sending code. There is no formal
+contribution guide yet; `CONTRIBUTING.md` will be added when the project stabilizes.
+
+---
+
+## 9. License
 
 Apache License 2.0 — see `LICENSE`. Copyright 2026 PT-dove.
 
 Third-party attributions, including the obligations for the weak-copyleft components in the
 dependency tree, are recorded in `THIRD_PARTY_NOTICES`. The machine-readable component
 inventory is `sbom.cdx.json`. Security reports: see `SECURITY.md`.
-
----
-
-## 9. 中文摘要
-
-**网域智防（AIDriven NetDefense）** 是一台机器、一个用户的本地网络防御代理。它采集主机遥测，
-按规则判定，把告警与证据落到本地事件库，并且只通过受预算与端点白名单约束的模型通道给出
-可供人判断的结论。**不联网托管、不替代 SIEM、不做网关。**
-
-四条贯穿全仓的原则：
-
-1. **数据不出本机** —— 端点由本机操作者显式登记并冻结，每个端点单独计预算；
-2. **证据可追责** —— 告警的 `count` 必须能对应到库里真实存在的事件行；
-3. **失败即拒绝** —— 预算耗尽、签名不符、策略字段缺失一律拒绝，降级必须显式可见；
-4. **动作要人批** —— 响应侧只产出方案，不执行动作。
-
-**当前边界（先说不能做什么）**：没有签名的安装包、没有代码签名、只有 win32-x64 实跑过；
-响应执行在代码里是关闭的（只出计划）；没有审批接口；不附带任何规则包，检测需要你自备；
-真实主机长时采集、真实模型凭据、性能与浸泡数据均未验证；自动更新只停留在未通过的设计稿。
-
-**构建**：Node.js ≥ 24.9.0、npm ≥ 11.6.0 < 12.0.0，执行 `npm ci` 后 `npm test` 或
-`npm run check`。测试用回环桩，不需要联网。桌面壳可选：`python apps/desktop/main.py`。
-
-**版本**：树内为 `0.0.1-rc.6`（预发布候选）；第一个完整版本是 `0.0.1`，尚未冻结。
-**许可**：Apache-2.0，版权 2026 PT-dove；第三方义务见 `THIRD_PARTY_NOTICES`。
