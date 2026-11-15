@@ -6,12 +6,12 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# 证据日志必须进版本库：否证链要能在干净检出里复现。
-# `*.log` 上面的规则会把它们一起吞掉（复核登记：CI 复现证据链会断），这里逐层开白。
-!docs/implementation/evidence/
-!docs/implementation/evidence/**/*.log
-!tests/wp0/evidence/
-!tests/wp0/evidence/**/*.log
+# 测试证据 / 验收探针 / rc6 候选验收脚本：不进公开仓库（只保留源码与脚本）。
+# 证据、探针与候选验收脚本在干净检出中无意义，且会连带内部状态、哈希与验收结论，统一排除。
+/tests/wp0/evidence/
+/tests/installer/r2/tools/r2-tp3.ps1
+/deploy/windows/installer/acceptance/elevate-accept-rc6.cmd
+/deploy/windows/installer/acceptance/一键验收-rc6-点我以管理员运行.cmd
 
 # 本地实验副本，不属仓库内容
 /aegis-*-exp/
