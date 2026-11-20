@@ -103,7 +103,7 @@ AIDrivenNetDefense-Setup-0.0.1-rc.6.exe /S /DIR="D:\Apps\AIDriven Net Defense" [
 - **未签名**：见第 3 节。
 - 只有 **Windows x64**。
 - 桌面壳数据是 **mock + 0 采集源**，`/healthz` 报 `degraded` 是诚实值。
-- 界面 7 种语言里中文 / English 完整，ja / ko / es / ru / th 是英文占位（已标注 `_machine: true`）。
+- 界面 7 种语言：中文 / English 完整；ja / ko / es / ru / th 是**部分机翻起步**——高频可见文案约 16% 已译，其余暂为英文占位（语言文件 meta 已如实标注 `_machine: true`）。
 - **更新检查未接线**：本版不会自动更新，也不会发出更新请求。
 - 提权安装验收在本版**未完成**（UAC 无人应答被系统取消），非提权端到端安装/卸载已实测通过。
 
